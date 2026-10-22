@@ -59,6 +59,7 @@ async def device_call(did,action,args,timeout=120):
 # ---------------- tools ----------------
 TOOLS={
  "web_search":("browser","ইন্টারনেটে খোঁজা",{"query":"str"}),
+ "mcp_call":("browser","Connections-এ যুক্ত MCP সার্ভারের টুল চালানো",{"server":"name","tool":"str","args":"json object"}),
  "browse":("browser","হেডলেস ব্রাউজারে ওয়েবপেজ খোলা ও পড়া (স্ক্রিনশটসহ)",{"url":"str"}),
  "shell":("full","ডিভাইসে শেল কমান্ড চালানো",{"device":"box বা device id","cmd":"str"}),
  "screenshot":("screen","ডিভাইসের স্ক্রিনশট নেওয়া",{"device":"device id"}),
@@ -128,6 +129,9 @@ async def _browser():
         pw=await async_playwright().start(); _PW=await pw.chromium.launch(headless=True)
     return _PW
 async def run_tool(name,a):
+    if name=="mcp_call":
+        import connections as CN
+        return await CN.mcp_call((TASKS.get(t_id_ctx.get()) or {}).get("user"),a)
     if name=="list_devices": return json.dumps([{k:d[k] for k in ("id","name","kind","status","online")} for d in devices()],ensure_ascii=False)
     if name=="web_search":
         async with httpx.AsyncClient(timeout=20,headers={"User-Agent":"Mozilla/5.0"}) as c:
@@ -288,6 +292,10 @@ def decide(tid,aid,d):
 async def loop(tid,goal,sysx="",resume_ctx=None):
     devs=", ".join(f"{d['id']}={d['name']}({'অনলাইন' if d['online'] else 'অফলাইন'})" for d in devices() if d["status"]=="approved")
     tools="; ".join(f"{n}{list(v[2])}: {v[1]}" for n,v in TOOLS.items())
+    try:
+        import connections as CN; _mp=CN.mcp_prompt((TASKS.get(tid) or {}).get("user"))
+        if _mp: tools+="\n"+_mp
+    except Exception: pass
     hint=pick_device(None,goal)
     msgs=[{"role":"system","content":SYS.format(tools=tools,devs=devs)+f"\nডিফল্ট টার্গেট ডিভাইস id: {hint} (ফোনের কাজ হলে এটাই use করো।)"+("\n\nOVERRIDES (highest priority): "+sysx if sysx else "")},{"role":"user","content":goal}]+([{"role":"user","content":"(সার্ভার রিস্টার্টের আগে এই ধাপগুলো হয়ে গেছে, আবার করবে না; বাকিটা শেষ করো:)\n"+resume_ctx}] if resume_ctx else [])
     ev("plan",text="লক্ষ্য বুঝে পরিকল্পনা করছি...")

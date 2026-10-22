@@ -709,6 +709,8 @@ async def _tg_answer(u,text,ctx=""):
 TG.H.update(answer=_tg_answer,stt=AG.stt,ocr_image=OC.image_text,ocr_pdf=lambda d:OC.pdf_text(d)[0],take=PL.take,quota_msg=PL.quota_msg,audit=audit,sub_info=PL.sub_info)
 @app.on_event("startup")
 async def _tg_start(): asyncio.get_running_loop().create_task(TG.run())
+import connections as CN
+CN.setup(app,dict(need=need,user=user,is_owner=is_owner_uid,db=db,audit=audit,rate_ok=rate_ok))
 BZ.setup(app,dict(need=need,is_admin=is_admin,FT=FT,db=db,cip=cip,RT=RT,AdminOnly=AdminOnly,user=user,rate_ok=rate_ok,audit=audit,notify=SJ.notify,owner=CFG["BB_USER"]))
 # ---- Open WebUI proxy ----
 UP="http://127.0.0.1:8080"; WEBUI_PREFIXES=("/_app","/api/","/ws","/ollama","/openai","/manifest.json","/favicon","/auth","/c/","/workspace","/admin","/oauth","/assets","/static/","/notes","/channels","/playground","/home","/s/")

@@ -4,7 +4,7 @@
   const cache={};let D={},EN={},cur='en';
   const ck=n=>(document.cookie.match('(?:^|; )'+n+'=([^;]*)')||[])[1];
   function stored(){const l=localStorage.bbLang||ck('bb_lang');return LANGS[l]?l:null}
-  async function load(l){if(cache[l])return cache[l];try{const r=await fetch('/bb/static/i18n/'+l+'.json?v=62');cache[l]=r.ok?await r.json():{}}catch(e){cache[l]={}}return cache[l]}
+  async function load(l){if(cache[l])return cache[l];try{const r=await fetch('/bb/static/i18n/'+l+'.json?v=72');cache[l]=r.ok?await r.json():{}}catch(e){cache[l]={}}return cache[l]}
   function t(k,v){let s=(k in D)?D[k]:(k in EN)?EN[k]:k;if(v)for(const x in v)s=s.split('{'+x+'}').join(v[x]);return s}
   function apply(root){root=root||document;
     root.querySelectorAll('[data-i18n]').forEach(e=>e.textContent=t(e.dataset.i18n));
