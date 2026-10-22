@@ -410,14 +410,28 @@ async def stt(data,ctype):
             except Exception: pass
     raise RuntimeError("Could not hear anything / কিছু শোনা যায়নি")
 async def vision(data,ctype,prompt="এই ছবিতে কী আছে বাংলায় বিস্তারিত বলো; কোনো লেখা থাকলে হুবহু তুলে দাও।"):
+    import ocr as _O; data,ctype=await asyncio.to_thread(_O.shrink,data,ctype)
     url="data:"+(ctype or "image/png")+";base64,"+base64.b64encode(data).decode()
     msg=[{"role":"user","content":[{"type":"text","text":prompt},{"type":"image_url","image_url":{"url":url}}]}]
+    G="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
     async with httpx.AsyncClient(timeout=90) as c:
-        for u,k,m in (("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",K.get("GEMINI_API_KEY"),"gemini-3.1-flash-lite"),
-                      ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",K.get("GEMINI_API_KEY"),"gemini-3.8-flash"),
-                      ("https://openrouter.ai/api/v1/chat/completions",K.get("OPENROUTER_API_KEY"),"openrouter/free")):
-            try:
-                r=await c.post(u,headers={"Authorization":f"Bearer {k}"},json={"model":m,"messages":msg})
-                if r.status_code==200: return m,r.json()["choices"][0]["message"]["content"]
+        async def one(u,k,m):
+            r=await c.post(u,headers={"Authorization":f"Bearer {k}"},json={"model":m,"messages":msg},timeout=35)
+            t=r.json()["choices"][0]["message"]["content"] if r.status_code==200 else ""
+            if not t or len(t)<20: raise RuntimeError("empty")
+            return m,t
+        # race two Gemini vision models in parallel (both free); first good answer wins
+        tasks=[asyncio.create_task(one(G,K.get("GEMINI_API_KEY"),m)) for m in ("gemini-3.1-flash-lite","gemini-3.8-flash") if K.get("GEMINI_API_KEY")]
+        try:
+            for f in asyncio.as_completed(tasks):
+                try:
+                    res=await f
+                    for t in tasks: t.cancel()
+                    return res
+                except Exception: pass
+        finally:
+            for t in tasks: t.cancel()
+        if K.get("OPENROUTER_API_KEY"):
+            try: return await one("https://openrouter.ai/api/v1/chat/completions",K.get("OPENROUTER_API_KEY"),"openrouter/free")
             except Exception: pass
     raise RuntimeError("ভিশন মডেল সাড়া দেয়নি")

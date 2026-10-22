@@ -17,3 +17,4 @@ pywebpush
 rapidocr_onnxruntime
 gradio_client
 huggingface_hub
+pillow

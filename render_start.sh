@@ -9,7 +9,7 @@ mkdir -p media_store sandbox
 python persist.py restore || { echo "restore failed - refusing to start with empty DB"; sleep 60; exit 1; }
 python persist.py loop &
 LOOP=$!
-uvicorn app:app --host 0.0.0.0 --port "${PORT:-10000}" --proxy-headers --forwarded-allow-ips='*' &
+uvicorn app:app --host 0.0.0.0 --port "${PORT:-10000}" --proxy-headers --forwarded-allow-ips='*' --loop uvloop --http httptools --timeout-keep-alive 75 --no-access-log --workers 1 &
 APP=$!
 trap 'kill -TERM $APP; wait $APP; kill $LOOP; python persist.py push; exit 0' TERM INT
 wait $APP

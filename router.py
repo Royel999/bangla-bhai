@@ -87,7 +87,8 @@ async def complete(msgs,chain=None,extra=None,json_mode=False,timeout=60,tries=3
 async def stream(msgs,chain=None,extra=None,timeout=90):
     """async gen: ('status',text) ('meta',name) ('delta',text). Failover allowed until first token."""
     specs=resolve(chain or DEFAULT,extra); STATS["calls"]+=1
-    async with httpx.AsyncClient(timeout=httpx.Timeout(timeout,connect=15)) as c:
+    # read = max gap between streamed chunks; a stalled provider fails over fast instead of hanging 90s
+    async with httpx.AsyncClient(timeout=httpx.Timeout(timeout,connect=6,read=25)) as c:
         for n,(mid,spec) in enumerate(specs):
             label,url,key,model,kind=spec
             if COOL.get(mid,0)>time.time() and n<len(specs)-1: continue
@@ -121,6 +122,7 @@ async def stream(msgs,chain=None,extra=None,timeout=90):
                 except (httpx.TimeoutException,httpx.TransportError) as e:
                     if started: return
                     err=ModelError("transient",type(e).__name__)
+                    if isinstance(e,httpx.TimeoutException): err.kind="slow"   # don't retry a slow provider; fail over
                 except ModelError as e:
                     if started: return
                     err=e
