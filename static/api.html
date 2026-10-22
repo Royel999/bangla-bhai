@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>API — Bangla Bhai</title>
+<link rel="stylesheet" href="/bb/static/viz.css">
+<link rel="icon" href="/bb/static/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b1a33;--panel:#122442;--tx:#eef2f8;--mut:#8b98b0;--bd:#243a5c;--acc:#1e6fd9}
+body{margin:0;font-family:ui-monospace,Inter,system-ui,sans-serif;background:var(--bg);color:#cfe;padding:28px;line-height:1.55}
+.wrap{max-width:860px;margin:0 auto}a{color:#8fb0ff}
+pre{background:var(--panel);padding:14px;border-radius:10px;overflow:auto;border:1px solid var(--bd)}
+h1,h2{font-family:'Hind Siliguri',Inter,system-ui,sans-serif;color:var(--tx);font-weight:700;letter-spacing:-.02em}.muted{color:var(--mut)}
+</style></head><body><div class="wrap reveal">
+<p style="display:flex;justify-content:space-between;align-items:center"><a href="/" data-i18n="nav.home">← Home</a><span data-lang-picker></span></p>
+<h1 data-i18n="api.title">Bangla Bhai API (session cookie)</h1>
+<p class="muted" data-i18n="api.lead">All /bb/api/* routes require a logged-in session (email OTP or owner password).</p>
+<h2 data-i18n="api.auth">Auth</h2>
+<pre>POST /auth/otp/request   form: email
+POST /auth/otp/verify    form: email, code
+POST /login              form: username, password  (owner)
+GET  /bb/api/me</pre>
+<h2 data-i18n="api.chat">Chat</h2>
+<pre>GET/POST /bb/api/chats
+GET/PATCH/DELETE /bb/api/chats/{id}
+POST /bb/api/chats/{id}/stream   JSON {content, model, council}
+POST /bb/api/intent              JSON {text} → {action, device_hint}
+POST /bb/api/agent               JSON {goal} → {id}
+GET  /bb/api/agent/{id}?since=n
+POST /bb/api/agent/{id}/decide   JSON {id, ok}</pre>
+<h2 data-i18n="api.dev">Settings / devices</h2>
+<pre>GET/PUT /bb/api/settings
+GET  /bb/api/devices
+POST /bb/api/devices/{id}/approve|deny|perm|remove
+POST /bb/api/tts  POST /bb/api/stt  POST /bb/api/upload</pre>
+<p class="muted" data-i18n="api.more">Agent tools &amp; permission caps: see PLAN.md and /bb/link/README.md</p>
+</div><script src="/bb/static/i18n.js"></script><script src="/bb/static/viz.js"></script></body></html>
