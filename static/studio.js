@@ -2,9 +2,9 @@ const $=s=>document.querySelector(s);let M={},P={},TAB='image';
 const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),3000)}
 async function api(u,o){const r=await fetch(u,o);if(r.status===401){location.href='/login';throw 0}const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||('Error '+r.status));return j}
-function fillModels(){const edit=TAB==='edit';const im=M.image.filter(m=>!edit||m.edit);$('#m-image').innerHTML=im.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
+function fillModels(){const edit=TAB==='edit';const im=M.image.filter(m=>edit?m.edit:m.gen!==false);$('#m-image').innerHTML=im.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
  $('#m-video').innerHTML=M.video.length?M.video.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join(''):'<option value="">'+TT('No video model yet')+'</option>';
- $('#vnote').textContent=M.video.length?'':M.free_video_note;$('#quota').textContent=TT('Free images today')+': '+(M.quota.image>999?'∞':M.quota.image)}
+ $('#vnote').textContent=TT(M.free_video_note)+' · '+TT('Free videos today')+': '+(M.quota.video>999?'∞':M.quota.video);$('#quota').textContent=TT('Free images today')+': '+(M.quota.image>999?'∞':M.quota.image)}
 async function load(){M=await api('/bb/api/media/models');fillModels();loadGal();loadKeys()}
 function tab(t){TAB=t;document.querySelectorAll('.st-tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
  $('#t-gen').style.display=(t==='image'||t==='edit')?'':'none';$('#t-video').style.display=t==='video'?'':'none';$('#t-keys').style.display=t==='keys'?'':'none';

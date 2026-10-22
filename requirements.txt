@@ -15,3 +15,5 @@ sqlite-vec==0.1.9
 croniter
 pywebpush
 rapidocr_onnxruntime
+gradio_client
+huggingface_hub

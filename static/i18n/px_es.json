@@ -195,5 +195,7 @@
 "API key": "Clave API",
 "Add your own key to use paid models. Keys are encrypted and never shown again in full. Usage is billed to your account at the provider.": "Añade tu propia clave para usar modelos de pago. Las claves están encriptadas y nunca se muestran completas nuevamente. El uso se factura a tu cuenta en el proveedor.",
 "Back to chat": "Volver al chat",
-"Base URL (OpenAI-compatible, https)": "URL base (compatible con OpenAI, https)"
+"Base URL (OpenAI-compatible, https)": "URL base (compatible con OpenAI, https)",
+"Free videos today": "Videos gratis hoy",
+"Free video: short ~3 second clip. Add a start image for best results.": "Video gratis: clip corto de ~3 segundos. Añade una imagen inicial para mejores resultados."
 }

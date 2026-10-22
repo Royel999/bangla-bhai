@@ -29,8 +29,18 @@ FREE_IMAGE={
  "cf:bytedance/stable-diffusion-xl-lightning":"SDXL Lightning (Cloudflare, free, fast)",
  "cf:lykon/dreamshaper-8-lcm":"DreamShaper 8 (Cloudflare, free)",
  "pollinations:default":"Pollinations (free, no key, adds watermark)",
+ "hfs:flux-kontext-dev":"FLUX.1 Kontext dev (Hugging Face, free, best photo edit)",
+ "pk:tongyi-mai/z-image-turbo":"Z-Image Turbo (Pollinations credit · Pro)",
+ "pk:openai/gpt-image-1-mini":"GPT-image-1 mini (Pollinations credit · Pro, can edit)",
+ "pk:black-forest-labs/flux.1-kontext-pro":"FLUX.1 Kontext Pro (Pollinations credit · Pro, edit)",
 }
-FREE_EDIT={"cf:black-forest-labs/flux-2-klein-4b","cf:black-forest-labs/flux-2-klein-9b","cf:black-forest-labs/flux-2-dev"}
+# pk: = paid Pollinations pollen (tiny shared credit) -> owner/Pro/Business only, capped; falls back to free models
+PK_EDIT_ONLY={"pk:black-forest-labs/flux.1-kontext-pro"}
+PK_USER_DAY=int(os.environ.get("BB_PK_USER_DAY","5")); PK_GLOBAL_DAY=int(os.environ.get("BB_PK_GLOBAL_DAY","15"))
+POLL=_env(S+'/pollinations.env').get('POLLINATIONS_KEY',''); HFT=_env(S+'/huggingface.env').get('HF_TOKEN','')
+FREE_VIDEO={"hfs:wan2.2-i2v":"Wan 2.2 (Hugging Face, free, ~3 s clip; text → free image → video)"}
+FREE_EDIT_SET={"hfs:flux-kontext-dev","pk:openai/gpt-image-1-mini","pk:black-forest-labs/flux.1-kontext-pro"}
+FREE_EDIT={"cf:black-forest-labs/flux-2-klein-4b","cf:black-forest-labs/flux-2-klein-9b","cf:black-forest-labs/flux-2-dev"}|FREE_EDIT_SET
 # ---------- BYOK providers ----------
 PROV={
  "openai":{"name":"OpenAI","base":"https://api.openai.com/v1","chat":["gpt-5","gpt-5-mini","gpt-4.1"],"image":["gpt-image-1.5","gpt-image-1","gpt-image-1-mini"],"video":["sora-2"]},
@@ -103,7 +113,83 @@ async def free_image(model,prompt,image=None,w=1024,h=1024):
     if model=="pollinations:default":
         from urllib.parse import quote
         return await _get(f"https://image.pollinations.ai/prompt/{quote(prompt)}?width={w}&height={h}&nologo=true&seed={int(time.time())%100000}")
+    if model.startswith("pk:"):
+        if not POLL: raise RuntimeError("pollinations key missing")
+        m=model[3:]; hd={"Authorization":f"Bearer {POLL}"}
+        async with httpx.AsyncClient(timeout=180) as c:
+            if image is not None:
+                r=await c.post("https://gen.pollinations.ai/v1/images/edits",headers=hd,data={"model":m,"prompt":prompt},files={"image":("in."+(_sniff(image)[1] or "png"),image,_sniff(image)[0] or "image/png")})
+                if r.status_code!=200: raise _err(r)
+                return base64.b64decode(r.json()["data"][0]["b64_json"])
+            from urllib.parse import quote
+            r=await c.get(f"https://gen.pollinations.ai/image/{quote(prompt)}",params={"model":m,"width":w,"height":h,"quality":"low","seed":int(time.time())%100000},headers=hd)
+            if r.status_code!=200: raise _err(r)
+            return r.content
+    if model=="hfs:flux-kontext-dev":
+        if image is None: raise RuntimeError("kontext needs a photo")
+        return await asyncio.to_thread(_space_call,"black-forest-labs/FLUX.1-Kontext-Dev","/infer",image,dict(prompt=prompt,steps=20),300)
     raise RuntimeError("unknown model")
+def _space_call(space,api,image,kw,timeout):
+    """Free Hugging Face ZeroGPU Space via gradio_client (uses owner's free daily ZeroGPU quota)."""
+    import tempfile, shutil
+    from gradio_client import Client, handle_file
+    with tempfile.TemporaryDirectory() as td:
+        p=f"{td}/in.{_sniff(image)[1] or 'png'}"; open(p,"wb").write(image)
+        c=Client(space,token=HFT or None,verbose=False)
+        try: r=c.submit(input_image=handle_file(p),api_name=api,**kw).result(timeout=timeout)
+        except BaseException as e: raise RuntimeError(f"space failed: {type(e).__name__}")
+        o=r[0] if isinstance(r,(list,tuple)) else r
+        o=o.get("video") or o.get("path") if isinstance(o,dict) else o
+        data=open(o,"rb").read()
+        try: shutil.rmtree(os.path.dirname(o),ignore_errors=True)
+        except Exception: pass
+    if data[:4]==b"RIFF" and data[8:12]==b"WEBP":
+        from PIL import Image; import io
+        b=io.BytesIO(); Image.open(io.BytesIO(data)).convert("RGB").save(b,"PNG"); data=b.getvalue()
+    return data
+async def _space_rest(host,api,image,args,timeout=420):
+    """Call a free ZeroGPU Space over its Gradio REST API (more reliable than gradio_client for some Spaces)."""
+    B=f"https://{host}/gradio_api"; hd={"Authorization":f"Bearer {HFT}"} if HFT else {}
+    async with httpx.AsyncClient(timeout=timeout,headers=hd,follow_redirects=True) as c:
+        mt,ext=_sniff(image); up=await c.post(B+"/upload",files={"files":(f"in.{ext or 'png'}",image,mt or "image/png")})
+        if up.status_code!=200: raise _err(up)
+        x=await c.post(f"{B}/call/{api}",json={"data":[{"path":up.json()[0],"meta":{"_type":"gradio.FileData"}}]+args})
+        if x.status_code!=200: raise _err(x)
+        ev=None
+        async with c.stream("GET",f"{B}/call/{api}/{x.json()['event_id']}") as st:
+            async for l in st.aiter_lines():
+                if l.startswith("event:"): ev=l[6:].strip()
+                elif l.startswith("data:") and ev in("complete","error"):
+                    if ev=="error": raise RuntimeError("space error (often the free daily GPU quota is used up): "+l[5:].strip()[:150])
+                    o=json.loads(l[5:])[0]; o=o.get("video",o) if isinstance(o,dict) else o
+                    try: return await _get(o["url"],hd,300)
+                    except httpx.HTTPStatusError: return await _get(o["url"],None,300)
+    raise RuntimeError("space: no result")
+async def free_video(prompt,image=None):
+    if image is None: _,image=await image_with_fallback("cf:black-forest-labs/flux-1-schnell",prompt,None)
+    try: return await asyncio.to_thread(_space_call,"zerogpu-aoti/wan2-2-fp8da-aoti-faster","/generate_video",image,dict(prompt=prompt[:500],duration_seconds=3.0),420)
+    except Exception as e: H["audit"](ev="media_fallback",model="wan-client",err=str(e)[:160])
+    return await _space_rest("zerogpu-aoti-wan2-2-fp8da-aoti-faster.hf.space","generate_video",image,[prompt[:500],6,"",3.0,1,1,42,True])
+def pk_allowed(u):
+    import plans as _PL
+    if H["is_owner"](u): return True,""
+    if _PL.plan_of(u) not in("pro","business"): return False,"This model uses paid credit and is for Pro/Business plans. Pick a free model or upgrade at /plans."
+    with H["db"]() as c:
+        c.execute("create table if not exists ratelimit(k text, t real)")
+        n=c.execute("select count(*) from ratelimit where k=? and t>?",(f"pk:{u}",time.time()-86400)).fetchone()[0]
+        g=c.execute("select count(*) from ratelimit where k like 'pk:%' and t>?",(time.time()-86400,)).fetchone()[0]
+    if n>=PK_USER_DAY or g>=PK_GLOBAL_DAY: return False,"Today's credit for this model is used up. Pick a free model or try tomorrow."
+    return True,""
+FALLBACK_GEN=["cf:black-forest-labs/flux-1-schnell","cf:bytedance/stable-diffusion-xl-lightning","pollinations:default"]
+FALLBACK_EDIT=["hfs:flux-kontext-dev","cf:black-forest-labs/flux-2-klein-9b","cf:black-forest-labs/flux-2-klein-4b"]
+async def image_with_fallback(model,prompt,image):
+    chain=[model]+[m for m in (FALLBACK_EDIT if image is not None else FALLBACK_GEN) if m!=model]
+    last=None
+    for m in chain:
+        try: return m,await free_image(m,prompt,image)
+        except Exception as e:
+            last=e; H["audit"](ev="media_fallback",model=m,err=str(e)[:160])
+    raise last
 # ---------- BYOK image/video ----------
 async def byok_image(r,model,prompt,image=None):
     k=dec(r); p=r["provider"]; base=(r["base_url"] or PROV[p]["base"]).rstrip("/")
@@ -236,13 +322,16 @@ def studio_page(request:Request):
     return FileResponse(BASE+"/static/studio.html",headers={"Cache-Control":"no-cache"})
 @router.get("/bb/api/media/models")
 def media_models(request:Request):
-    u=H["need"](request); img=[{"id":k,"name":v,"edit":k in FREE_EDIT,"free":True} for k,v in FREE_IMAGE.items()]; vid=[]; chat=byok_chat_list(u)
+    u=H["need"](request); pk_ok=pk_allowed(u)[0]
+    img=[{"id":k,"name":v,"edit":k in FREE_EDIT,"gen":k not in PK_EDIT_ONLY and not k.startswith("hfs:"),"free":not k.startswith("pk:")} for k,v in FREE_IMAGE.items() if pk_ok or not k.startswith("pk:")]
+    img.sort(key=lambda m:0 if m["id"]=="hfs:flux-kontext-dev" else 1)
+    vid=[{"id":k,"name":v,"free":True} for k,v in FREE_VIDEO.items()]; chat=byok_chat_list(u)
     for r in keys_for(u):
         lab=r["label"] or PROV[r["provider"]]["name"]
         img+=[{"id":f"byok:{r['id']}:{m}","name":f"🔑 {lab} · {m}","edit":r["provider"]!="luma","free":False} for m in models_of(r,"image")]
         vid+=[{"id":f"byok:{r['id']}:{m}","name":f"🔑 {lab} · {m}","free":False} for m in models_of(r,"video")]
     return {"image":img,"video":vid,"chat":chat,"quota":{"image":quota_left(u,"image"),"video":quota_left(u,"video")},
-            "free_video_note":"No video model is free without signup right now. Add your own key (Gemini Veo, OpenAI Sora, Replicate, fal, Luma, Runway)."}
+            "free_video_note":"Free video: short ~3 second clip. Add a start image for best results."}
 async def _run(request,kind,model,prompt,file):
     u=H["need"](request); prompt=(prompt or "").strip()[:2000]
     if not prompt: return JSONResponse({"error":"Prompt is empty"},400)
@@ -257,11 +346,22 @@ async def _run(request,kind,model,prompt,file):
             if not r: return JSONResponse({"error":"Key not found"},404)
             data=await (byok_image(r,m,prompt,image) if kind=="image" else byok_video(r,m,prompt,image))
         else:
-            if kind!="image" or model not in FREE_IMAGE: return JSONResponse({"error":"Unknown model"},400)
-            if image is not None and model not in FREE_EDIT: model="cf:black-forest-labs/flux-2-klein-4b"
-            if quota_left(u,"image")<=0: return JSONResponse({"error":f"Daily plan image limit reached. Upgrade at /plans, add your own key, or try tomorrow."},429)
-            H["rate_ok"](f"qimage:{u}",10**9,86400)
-            data=await free_image(model,prompt,image)
+            if kind=="video":
+                if model not in FREE_VIDEO: return JSONResponse({"error":"Unknown model"},400)
+                if quota_left(u,"video")<=0: return JSONResponse({"error":"Daily plan video limit reached. Upgrade at /plans, add your own key, or try tomorrow."},429)
+                H["rate_ok"](f"qvideo:{u}",10**9,86400)
+                data=await free_video(prompt,image)
+            else:
+                if model not in FREE_IMAGE: return JSONResponse({"error":"Unknown model"},400)
+                if image is not None and model not in FREE_EDIT: model="hfs:flux-kontext-dev"
+                if image is None and (model in PK_EDIT_ONLY or model.startswith("hfs:")): model="cf:black-forest-labs/flux-1-schnell"
+                if model.startswith("pk:"):
+                    ok,msg=pk_allowed(u)
+                    if not ok: return JSONResponse({"error":msg},403)
+                if quota_left(u,"image")<=0: return JSONResponse({"error":f"Daily plan image limit reached. Upgrade at /plans, add your own key, or try tomorrow."},429)
+                H["rate_ok"](f"qimage:{u}",10**9,86400)
+                if model.startswith("pk:"): H["rate_ok"](f"pk:{u}",10**9,86400)
+                model,data=await image_with_fallback(model,prompt,image)
         out=save(u,kind,model.split(":",2)[-1] if model.startswith("byok:") else model,prompt,data)
         H.get("act") and H["act"](u,"media",f"{kind}:{model.split(':',2)[-1]}",prompt[:200],"created "+out["url"],True); return out
     except Exception as e:
@@ -272,7 +372,6 @@ async def gen_image(request:Request,prompt:str=Form(""),model:str=Form("cf:black
     return await _run(request,"image",model,prompt,file)
 @router.post("/bb/api/media/video")
 async def gen_video(request:Request,prompt:str=Form(""),model:str=Form(""),file:UploadFile|None=File(None)):
-    if not model.startswith("byok:"): return JSONResponse({"error":"No free video model is available right now. Add your own key in Studio → My API keys."},400)
     return await _run(request,"video",model,prompt,file)
 @router.get("/bb/api/media")
 def list_media(request:Request):
