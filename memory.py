@@ -15,7 +15,7 @@ with db() as c:
     c.executescript("""create table if not exists memories(id integer primary key autoincrement,user text not null,text text not null,kind text default 'fact',
  source text,emb blob,created real,updated real);
 create index if not exists ix_mem_user on memories(user);""")
-_EMB=None; _LOCK=threading.Lock(); EMB_OK=None
+_EMB=None; _LOCK=threading.Lock(); EMB_OK=False if os.environ.get('BB_LOW_MEM')=='1' else None  # Render free 512MB: keyword memory search only
 def _embedder():
     global _EMB,EMB_OK
     with _LOCK:

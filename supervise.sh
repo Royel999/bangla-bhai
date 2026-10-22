@@ -16,7 +16,7 @@ start_app(){
   log "starting bangla_bhai uvicorn :8090"
   pkill -f 'uvicorn app:app --host 127.0.0.1 --port 8090' 2>/dev/null || true
   sleep 0.5
-  (cd "$APPDIR" && nohup setsid ./venv/bin/uvicorn app:app --host 127.0.0.1 --port 8090 >> /tmp/banglabhai.log 2>&1 9>&- &)
+  (cd "$APPDIR" && BB_ROLE=standby nohup setsid ./venv/bin/uvicorn app:app --host 127.0.0.1 --port 8090 >> /tmp/banglabhai.log 2>&1 9>&- 200>&- &)
   for i in $(seq 1 15); do
     curl -fsS -m3 "$HEALTH_URL" >/dev/null 2>&1 && { log "app healthy"; return 0; }
     sleep 1
@@ -37,7 +37,7 @@ start_ngrok(){
   pkill -x ngrok 2>/dev/null || true
   sleep 1
   # url is pinned in ~/.config/ngrok/ngrok.yml — do not pass --url (invalid with `start`)
-  nohup setsid "$NGROK" start webui --log /tmp/ngrok.log >> /tmp/ngrok_supervise.log 2>&1 9>&- &
+  nohup setsid "$NGROK" start webui --log /tmp/ngrok.log >> /tmp/ngrok_supervise.log 2>&1 9>&- 200>&- &
   for i in $(seq 1 20); do
     if ngrok_ok; then log "ngrok up: https://$DOMAIN_HOST"; return 0; fi
     sleep 1
@@ -52,7 +52,7 @@ cf_ok(){ pgrep -f 'cloudflared .*tunnel .*run banglabhai' >/dev/null; }
 start_cf(){
   if cf_ok; then return 0; fi
   log "starting cloudflared tunnel banglabhai -> https://banglabhai.dpdns.org"
-  nohup setsid "$CF" --no-autoupdate tunnel --config "$HOME/.cloudflared/config.yml" run banglabhai >> /tmp/cloudflared.log 2>&1 9>&- &
+  nohup setsid "$CF" --no-autoupdate tunnel --config "$HOME/.cloudflared/config.yml" run banglabhai >> /tmp/cloudflared.log 2>&1 9>&- 200>&- &
   sleep 3
 }
 
