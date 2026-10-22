@@ -261,9 +261,11 @@ async def _run(request,kind,model,prompt,file):
             if quota_left(u,"image")<=0: return JSONResponse({"error":f"Daily free limit reached ({FREE_IMG_PER_DAY} images). Add your own key or try tomorrow."},429)
             H["rate_ok"](f"qimage:{u}",10**9,86400)
             data=await free_image(model,prompt,image)
-        return save(u,kind,model.split(":",2)[-1] if model.startswith("byok:") else model,prompt,data)
+        out=save(u,kind,model.split(":",2)[-1] if model.startswith("byok:") else model,prompt,data)
+        H.get("act") and H["act"](u,"media",f"{kind}:{model.split(':',2)[-1]}",prompt[:200],"created "+out["url"],True); return out
     except Exception as e:
-        H["audit"](ev="media_err",kind=kind,model=model,err=str(e)[:200]); return JSONResponse({"error":str(e)[:300]},422)
+        H["audit"](ev="media_err",kind=kind,model=model,err=str(e)[:200]); H.get("act") and H["act"](u,"media",f"{kind}:{model.split(':',2)[-1]}",prompt[:200],"failed",False)
+        return JSONResponse({"error":"This model could not create it right now. Try another model or try again later."},422)
 @router.post("/bb/api/media/image")
 async def gen_image(request:Request,prompt:str=Form(""),model:str=Form("cf:black-forest-labs/flux-1-schnell"),file:UploadFile|None=File(None)):
     return await _run(request,"image",model,prompt,file)

@@ -168,5 +168,7 @@
  "admin.panel": "Admin panel",
  "admin.users": "Users",
  "admin.audit": "Recent activity",
- "admin.badge": "ADMIN"
+ "admin.badge": "ADMIN",
+ "app.memory": "Memory",
+ "app.activity": "Activity"
 }

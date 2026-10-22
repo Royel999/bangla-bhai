@@ -220,56 +220,78 @@ SYS="""তুমি 'বাংলা ভাই' — Royal Universe-এর আস
 - শেষ: {{"thought":"...","final":"রয়েলের জন্য বাংলা Markdown উত্তর"}}
 - টুল ব্যর্থ হলে রিপেয়ার করে অন্য পথ চেষ্টা করো। মালিক 'না' বললে সেই কাজ আর করবে না।
 """
+import router as RT, actlog as AL
 async def llm_json(msgs):
-    chain=[("https://api.groq.com/openai/v1/chat/completions",K.get("GROQ_API_KEY"),"openai/gpt-oss-120b"),
-           ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",K.get("GEMINI_API_KEY"),"gemini-3.1-flash-lite"),
-           ("https://openrouter.ai/api/v1/chat/completions",K.get("OPENROUTER_API_KEY"),"openrouter/free")]
-    err=""
-    async with httpx.AsyncClient(timeout=60) as c:
-        for url,key,m in chain:
-            for _ in range(2):
-                try:
-                    r=await c.post(url,headers={"Authorization":f"Bearer {key}"},json={"model":m,"messages":msgs,"response_format":{"type":"json_object"}})
-                    if r.status_code==200:
-                        t=re.sub(r"<think>.*?</think>","",r.json()["choices"][0]["message"]["content"] or "",flags=re.S)
-                        j=json.loads(t[t.find("{"):t.rfind("}")+1]); return m,j
-                    err=f"{m} {r.status_code}"
-                except Exception as e: err=f"{m}: {e}"
-                await asyncio.sleep(1)
-    raise RuntimeError("কোনো মডেল সাড়া দেয়নি: "+err)
+    try: m,t,_=await RT.complete(msgs,json_mode=True,timeout=60,tries=2)
+    except RT.ModelError: raise RuntimeError("model_unavailable")
+    t=re.sub(r"<think>.*?</think>","",t,flags=re.S)
+    try: return m,json.loads(t[t.find("{"):t.rfind("}")+1])
+    except Exception: return m,{"thought":"","final":t.strip()[:3000]}
+FRIENDLY={"model_unavailable":"এই মুহূর্তে কোনো মডেল সাড়া দিচ্ছে না — একটু পরে আবার চেষ্টা করুন।"}
+def friendly(e):
+    s=str(e) or type(e).__name__
+    if s in FRIENDLY: return FRIENDLY[s]
+    s=s.splitlines()[0] if s else s
+    return re.sub(r"(/home/\S+|File \".*?\"|Traceback.*)","",s)[:200] or "অপ্রত্যাশিত সমস্যা হয়েছে।"
 def ev(t,**k):
-    k.update(type=t,ts=time.time()); TASKS[t_id_ctx.get()]["events"].append(k)
+    k.update(type=t,ts=time.time()); tid=t_id_ctx.get(); T=TASKS[tid]; T["events"].append(k)
+    try: AL.task_save(tid,T.get("user"),T.get("goal"),T.get("sysx",""),T["status"],T["events"][-300:])
+    except Exception: pass
 import contextvars; t_id_ctx=contextvars.ContextVar("tid")
-def start_task(goal,sysx=""):
-    tid=uuid.uuid4().hex[:10]; TASKS[tid]={"events":[],"pending":{},"status":"running","goal":goal}
+def start_task(goal,sysx="",user=None,tid=None,resume=None):
+    tid=tid or uuid.uuid4().hex[:10]
+    TASKS[tid]={"events":list((resume or {}).get("events",[])),"pending":{},"status":"running","goal":goal,"user":user,"sysx":sysx}
+    AL.task_save(tid,user,goal,sysx,"running",TASKS[tid]["events"],resumes=(resume or {}).get("resumes"))
     async def runner():
-        t_id_ctx.set(tid)
-        try: await loop(tid,goal,sysx)
-        except Exception as e: ev("error",text=f"এজেন্ট থেমে গেছে: {e}")
-        TASKS[tid]["status"]="done"; ev("end")
-    asyncio.create_task(runner()); audit(ev="agent_task",task=tid,goal=goal[:200]); return tid
+        t_id_ctx.set(tid); st="done"
+        try:
+            if resume: ev("resume",text="সার্ভার রিস্টার্টের পর কাজটা আবার চালু করছি...")
+            await loop(tid,goal,sysx,resume_ctx=(resume or {}).get("ctx"))
+        except Exception as e:
+            st="failed"; ev("error",text="এজেন্ট থেমে গেছে: "+friendly(e))
+        TASKS[tid]["status"]=st; ev("end")
+    asyncio.create_task(runner()); audit(ev="agent_task",task=tid,goal=goal[:200])
+    AL.log(user,"agent","task",goal[:200],"resumed" if resume else "started",task=tid); return tid
+def resume_all():
+    """called once at startup: resume interrupted tasks once, otherwise mark failed."""
+    AL.appr_expire_all(); out=[]
+    for t in AL.tasks_running():
+        evs=t["events"]
+        if t["resumes"]>=1 or time.time()-t["updated"]>3600:
+            evs.append({"type":"error","text":"সার্ভার রিস্টার্টে কাজটা থেমে গেছে; আবার চালাতে নতুন করে বলুন।","ts":time.time()}); evs.append({"type":"end","ts":time.time()})
+            AL.task_save(t["id"],t["user"],t["goal"],t["sysx"],"failed",evs); AL.log(t["user"],"agent","task",t["goal"][:200],"failed after restart",ok=False,task=t["id"]); out.append((t["id"],"failed")); continue
+        done=[e for e in evs if e.get("type")=="result"][-5:]
+        ctx="\n".join(f"- {e.get('tool')}: {str(e.get('text',''))[:400]}" for e in done)
+        start_task(t["goal"],t["sysx"] or "",t["user"],tid=t["id"],resume={"events":evs,"resumes":t["resumes"]+1,"ctx":ctx}); out.append((t["id"],"resumed"))
+    return out
+def get_task(tid):
+    t=TASKS.get(tid)
+    if t: return t
+    d=AL.task_get(tid)
+    return d and {"events":d["events"],"status":d["status"],"goal":d["goal"],"user":d["user"],"pending":{}}
 async def ask(tid,tool,args,why,cap):
     aid=uuid.uuid4().hex[:8]; f=asyncio.get_running_loop().create_future(); TASKS[tid]["pending"][aid]=f
-    ev("approval",id=aid,tool=tool,args=args,why=why,cap=cap,capname=CAPS.get(cap,""))
+    rk=AL.risk(tool,args); AL.appr_open(aid,TASKS[tid].get("user"),tid,tool,args,why,rk)
+    ev("approval",id=aid,tool=tool,args=args,why=why,cap=cap,capname=CAPS.get(cap,""),risk=rk)
     try: d=await asyncio.wait_for(f,600)
     except asyncio.TimeoutError: d="timeout"
-    TASKS[tid]["pending"].pop(aid,None); ev("decision",id=aid,decision=d); audit(ev="agent_decision",task=tid,tool=tool,decision=d); return d
+    TASKS[tid]["pending"].pop(aid,None); AL.appr_close(aid,{"yes":"approved","no":"denied"}.get(d,d)); AL.log(TASKS[tid].get("user"),"approval",tool,args,d,ok=(d=="yes"),task=tid); ev("decision",id=aid,decision=d); audit(ev="agent_decision",task=tid,tool=tool,decision=d); return d
 def decide(tid,aid,d):
     f=TASKS.get(tid,{}).get("pending",{}).get(aid)
     if f and not f.done(): f.set_result(d); return True
     return False
-async def loop(tid,goal,sysx=""):
+async def loop(tid,goal,sysx="",resume_ctx=None):
     devs=", ".join(f"{d['id']}={d['name']}({'অনলাইন' if d['online'] else 'অফলাইন'})" for d in devices() if d["status"]=="approved")
     tools="; ".join(f"{n}{list(v[2])}: {v[1]}" for n,v in TOOLS.items())
     hint=pick_device(None,goal)
-    msgs=[{"role":"system","content":SYS.format(tools=tools,devs=devs)+f"\nডিফল্ট টার্গেট ডিভাইস id: {hint} (ফোনের কাজ হলে এটাই use করো।)"+("\n\nOVERRIDES (highest priority): "+sysx if sysx else "")},{"role":"user","content":goal}]
+    msgs=[{"role":"system","content":SYS.format(tools=tools,devs=devs)+f"\nডিফল্ট টার্গেট ডিভাইস id: {hint} (ফোনের কাজ হলে এটাই use করো।)"+("\n\nOVERRIDES (highest priority): "+sysx if sysx else "")},{"role":"user","content":goal}]+([{"role":"user","content":"(সার্ভার রিস্টার্টের আগে এই ধাপগুলো হয়ে গেছে, আবার করবে না; বাকিটা শেষ করো:)\n"+resume_ctx}] if resume_ctx else [])
     ev("plan",text="লক্ষ্য বুঝে পরিকল্পনা করছি...")
-    fails=0
+    fails=0; ran_ok=bool(resume_ctx)
     for step in range(10):
         model,j=await llm_json(msgs); msgs.append({"role":"assistant","content":json.dumps(j,ensure_ascii=False)})
         ev("think",text=j.get("thought",""),alternatives=j.get("alternatives",[]),model=model,step=step+1)
         fin=j.get("final"); act=j.get("action")
-        needs_tool=bool(re.search(r"(চালাও|চালান|uname|df\s*-h|স্ক্রিনশট|ক্যামেরা|shell|কমান্ড|ফোনে|ডিভাইসে|ব্রাউজ|সার্চ|মেসেজ|ইনবক্স|sms|এসএমএস|পাঠাও|কল|কন্টাক্ট|নোটিফ|ব্যাটারি|ওয়াইফাই|অ্যাপ|পড়)",goal,re.I))
+        needs_tool=not ran_ok and bool(re.search(r"(চালাও|চালান|uname|df\s*-h|স্ক্রিনশট|ক্যামেরা|shell|কমান্ড|ফোনে|ডিভাইসে|ব্রাউজ|সার্চ|মেসেজ|ইনবক্স|sms|এসএমএস|পাঠাও|কল|কন্টাক্ট|নোটিফ|ব্যাটারি|ওয়াইফাই|অ্যাপ|পড়)",goal,re.I))
         if fin and not act:
             if needs_tool and step<6:
                 msgs.append({"role":"user","content":"তুমি টুল চালাওনি। কল্পিত ফলাফল নিষিদ্ধ। এখনই action JSON দাও — shell দিয়ে আসল কমান্ড চালাও (device=ফোনের id)।"}); ev("repair",text="টুল ছাড়া উত্তর বাতিল — আসল টুল চাই"); continue
@@ -307,7 +329,7 @@ async def loop(tid,goal,sysx=""):
         else:
             dev="box"
         mode=get_perm(dev,cap) if cap else "always"
-        force_card = tool in("sms_send","call_make") or (tool=="shell" and args.get("device","box")=="box")  # outgoing + box shell: always confirm
+        force_card = tool in("sms_send","call_make") or (tool=="shell" and args.get("device","box")=="box") or AL.risk(tool,args)=="high"  # destructive/outgoing: always confirm  # outgoing + box shell: always confirm
         if mode=="off": d="no"; ev("blocked",text=f"{CAPS[cap]} এই ডিভাইসে বন্ধ (অনুমতি কেন্দ্র)")
         elif (mode=="always" and not force_card) or tool=="list_devices": d="yes"; cap and ev("auto",text=f"'সবসময় অনুমতি' দেওয়া আছে — {CAPS[cap]}")
         else:
@@ -320,10 +342,10 @@ async def loop(tid,goal,sysx=""):
             try:
                 out=await run_tool(tool,args); img=None
                 if isinstance(out,dict): img=out.get("image"); out=out.get("text") or json.dumps({k:v for k,v in out.items() if k!="image"},ensure_ascii=False)[:3000]
-                out_s=redact_secrets(str(out)); ev("result",tool=tool,text=out_s[:1500],image=img); audit(ev="agent_tool",task=tid,tool=tool,args=args,ok=True)
+                ran_ok=True; out_s=redact_secrets(str(out)); ev("result",tool=tool,text=out_s[:1500],image=img); audit(ev="agent_tool",task=tid,tool=tool,args=args,ok=True); AL.log(TASKS[tid].get("user"),"device" if args.get("device") not in(None,"box") else ("shell" if tool=="shell" else ("browse" if tool in("browse","web_search") else "tool")),tool,args,out_s,True,tid)
                 msgs.append({"role":"user","content":f"টুল ফলাফল ({tool}):\n{out_s[:3500]}\n(সারাংশ বাংলায়; OTP পূর্ণ নয়)"}); break
             except Exception as e:
-                er=str(e)[:800]; audit(ev="agent_tool",task=tid,tool=tool,args=args,ok=False,err=er[:200])
+                er=str(e)[:800]; audit(ev="agent_tool",task=tid,tool=tool,args=args,ok=False,err=er[:200]); AL.log(TASKS[tid].get("user"),"shell" if tool=="shell" else "tool",tool,args,friendly(er),False,tid)
                 transient=any(w in er.lower() for w in("timeout","connect","temporar","503","502"))
                 if transient and attempt==0: ev("retry",text=f"সাময়িক সমস্যা ({er[:120]}) — ২ সেকেন্ড পর আবার চেষ্টা"); await asyncio.sleep(2); continue
                 fails+=1; ev("error",tool=tool,text=er)

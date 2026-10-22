@@ -168,5 +168,7 @@
  "admin.panel": "অ্যাডমিন প্যানেল",
  "admin.users": "ব্যবহারকারী",
  "admin.audit": "সাম্প্রতিক কার্যকলাপ",
- "admin.badge": "অ্যাডমিন"
+ "admin.badge": "অ্যাডমিন",
+ "app.memory": "মেমরি",
+ "app.activity": "কার্যকলাপ"
 }

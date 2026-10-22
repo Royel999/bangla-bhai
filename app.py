@@ -61,7 +61,7 @@ def addr_rule(uid):
         return ("ADDRESS: This user is the owner. Address him as 'Royal' (when replying in Bangla write 'রয়েল'). "
                 "Never call him 'আব্বা'/'Abba'.")
     return "ADDRESS: Address the user politely (you / their name). Never call them 'Royal', 'রয়েল' or 'আব্বা'."
-def persona(st,proj_instr="",uid=None):
+def persona(st,proj_instr="",uid=None,mems=None):
     try:
         devs=AG.devices(); dlist=", ".join(f"{d['name']} ({d['id']}, {d['kind']}, {'online' if d.get('online') else 'offline'}, {d['status']})" for d in devs)
     except Exception: dlist="(not loaded)"
@@ -71,50 +71,26 @@ def persona(st,proj_instr="",uid=None):
        "Be concise and honest; use Markdown. Never send, pay or delete without permission.")
     if st.get("instructions"): p+="\n\nOwner's custom instructions:\n"+st["instructions"]
     if st.get("memory") and st.get("memory_notes"): p+="\n\nThings to remember about the user:\n"+st["memory_notes"]
+    if mems: p+="\n\nLong-term memory about this user (use naturally when relevant; never mention you have a memory list unless asked):\n"+"\n".join("- "+m for m in mems)
     if proj_instr: p+="\n\nProject instructions:\n"+proj_instr
     return p
 def clean(t): return re.sub(r"<think>.*?</think>","",t or "",flags=re.S).strip()
 def _mres(mid): return MODELS.get(mid) or _BYOK_CTX.get(mid)
 _BYOK_CTX={}
+def _spec(mid):
+    r=_mres(mid)
+    return (mid,(r[0],r[1],r[2],r[3],"oa")) if r else None
 async def call(mid,msgs,tries=1,timeout=45):
-    _,url,key,model=_mres(mid)
-    async with httpx.AsyncClient(timeout=timeout) as c:
-        for i in range(tries):
-            try:
-                r=await c.post(url,headers={"Authorization":f"Bearer {key}"},json={"model":model,"messages":msgs})
-                if r.status_code==200:
-                    j=r.json(); t=clean(j["choices"][0]["message"]["content"])
-                    if t: return f"{mid.split(':')[0]}/{j.get('model',model)}",t
-            except Exception: pass
-            await asyncio.sleep(1.5*(i+1))
-    return None
-async def stream_model(mid,msgs):
-    """yields ('meta',name) then ('delta',text)...; raises on failure before first token"""
-    _,url,key,model=_mres(mid)
-    async with httpx.AsyncClient(timeout=httpx.Timeout(90,connect=15)) as c:
-        async with c.stream("POST",url,headers={"Authorization":f"Bearer {key}"},json={"model":model,"messages":msgs,"stream":True}) as r:
-            if r.status_code!=200: raise RuntimeError(f"{mid} {r.status_code}")
-            started=False; name=None; buf=""; inthink=False
-            async for line in r.aiter_lines():
-                if not line.startswith("data:"): continue
-                d=line[5:].strip()
-                if d=="[DONE]": break
-                try: j=json.loads(d)
-                except Exception: continue
-                if not name and j.get("model"): name=f"{mid.split(':')[0]}/{j['model']}"
-                ch=(j.get("choices") or [{}])[0].get("delta",{}).get("content") or ""
-                if not ch: continue
-                buf+=ch
-                if "<think>" in buf and "</think>" not in buf: inthink=True; continue
-                if inthink: buf=buf.split("</think>",1)[1]; inthink=False
-                if not started: yield ("meta",name or f"{mid.split(':')[0]}/{model}"); started=True
-                yield ("delta",buf); buf=""
-            if not started: raise RuntimeError(f"{mid} empty")
+    sp=_spec(mid)
+    if not sp: return None
+    try: n,t,_=await RT.complete(msgs,chain=[],extra=[sp],timeout=timeout,tries=max(1,tries)); return n,t
+    except RT.ModelError: return None
 HARD=re.compile(r"(পরিকল্পনা|plan|কোড|code|বিশ্লেষণ|analy|তুলনা|compare|সিদ্ধান্ত|decide|strategy|কৌশল)",re.I)
 # ---------- app ----------
 app=FastAPI(docs_url=None,redoc_url=None,openapi_url=None); app.add_middleware(SessionMiddleware,secret_key=CFG["BB_SESSION_SECRET"],https_only=os.environ.get("BB_INSECURE_COOKIE")!="1",same_site="lax",max_age=86400*30)
 app.mount("/bb/static",StaticFiles(directory=BASE+"/static"),name="static")
 import agent as AG
+import router as RT, memory as MEM, actlog as AL
 OWNER_EMAIL=os.environ.get("BB_OWNER_EMAIL","skbadol3210@gmail.com").strip().lower()
 @app.middleware("http")
 async def _sec(request,call_next):
@@ -469,7 +445,7 @@ async def upload(request:Request,file:UploadFile=File(...)):
             m,desc=await AG.vision(data,file.content_type); audit(ev="vision",name=name,model=m)
             return {"name":name,"kind":"text","text":f"[ছবি বিশ্লেষণ — {m}]\n{desc}","chars":len(desc),"note":"🖼️ ছবি পড়া হয়েছে ("+m+")"}
         else: text=data.decode("utf-8","ignore")
-    except Exception as e: return JSONResponse({"error":f"ফাইল পড়া যায়নি: {e}"},400)
+    except Exception as e: audit(ev="upload_err",err=str(e)[:200]); return JSONResponse({"error":"ফাইল পড়া যায়নি — অন্য ফরম্যাটে চেষ্টা করুন। / Could not read this file."},400)
     audit(ev="upload",name=name,size=len(data))
     return {"name":name,"kind":"text","text":text[:60000],"chars":len(text)}
 @app.post("/bb/api/chats/{cid}/stream")
@@ -486,13 +462,19 @@ async def stream(request:Request,cid:str):
             c.execute("insert into messages(chat_id,role,content,created) values(?,?,?,?)",(cid,"user",b["content"],time.time()))
         hist=[{"role":m["role"],"content":m["content"]} for m in c.execute("select role,content from messages where chat_id=? order by id",(cid,)).fetchall()][-24:]
         first=c.execute("select count(*) n from messages where chat_id=?",(cid,)).fetchone()["n"]<=1
-    msgs=[{"role":"system","content":persona(st,proj["instructions"] if proj else "",uid=u)}]+hist
     q=hist[-1]["content"] if hist else ""; sel=b.get("model") or "auto"
+    mems=[]
+    if st.get("memory",True):
+        try: mems=await MEM.arecall(u,q)
+        except Exception: mems=[]
+    msgs=[{"role":"system","content":persona(st,proj["instructions"] if proj else "",uid=u,mems=mems)}]+hist
     if sel.startswith("byok:"):
         res=MD.resolve_chat(u,sel)
         if res: _BYOK_CTX[sel]=res
         else: sel="auto"
-    chain=AUTO if sel=="auto" or not _mres(sel) else [sel]+[m for m in AUTO if m!=sel]
+    extra=[_spec(sel)] if sel!="auto" and _spec(sel) and sel not in RT.CHAIN else []
+    rchain=[sel]+[m for m in RT.DEFAULT if m!=sel] if sel in RT.CHAIN else RT.DEFAULT
+    chain=[sel] if extra else rchain
     council=b.get("council") or (sel=="auto" and HARD.search(q) and len(q)>60)
     async def gen():
         advisors=[]; msgs2=msgs
@@ -502,20 +484,23 @@ async def stream(request:Request,cid:str):
             notes=[r for r in res if r]; advisors=[n for n,_ in notes]
             if notes: msgs2=msgs+[{"role":"system","content":"কাউন্সিলের পরামর্শদাতাদের মতামত (মিলিয়ে সেরা উত্তর দাও, তাদের কথা উল্লেখ করার দরকার নেই):\n\n"+"\n\n---\n".join(f"[{n}]\n{t[:2500]}" for n,t in notes)}]
             yield "event: advisors\ndata: "+json.dumps(advisors)+"\n\n"
-        full=""; name="none"
+        full=""; name="none"; bn=st.get("lang")=="bn"
         try:
-          for mid in chain:
-            try:
-                async for kind,val in stream_model(mid,msgs2):
-                    if kind=="meta": name=val; yield "event: meta\ndata: "+json.dumps({"model":val})+"\n\n"
-                    else: full+=val; yield "data: "+json.dumps({"d":val})+"\n\n"
-                break
-            except asyncio.CancelledError: raise
-            except Exception as e:
-                if full: break
-                yield "event: status\ndata: "+json.dumps({"text":(f"{_mres(mid)[0]} সাড়া দেয়নি, পরেরটা চেষ্টা করছি..." if st.get("lang")=="bn" else f"{_mres(mid)[0]} did not respond, trying the next one...")})+"\n\n"
+          try:
+            async for kind,val in RT.stream(msgs2,chain=rchain,extra=extra):
+                if kind=="meta": name=val; yield "event: meta\ndata: "+json.dumps({"model":val})+"\n\n"
+                elif kind=="delta": full+=val; yield "data: "+json.dumps({"d":val})+"\n\n"
+                else:
+                    what,label=val
+                    txt=((f"{label} ব্যস্ত, আবার চেষ্টা করছি..." if bn else f"{label} is busy, retrying...") if what=="retry" else
+                         (f"{label} সাড়া দেয়নি, পরের মডেলে যাচ্ছি..." if bn else f"{label} did not respond, switching to the next model..."))
+                    yield "event: status\ndata: "+json.dumps({"text":txt})+"\n\n"
+          except asyncio.CancelledError: raise
+          except Exception: pass
           if not full:
-            full=tr(st.get("lang","en"),"err.no_model",name=(tr(st.get("lang","en"),"app.owner") if is_owner_uid(u) else "")); yield "data: "+json.dumps({"d":full})+"\n\n"
+            full=RT.friendly(st.get("lang","en")); yield "data: "+json.dumps({"d":full})+"\n\n"
+          elif st.get("memory",True) and b.get("content"):
+            asyncio.create_task(MEM.extract(u,b["content"],RT.complete))
         finally:
           save(full or "_(থামানো হয়েছে)_",name,advisors)
         yield "event: done\ndata: "+json.dumps({"model":name})+"\n\n"
@@ -535,10 +520,9 @@ async def chat(request:Request):
     if b.get("council"):
         notes=[r for r in await asyncio.gather(*[call(a,msgs) for a in ADVISORS]) if r]; advisors=[n for n,_ in notes]
         if notes: msgs+= [{"role":"system","content":"কাউন্সিলের মতামত:\n"+"\n---\n".join(t[:2500] for _,t in notes)}]
-    for mid in AUTO:
-        r=await call(mid,msgs,2)
-        if r: audit(ev="chat",model=r[0]); return {"answer":r[1],"model":r[0],"advisors":advisors}
-    return {"answer":"দুঃখিত, কোনো মডেল সাড়া দিচ্ছে না।","model":"none","advisors":advisors}
+    try:
+        n,t,_=await RT.complete(msgs); audit(ev="chat",model=n); return {"answer":t,"model":n,"advisors":advisors}
+    except RT.ModelError: return {"answer":RT.friendly(st.get("lang","en")),"model":"none","advisors":advisors}
 
 # ---------- agent / link / voice / vision ----------
 @app.post("/bb/api/chats/{cid}/note")
@@ -558,10 +542,10 @@ async def intent(request:Request):
 async def ag_start(request:Request):
     u=need_admin(request); b=await request.json(); st=get_settings(u)
     sysx=lang_rule(st)+" "+addr_rule(u)+" Write the JSON 'thought' and 'final' fields in that language."
-    return {"id":AG.start_task(b.get("goal",""),sysx)}
+    return {"id":AG.start_task(b.get("goal",""),sysx,user=u)}
 @app.get("/bb/api/agent/{tid}")
 def ag_events(request:Request,tid:str,since:int=0):
-    need_admin(request); t=AG.TASKS.get(tid)
+    need_admin(request); t=AG.get_task(tid)
     if not t: return JSONResponse({"error":"নেই"},404)
     return {"status":t["status"],"events":t["events"][since:],"n":len(t["events"])}
 @app.post("/bb/api/agent/{tid}/decide")
@@ -682,7 +666,9 @@ async def stt(request:Request,file:UploadFile=File(...)):
     except Exception as e: return JSONResponse({"error":str(e)[:200]},502)
 # ---- media studio + BYOK ----
 import media as MD
-MD.H.update(need=need,rate_ok=rate_ok,db=db,audit=audit,is_owner=is_owner_uid)
+MD.H.update(need=need,rate_ok=rate_ok,db=db,audit=audit,is_owner=is_owner_uid,act=AL.log)
+import features as FT
+FT.setup(app,dict(need=need,need_admin=need_admin,get_settings=get_settings,db=db,audit=audit,page=page,is_owner=is_owner_uid,rate_ok=rate_ok,AG=AG))
 app.include_router(MD.router)
 # ---- Open WebUI proxy ----
 UP="http://127.0.0.1:8080"; WEBUI_PREFIXES=("/_app","/api/","/ws","/ollama","/openai","/manifest.json","/favicon","/auth","/c/","/workspace","/admin","/oauth","/assets","/static/","/notes","/channels","/playground","/home","/s/")
