@@ -220,8 +220,9 @@ async def byok_video(r,model,prompt,image=None):
     raise RuntimeError("this provider has no video models")
 # ---------- quota ----------
 def quota_left(u,kind):
-    lim=FREE_IMG_PER_DAY if kind=="image" else FREE_VID_PER_DAY
+    import plans as _PL
     if H["is_owner"](u): return 9999
+    lim=_PL.limit(u,"images" if kind=="image" else "videos")
     with H["db"]() as c:
         c.execute("create table if not exists ratelimit(k text, t real)")
         n=c.execute("select count(*) from ratelimit where k=? and t>?",(f"q{kind}:{u}",time.time()-86400)).fetchone()[0]
@@ -258,7 +259,7 @@ async def _run(request,kind,model,prompt,file):
         else:
             if kind!="image" or model not in FREE_IMAGE: return JSONResponse({"error":"Unknown model"},400)
             if image is not None and model not in FREE_EDIT: model="cf:black-forest-labs/flux-2-klein-4b"
-            if quota_left(u,"image")<=0: return JSONResponse({"error":f"Daily free limit reached ({FREE_IMG_PER_DAY} images). Add your own key or try tomorrow."},429)
+            if quota_left(u,"image")<=0: return JSONResponse({"error":f"Daily plan image limit reached. Upgrade at /plans, add your own key, or try tomorrow."},429)
             H["rate_ok"](f"qimage:{u}",10**9,86400)
             data=await free_image(model,prompt,image)
         out=save(u,kind,model.split(":",2)[-1] if model.startswith("byok:") else model,prompt,data)

@@ -47,7 +47,8 @@ def add(u,text,kind="fact",source="manual"):
             c.execute("update memories set text=?,emb=?,updated=? where id=? and user=?",(text,em,now,dup[0][0],u)); return dup[0][0]
         cur=c.execute("insert into memories(user,text,kind,source,emb,created,updated) values(?,?,?,?,?,?,?)",(u,text,kind,source,em,now,now))
         n=c.execute("select count(*) n from memories where user=?",(u,)).fetchone()["n"]
-        if n>MAX_PER_USER: c.execute("delete from memories where id in (select id from memories where user=? order by updated asc limit ?)",(u,n-MAX_PER_USER))
+        import plans as _PL; cap=_PL.limit(u,"memory") or MAX_PER_USER*100
+        if n>cap: c.execute("delete from memories where id in (select id from memories where user=? order by updated asc limit ?)",(u,n-cap))
         return cur.lastrowid
 def update(u,mid,text):
     text=re.sub(r"\s+"," ",text or "").strip()[:400]

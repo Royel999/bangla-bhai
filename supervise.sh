@@ -53,7 +53,7 @@ start_cf(){
   sleep 3
 }
 
-PUB_URL="https://$DOMAIN_HOST/"
+PUB_URL="https://$DOMAIN_HOST/bb/health"
 FAILS=0
 public_check(){
   local out code

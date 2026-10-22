@@ -90,11 +90,19 @@ HARD=re.compile(r"(পরিকল্পনা|plan|কোড|code|বিশ্�
 app=FastAPI(docs_url=None,redoc_url=None,openapi_url=None); app.add_middleware(SessionMiddleware,secret_key=CFG["BB_SESSION_SECRET"],https_only=os.environ.get("BB_INSECURE_COOKIE")!="1",same_site="lax",max_age=86400*30)
 app.mount("/bb/static",StaticFiles(directory=BASE+"/static"),name="static")
 import agent as AG
-import router as RT, memory as MEM, actlog as AL
+import router as RT, memory as MEM, actlog as AL, plans as PL
 OWNER_EMAIL=os.environ.get("BB_OWNER_EMAIL","skbadol3210@gmail.com").strip().lower()
 @app.middleware("http")
 async def _sec(request,call_next):
+    # M6: anything arriving through the tunnel must carry the Worker's edge secret; box-local calls (no forwarding headers) are allowed.
+    _e=CFG.get("BB_EDGE_SECRET","")
+    if _e and request.url.path!="/bb/health" and (request.headers.get("x-forwarded-for") or request.headers.get("x-forwarded-host") or request.headers.get("ngrok-skip-browser-warning")) \
+       and not hmac.compare_digest(request.headers.get("x-bb-edge",""),_e):
+        return Response("Please use https://banglabhai.dpdns.org",403,media_type="text/plain")
     r=await call_next(request)
+    _p=request.url.path
+    if not (_p.startswith("/webui") or _p.startswith(WEBUI_PREFIXES)) or _p.startswith("/admin/panel"):
+        r.headers.setdefault("Content-Security-Policy","frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; worker-src 'self'")
     if request.url.path.startswith("/bb/static/shots/"): r.headers["Cache-Control"]="private, no-store"
     r.headers.setdefault("Strict-Transport-Security","max-age=31536000")
     r.headers.setdefault("X-Frame-Options","SAMEORIGIN"); r.headers.setdefault("X-Content-Type-Options","nosniff")
@@ -202,21 +210,6 @@ def admin_page(request:Request, e:str="", m:str="", lang:str=""):
 <div class=foot><a href=/login data-i18n="admin.back">{T("admin.back")}</a> · ♛ Royal Universe</div>
 </div>""",L)
 
-@app.get("/admin/panel")
-def admin_panel(request:Request):
-    if not is_admin(request): return RedirectResponse("/admin",303)
-    import html as _h
-    with db() as c:
-        try: us=c.execute("select id,email,role,last_login from users order by last_login desc limit 50").fetchall()
-        except Exception: us=[]
-    rows="".join(f"<tr><td>{_h.escape(str(u['email'] or u['id']))}</td><td>{_h.escape(str(u['role']))}</td><td>{time.strftime('%Y-%m-%d %H:%M',time.localtime(u['last_login'])) if u['last_login'] else '-'}</td></tr>" for u in us)
-    try: au=open(BASE+"/audit.jsonl").read().splitlines()[-15:]
-    except Exception: au=[]
-    return page(ADMIN_CSS+f"""<div class="box abox" style="max-width:640px">{BR}<div class=abadge>{SHIELD}<span data-i18n="admin.panel">Admin panel</span></div>
-<p><a href=/app>← App</a> · <a href=/webui/>Open WebUI</a> · <a href=/bb/link/>Devices</a> · <a href=/change-password>Password</a></p>
-<h3 data-i18n="admin.users">Users</h3><table style="width:100%;font-size:13px">{rows}</table>
-<h3 style="margin-top:16px" data-i18n="admin.audit">Recent activity</h3><pre style="font-size:11px;white-space:pre-wrap;color:var(--mut)">{_h.escape(chr(10).join(au))}</pre></div>""")
-
 @app.post("/login")
 def do_login(request:Request,username:str=Form(""),password:str=Form("")):
     if not rate_ok("login:"+cip(request),8,600): audit(ev="login_ratelimited"); return RedirectResponse("/admin?e=1",303)
@@ -274,7 +267,9 @@ def cp(request:Request,current_password:str=Form(""),new_password:str=Form(""),c
     if not hmac.compare_digest(current_password,CFG["BB_PASSWORD"]): return RedirectResponse("/change-password?m=bad",303)
     if new_password!=confirm_password or len(new_password)<8: return RedirectResponse("/change-password?m=mm",303)
     CFG["BB_PASSWORD"]=new_password
-    open(ENVF,'w').write("".join(f"{k}={v}\n" for k,v in CFG.items())); os.chmod(ENVF,0o600)
+    _tmp=ENVF+".tmp"; _fd=os.open(_tmp,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
+    with os.fdopen(_fd,"w") as _f: _f.write("".join(f"{k}={v}\n" for k,v in CFG.items())); _f.flush(); os.fsync(_f.fileno())
+    os.replace(_tmp,ENVF)
     audit(ev="password_changed"); return RedirectResponse("/change-password?m=ok",303)
 @app.get("/manifest.webmanifest")
 def manifest():
@@ -460,6 +455,8 @@ async def upload(request:Request,file:UploadFile=File(...)):
 @app.post("/bb/api/chats/{cid}/stream")
 async def stream(request:Request,cid:str):
     u=need(request); b=await request.json(); st=get_settings(u)
+    ok,lim=PL.take(u,"chat")
+    if not ok: return JSONResponse({"error":PL.quota_msg("chat",lim,st.get("lang"))},429)
     with db() as c:
         ch=own(c,u,cid); proj=c.execute("select instructions from projects where id=? and user=?",(ch["project"],u)).fetchone() if ch["project"] else None
         if b.get("edit_id"):  # edit a user message: replace it and drop everything after
@@ -535,6 +532,8 @@ async def stream(request:Request,cid:str):
 @app.post("/bb/api/chat")
 async def chat(request:Request):
     u=need(request); b=await request.json(); hist=b.get("messages",[])[-20:]; st=get_settings(u)
+    ok,lim=PL.take(u,"chat")
+    if not ok: return JSONResponse({"error":PL.quota_msg("chat",lim,st.get("lang"))},429)
     msgs=[{"role":"system","content":persona(st,uid=u)}]+hist; advisors=[]
     if b.get("council"):
         notes=[r for r in await asyncio.gather(*[call(a,msgs) for a in ADVISORS]) if r]; advisors=[n for n,_ in notes]
@@ -683,7 +682,8 @@ async def tts(request:Request):
 async def stt(request:Request,file:UploadFile=File(...)):
     u=need(request); data=await file.read(25_000_001)
     if len(data)>AG.STT_MAX_BYTES: return JSONResponse({"error":"Audio too large (max 10MB / 2 min)"},413)
-    if not is_owner_uid(u) and not rate_ok("stt:"+u,60,86400): return JSONResponse({"error":"Daily voice limit reached"},429)
+    ok,lim=PL.take(u,"voice")
+    if not ok: return JSONResponse({"error":PL.quota_msg("voice",lim,get_settings(u).get("lang"))},429)
     try: t,q=await AG.stt(data,file.content_type); audit(ev="stt",chars=len(t)); return {"text":t,"mode":q}
     except Exception as e: return JSONResponse({"error":str(e)[:200]},502)
 # ---- media studio + BYOK ----
@@ -695,6 +695,21 @@ app.include_router(MD.router)
 import skills_jobs as SJ
 SJ.setup(app,dict(need=need,get_settings=get_settings,db=db,audit=audit,is_owner=is_owner_uid,rate_ok=rate_ok,AG=AG,sysx=lambda u:lang_rule(get_settings(u))+" "+addr_rule(u)+" Write the JSON 'thought' and 'final' fields in that language."))
 AG.ON_DONE.append(SJ.on_agent_done)
+# ---- plans/payments/admin dashboard + Telegram ----
+import biz as BZ, tg as TG, ocr as OC
+async def _tg_answer(u,text,ctx=""):
+    st=get_settings(u)
+    try: mems=await MEM.arecall(u,text) if st.get("memory",True) else None
+    except Exception: mems=None
+    msgs=[{"role":"system","content":persona(st,uid=u,mems=mems)+" You are replying inside Telegram: plain text, no markdown tables."}]
+    if ctx: msgs.append({"role":"system","content":"The user uploaded this document; answer questions about it:\n"+ctx[:24000]})
+    msgs.append({"role":"user","content":text})
+    try: _,t,_=await RT.complete(msgs,timeout=60,tries=2); return clean(t)
+    except RT.ModelError: return RT.friendly(st.get("lang","en"))
+TG.H.update(answer=_tg_answer,stt=AG.stt,ocr_image=OC.image_text,ocr_pdf=lambda d:OC.pdf_text(d)[0],take=PL.take,quota_msg=PL.quota_msg,audit=audit,sub_info=PL.sub_info)
+@app.on_event("startup")
+async def _tg_start(): asyncio.get_running_loop().create_task(TG.run())
+BZ.setup(app,dict(need=need,is_admin=is_admin,FT=FT,db=db,cip=cip,RT=RT,AdminOnly=AdminOnly,user=user,rate_ok=rate_ok,audit=audit,notify=SJ.notify,owner=CFG["BB_USER"]))
 # ---- Open WebUI proxy ----
 UP="http://127.0.0.1:8080"; WEBUI_PREFIXES=("/_app","/api/","/ws","/ollama","/openai","/manifest.json","/favicon","/auth","/c/","/workspace","/admin","/oauth","/assets","/static/","/notes","/channels","/playground","/home","/s/")
 client=httpx.AsyncClient(base_url=UP,timeout=120)

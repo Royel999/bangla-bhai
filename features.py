@@ -88,16 +88,16 @@ header nav,header{flex-wrap:wrap}header img{width:34px;height:34px;border-radius
 main{max-width:760px;margin:0 auto;padding:18px}.card{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:14px;margin:10px 0}
 .row{display:flex;gap:10px;align-items:center}.grow{flex:1}.mut{color:var(--mut);font-size:12.5px}
 button.b{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:8px 14px;font:inherit;cursor:pointer}button.g{background:transparent;color:var(--tx);border:1px solid var(--bd)}button.r{background:var(--red)}button.ok{background:var(--ok);color:#06210f}
-textarea,input{width:100%;background:#0b1a33;color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:9px;font:inherit}
+textarea,input,select{width:100%;background:#0b1a33;color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:9px;font:inherit}
 .tag{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--bd);color:var(--mut)}.high{border-color:var(--red);color:#ff9a9e}.medium{border-color:var(--gold);color:var(--gold)}
 .sw{position:relative;width:46px;height:26px;background:var(--bd);border-radius:99px;cursor:pointer;border:0}.sw.on{background:var(--acc)}.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}.sw.on::after{left:23px}
 .appr{border-color:var(--gold)}pre{white-space:pre-wrap;word-break:break-word;margin:6px 0;font-size:12.5px;color:#c9d4e6}.empty{color:var(--mut);text-align:center;padding:30px}
 .err{color:#ff9a9e}.okc{color:var(--ok)}</style></head><body>
-<header><img src=/bb/static/logo.png alt=""><h1 id=ttl></h1><button class=lang onclick="setL(L=='en'?'bn':'en')" id=lb></button><a href=/skills id=nsk></a><a href=/schedules id=nsc></a><a href=/memory id=nm></a><a href=/activity id=na></a><a href=/app id=nb></a></header>
+<header><img src=/bb/static/logo.png alt=""><h1 id=ttl></h1><button class=lang onclick="setL(L=='en'?'bn':'en')" id=lb></button><a href=/skills id=nsk></a><a href=/schedules id=nsc></a><a href=/memory id=nm></a><a href=/activity id=na></a><a href=/account id=nac></a><a href=/app id=nb></a></header>
 <main id=m></main><script>
 let L=localStorage.getItem('bb_lang')||'en';if(L!=='bn')L='en';
 const T=(en,bn)=>L==='bn'?bn:en;function setL(x){L=x;localStorage.setItem('bb_lang',x);hdr();render()}
-function hdr(){document.documentElement.lang=L;ttl.textContent=T('{{T_EN}}','{{T_BN}}');lb.textContent=L==='bn'?'English':'বাংলা';nm.textContent=T('Memory','মেমরি');na.textContent=T('Activity','কার্যকলাপ');nb.textContent=T('← App','← অ্যাপ');nsk.textContent=T('Skills','স্কিল');nsc.textContent=T('Schedules','শিডিউল')}
+function hdr(){document.documentElement.lang=L;ttl.textContent=T('{{T_EN}}','{{T_BN}}');lb.textContent=L==='bn'?'English':'বাংলা';nm.textContent=T('Memory','মেমরি');na.textContent=T('Activity','কার্যকলাপ');nb.textContent=T('← App','← অ্যাপ');nsk.textContent=T('Skills','স্কিল');nsc.textContent=T('Schedules','শিডিউল');nac.textContent=T('Account','অ্যাকাউন্ট')}
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function api(u,o={}){const r=await fetch(u,{credentials:'same-origin',headers:{'Content-Type':'application/json'},...o});let j={};try{j=await r.json()}catch(e){};if(!r.ok)throw new Error(j.error||T('Something went wrong','কিছু ভুল হয়েছে'));return j}
 const when=t=>new Date(t*1000).toLocaleString(L==='bn'?'bn-BD':'en-GB',{dateStyle:'medium',timeStyle:'short'});

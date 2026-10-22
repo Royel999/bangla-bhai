@@ -97,6 +97,7 @@ select{background:var(--panel2);color:var(--tx);border:1px solid var(--bd);borde
    <button onclick="location.href='/skills'">⭐ <span>Skills</span></button>
    <button onclick="location.href='/schedules'">⏰ <span>Schedules</span><span id=nfBadge style="display:none;margin-left:6px;background:#f4b400;color:#0b1a33;border-radius:99px;padding:0 7px;font-size:11px"></span></button>
    <button onclick="location.href='/memory'">🧠 <span data-i18n="app.memory">Memory</span></button>
+   <button onclick="location.href='/account'">💳 <span>Account &amp; Plan</span></button>
    <button onclick="location.href='/activity'">📋 <span data-i18n="app.activity">Activity</span></button>
    <button onclick="openSettings()">⚙️ <span data-i18n="app.settings">Settings</span></button>
    <button id="installBtn" style="display:none" onclick="installApp()">📲 <span data-i18n="app.install">Install as app</span></button>
@@ -231,6 +232,7 @@ async function run(body){const isNew=body.content!=null&&!body.edit_id||body.edi
  const paint=()=>{raf=0;c.replaceChildren(md(txt));c.lastElementChild?.classList.add('cursor');scrollEnd()};
  try{const r=await fetch(`/bb/api/chats/${CH.id}/stream`,{method:'POST',headers:{'Content-Type':'application/json'},signal:ctrl.signal,body:JSON.stringify({...body,model:$('#model').value,council:S.council})});
   if(r.status===401){location.href='/login';return}
+  if(r.status===429){const j=await r.json();c.replaceChildren(md('⚠️ '+j.error+'\n\n[⭐ Plans](/plans)'));return}
   const rd=r.body.getReader(),dec=new TextDecoder();let buf='';
   while(true){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});let i;
    while((i=buf.indexOf('\n\n'))>=0){const blk=buf.slice(0,i);buf=buf.slice(i+2);let ev='message',data='';

@@ -25,6 +25,8 @@ with db() as c:
     create table if not exists notifs(id integer primary key autoincrement,user text,title text,body text,url text,created real,read int default 0);
     create table if not exists push_subs(endpoint text primary key,user text,sub text,created real);
     create index if not exists ix_jobs_next on jobs(enabled,next_run);""")
+import plans as _PL
+def _lim(u,k): return _PL.limit(u,k) if _PL.limit(u,k) is not None else 10**6
 J=lambda s,d=None: (json.loads(s) if s else d)
 def _skill(r):
     d=dict(r); d["steps"]=J(d["steps"],[]); d["inputs"]=J(d["inputs"],[]); return d
@@ -90,7 +92,7 @@ def count_jobs(u):
 def create_job(u,owner,title,prompt,cron="",once_at=None,skill_id=None):
     title=str(title or prompt or "Job")[:80]; prompt=str(prompt or "")[:1500]
     if not prompt and not skill_id: raise Oops("Tell me what the job should do.")
-    if not owner and count_jobs(u)>=LIM["jobs"]: raise Oops(f"Free plan limit: {LIM['jobs']} active jobs. Delete or pause one first.")
+    if not owner and count_jobs(u)>=_lim(u,"jobs"): raise Oops(f"Plan limit: {_lim(u,"jobs")} active jobs. Delete or pause one first.")
     if cron:
         cron=cron.strip()
         if not valid_cron(cron): raise Oops("That schedule could not be understood.")
@@ -234,7 +236,7 @@ def setup(app,h):
         with db() as c:
             s=[_skill(r) for r in c.execute("select * from skills where user=? order by updated desc",(u,))]
             p=[{"id":r["id"],"skill_id":r["skill_id"],"source":r["source"],"created":r["created"],**J(r["draft"],{})} for r in c.execute("select * from skill_props where user=? and status='pending' order by created desc limit 20",(u,))]
-        return {"skills":s,"proposals":p,"limit":None if h["is_owner"](u) else LIM["skills"]}
+        return {"skills":s,"proposals":p,"limit":None if h["is_owner"](u) else _lim(u,"skills")}
     @app.post("/bb/api/skills/propose")
     async def sk_propose(request:Request):
         u=need(request); b=await request.json()
@@ -263,7 +265,7 @@ def setup(app,h):
                 if not c.execute("select 1 from skills where id=? and user=?",(r["skill_id"],u)).fetchone(): raise Missing
                 c.execute("update skills set description=?,steps=?,inputs=?,version=version+1,updated=? where id=?",(d["description"],json.dumps(d["steps"],ensure_ascii=False),json.dumps(d["inputs"]),t,r["skill_id"])); sid=r["skill_id"]
             else:
-                if not h["is_owner"](u) and c.execute("select count(*) n from skills where user=?",(u,)).fetchone()["n"]>=LIM["skills"]: raise Oops(f"Limit reached: {LIM['skills']} skills.")
+                if not h["is_owner"](u) and c.execute("select count(*) n from skills where user=?",(u,)).fetchone()["n"]>=_lim(u,"skills"): raise Oops(f"Limit reached: {_lim(u,"skills")} skills.")
                 name=d["name"]; i=2
                 while c.execute("select 1 from skills where user=? and name=?",(u,name)).fetchone(): name=f"{d['name']}-{i}"; i+=1
                 sid=uuid.uuid4().hex[:10]
@@ -295,7 +297,7 @@ def setup(app,h):
         with db() as c: js=[dict(r) for r in c.execute("select * from jobs where user=? order by enabled desc,next_run",(u,))]
         for j in js: j["next_txt"]=fmt(j["next_run"]) if j["enabled"] else ""
         with db() as c: sk=[{"id":r["id"],"name":r["name"]} for r in c.execute("select id,name from skills where user=? order by name",(u,))]
-        return {"jobs":js,"skills":sk,"limit":None if h["is_owner"](u) else LIM["jobs"],"active":count_jobs(u),"vapid":VAP.get("VAPID_PUBLIC",""),"now":fmt(now())}
+        return {"jobs":js,"skills":sk,"limit":None if h["is_owner"](u) else _lim(u,"jobs"),"active":count_jobs(u),"vapid":VAP.get("VAPID_PUBLIC",""),"now":fmt(now())}
     @app.post("/bb/api/jobs")
     async def jb_add(request:Request):
         u=need(request); b=await request.json()
@@ -319,7 +321,7 @@ def setup(app,h):
         if "enabled" in b:
             en=1 if b["enabled"] else 0
             if en and not j["enabled"]:
-                if not h["is_owner"](u) and count_jobs(u)>=LIM["jobs"]: raise Oops(f"Free plan limit: {LIM['jobs']} active jobs.")
+                if not h["is_owner"](u) and count_jobs(u)>=_lim(u,"jobs"): raise Oops(f"Plan limit: {_lim(u,"jobs")} active jobs.")
                 if not j["cron"] and (j["once_at"] or 0)<now(): raise Oops("This one-time job already ran.")
             with db() as c: c.execute("update jobs set enabled=?,next_run=? where id=?",(en,next_from(j["cron"]) if j["cron"] else j["next_run"],jid))
         return {"ok":True}
