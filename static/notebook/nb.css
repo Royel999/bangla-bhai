@@ -1,0 +1,12 @@
+*{box-sizing:border-box}body{margin:0;background:#0b1a33;color:#e8eefc;font:15px/1.45 Inter,"Noto Sans Bengali","Hind Siliguri",system-ui,sans-serif}
+header{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#102650;position:sticky;top:0;z-index:5}header img{width:34px;height:34px;border-radius:8px}header small{display:block;color:#9fb3da;font-size:12px}header div{flex:1}
+.back{color:#cfe0ff;text-decoration:none;border:1px solid #2a4a85;border-radius:8px;padding:5px 10px;font-size:13px}
+nav{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;background:#0d2045;position:sticky;top:58px;z-index:4}nav button{flex:none;background:#14305f;color:#cfe0ff;border:1px solid #23457f;border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer}nav button.on{background:#2f6bdf;border-color:#2f6bdf;color:#fff}
+#q{padding:8px 12px 0}#q input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #23457f;background:#0f2550;color:#fff;font:inherit}
+main{padding:12px;max-width:820px;margin:auto}h2{font-size:17px;margin:6px 0 10px}h2 small{color:#9fb3da;font-weight:400;margin-left:6px}h3{font-size:13px;color:#8fb0ff;text-transform:uppercase;letter-spacing:.05em;margin:16px 0 6px}
+.card{background:#112a57;border:1px solid #1f3f78;border-radius:14px;padding:12px;margin-bottom:10px}.card .t{font-weight:600;display:flex;gap:8px;align-items:center}.card .t a{margin-left:auto;font-size:12px;color:#8fb0ff}
+.f{display:flex;align-items:center;gap:6px;margin-top:8px}.f .k{color:#9fb3da;font-size:12px;min-width:84px;max-width:40%;overflow-wrap:anywhere}.f .v{flex:1;font-family:ui-monospace,Menlo,monospace;font-size:13px;background:#0b1f44;padding:6px 8px;border-radius:8px;overflow-wrap:anywhere;min-width:0}
+.f button{flex:none;background:#1c3c75;color:#dfe9ff;border:0;border-radius:8px;padding:6px 9px;font-size:13px;cursor:pointer}.f button:active{background:#2f6bdf}
+.n{color:#a9bbdd;font-size:12.5px;margin-top:6px;white-space:pre-wrap}.mut{color:#9fb3da}.pend{border-left:4px solid #f4b400}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#2f6bdf;color:#fff;padding:8px 14px;border-radius:999px;opacity:0;transition:.2s;pointer-events:none}#toast.s{opacity:1}
+footer{color:#7e93bd;font-size:12px;text-align:center;padding:10px 12px 30px}

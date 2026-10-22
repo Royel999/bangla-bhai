@@ -733,6 +733,8 @@ import connections as CN
 CN.setup(app,dict(need=need,user=user,is_owner=is_owner_uid,db=db,audit=audit,rate_ok=rate_ok))
 import vault as VLT
 VLT.setup(app,dict(user=user,is_owner=is_owner_uid))
+import notebook as NB
+NB.setup(app,dict(is_admin=is_admin))
 BZ.setup(app,dict(need=need,is_admin=is_admin,FT=FT,db=db,cip=cip,RT=RT,AdminOnly=AdminOnly,user=user,rate_ok=rate_ok,audit=audit,notify=SJ.notify,owner=CFG["BB_USER"]))
 # ---- Open WebUI proxy ----
 UP="http://127.0.0.1:8080"; WEBUI_PREFIXES=("/_app","/api/","/ws","/ollama","/openai","/manifest.json","/favicon","/auth","/c/","/workspace","/admin","/oauth","/assets","/static/","/notes","/channels","/playground","/home","/s/")

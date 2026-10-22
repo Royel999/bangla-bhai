@@ -146,5 +146,76 @@ def cmd_stats():
     from collections import Counter
     E = build(); print(len(E), 'entries'); [print(' ', c, n) for c, n in sorted(Counter(e['cat'] for e in E).items())]
 
+# ---------------- Owner Notebook (/notebook) ----------------
+def L(name, url, notes='', fields=(), group='', pend=False):
+    return dict(name=name, url=url, notes=notes, group=group, pend=pend, fields=[dict(k=k, v=v, s=s) for k, v, s in fields])
+def nb_pages():
+    E = build(); by = {e['id']: e for e in E}
+    owner = [f for f in by.get('srv:bangla_bhai.env', {}).get('fields', []) if f['k'] in ('BB_USER', 'BB_PASSWORD', 'BB_OWNER_EMAIL')]
+    admin = [
+     L('Admin panel / অ্যাডমিন প্যানেল', DOM+'/admin/panel', 'Payments, users, plans, settings (bKash/Nagad number).', group='Admin'),
+     L('Admin login / অ্যাডমিন লগইন', DOM+'/admin', 'Username + password login for the owner.', [(f['k'], f['v'], f['s']) for f in owner], group='Admin'),
+     L('Email-code login / ইমেইল কোড লগইন', DOM+'/login', 'Sign in with the owner email; a code arrives in Gmail.', [('Owner email', 'skbadol3210@gmail.com', False)], group='Admin'),
+     L('Owner Notebook (this page)', DOM+'/notebook', 'Add to Home Screen from Chrome menu.', group='Owner tools'),
+     L('Connections (owner setup)', DOM+'/connections', 'Telegram token, Google, GitHub, Notion, API keys.', group='Owner tools'),
+     L('Activity log', DOM+'/activity', '', group='Owner tools'),
+     L('Royal Vault (old, optional)', DOM+'/vault/', 'Older encrypted vault — not needed any more.', group='Owner tools'),
+    ]
+    user = [
+     L('User app / ইউজার অ্যাপ', DOM+'/', 'Share this link with users.', group='Users'),
+     L('User login / সাইনআপ', DOM+'/login', 'Users sign up/login with email code.', group='Users'),
+     L('Pricing / প্ল্যান', DOM+'/pricing', 'Free / Pro ৳299 / Business ৳1,499', group='Users'),
+     L('Plans & payment', DOM+'/plans', 'Users submit bKash/Nagad TrxID here.', group='Users'),
+     L('Team invite (Business)', DOM+'/team', 'Business owners invite team members by email.', group='Users'),
+     L('Account', DOM+'/account', '', group='Users'),
+     L('Privacy policy', DOM+'/privacy', '', group='Users'),
+     L('API docs', DOM+'/docs/api', '', group='Users'),
+    ]
+    apps = []
+    for e in sorted(E, key=lambda e: e['cat']):
+        if e['cat'] in ('Links', 'Pending'): continue
+        apps.append(dict(name=e['name'], url=e['url'], notes=e['notes'], group=e['cat'], fields=e['fields']))
+    B = os.path.expanduser('~/bangla_bhai')
+    d = lambda n, v, notes='', g='': L(n, '', notes, [('Value', v, False)], group=g)
+    dirs = [
+     L('GitHub repo', 'https://github.com/Royel999/bangla-bhai', 'Public, PolyForm Noncommercial.', [('Clone', 'https://github.com/Royel999/bangla-bhai.git', False), ('Live branch', 'main', False), ('Other branches', 'app-latest, old-main', False)], group='Code'),
+     L('GitHub workflows', 'https://github.com/Royel999/bangla-bhai/actions', 'keepalive.yml pings Render + domain every 5 min.', [('File', '.github/workflows/keepalive.yml', False)], group='Code'),
+     L('Render service', 'https://dashboard.render.com', 'Primary server, auto-deploys from main.', [('Service URL', 'https://bangla-bhai-q0x5.onrender.com', False)], group='Hosting'),
+     L('Cloudflare Worker', 'https://dash.cloudflare.com', 'banglabhai-proxy: domain → Render, box fallback; KV store /__bbstore; watchdog cron.', [('Worker source (box)', os.path.expanduser('~/bb_worker'), False)], group='Hosting'),
+     L('Box fallback (ngrok)', 'https://dashboard.ngrok.com', '', [('Tunnel', 'pueblo-onshore-undesired.ngrok-free.dev', False), ('Port', '8090', False)], group='Hosting'),
+     d('App folder (box)', B, '', 'Box paths'), d('Secrets folder (box)', os.path.expanduser('~/.secrets'), 'Never commit.', 'Box paths'),
+     d('Database', B+'/data.db', 'Backed up to Cloudflare KV every 2 min (persist.py).', 'Box paths'),
+     d('Media store', B+'/media_store', '', 'Box paths'),
+     d('Supervisor', B+'/supervise.sh', 'Restarted by keep_supervise.sh every 60 s.', 'Key files'),
+     d('Main app', B+'/app.py', '', 'Key files'), d('Model router', B+'/router.py', '', 'Key files'),
+     d('Plans / payments', B+'/plans.py', '', 'Key files'), d('Connections', B+'/connections.py', '', 'Key files'),
+     d('Notebook sync', B+'/vault_tools/vault_sync.py', 'Republished by hook.sh + 30-min loop.sh', 'Key files'),
+     d('Windows installer', B+'/windows/install.bat', '', 'Key files'),
+     d('Team reports', '/workspace/ROYAL_TEAM/PERSONAL/research', '', 'Backups & docs'),
+     d('Security backups', '/tmp/pre_secfix', 'Temporary', 'Backups & docs'),
+     d('Data backup', 'Cloudflare KV (via /__bbstore)', 'Restored automatically on Render boot.', 'Backups & docs'),
+    ]
+    pend = []
+    if not os.path.exists(SEC+'/telegram.env'): pend.append(L('Telegram bot token', 'https://t.me/BotFather', '/newbot → copy token → Connections > Telegram.', pend=True))
+    pend.append(L('bKash / Nagad number', DOM+'/admin/panel', 'Admin panel > Settings.', pend=True))
+    if not os.path.exists(SEC+'/brevo.env'): pend.append(L('Brevo API key (login emails to all users)', 'https://app.brevo.com/settings/keys/api', '', pend=True))
+    pend.append(L('Connect Gmail / Drive / Calendar', DOM+'/connections', 'Press Connect once; re-connect every 7 days (testing mode).', pend=True))
+    pend.append(L('Google verification (Drive/Calendar)', 'https://console.cloud.google.com/apis/credentials/consent?project=bangla-bhai', 'Optional; needed for other users.', pend=True))
+    return dict(admin=admin, user=user, apps=apps, dir=dirs, pend=pend)
+
+def cmd_notebook(req=None):
+    req = req or kv(); P = nb_pages()
+    digest = hashlib.sha256(json.dumps(P, sort_keys=True).encode()).hexdigest()[:16]
+    st = SEC+'/vault_notebook_state.json'
+    try: cur = json.load(open(st))
+    except Exception: cur = {}
+    if cur.get('digest') == digest and req('GET', 'notebook_blob'): print('notebook: unchanged v%s' % cur.get('v')); return
+    v = int(cur.get('v', 0)) + 1
+    import notebook as NBK
+    iv = os.urandom(12); ct = AESGCM(NBK.key()).encrypt(iv, json.dumps(dict(v=v, ts=int(time.time()), pages=P)).encode(), b'notebook')
+    req('PUT', 'notebook_blob', json.dumps(dict(v=v, iv=b64(iv), ct=b64(ct))).encode())
+    json.dump(dict(v=v, digest=digest), open(st, 'w')); os.chmod(st, 0o600)
+    print('notebook: published v%d (%s)' % (v, ', '.join('%s=%d' % (k, len(x)) for k, x in P.items())))
+
 if __name__ == '__main__':
-    {'feed': cmd_feed, 'import': cmd_import, 'stats': cmd_stats}[sys.argv[1] if len(sys.argv) > 1 else 'feed']()
+    {'notebook': cmd_notebook, 'feed': cmd_feed, 'import': cmd_import, 'stats': cmd_stats}[sys.argv[1] if len(sys.argv) > 1 else 'feed']()

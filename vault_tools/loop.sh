@@ -4,6 +4,7 @@ cd "$(dirname "$0")/.."
 [ -f "$HOME/.secrets/bangla_bhai.env" ] && set -a && . "$HOME/.secrets/bangla_bhai.env" && set +a
 while true; do
   ./venv/bin/python vault_tools/vault_sync.py feed >> /tmp/vault_sync.log 2>&1 || true
+  ./venv/bin/python vault_tools/vault_sync.py notebook >> /tmp/vault_sync.log 2>&1 || true
   # also honour "want sync" flag set by phone after register
   WANT=$(./venv/bin/python -c "import persist;b=persist.req('GET','vault_want_sync');print(b.decode() if b and b!=b'-' else '')" 2>/dev/null || true)
   if [ -n "$WANT" ]; then
