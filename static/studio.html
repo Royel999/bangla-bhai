@@ -1,0 +1,16 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Studio · Bangla Bhai</title>
+<link rel=manifest href=/manifest.webmanifest><meta name=theme-color content="#0b1a33"><link rel=icon href=/bb/static/icon-192.png><link rel=stylesheet href=/bb/static/bb2.css><link rel=stylesheet href=/bb/static/studio.css></head>
+<body><header class=st-top><a href=/app class=st-back title="Back to chat">←</a><div class="holo sm"><div class="holo-inner"></div><img src="/bb/static/logo.png" alt="Bangla Bhai"></div><b>Studio</b><span id=quota class=st-q></span></header>
+<nav class=st-tabs><button data-t=image class=on>🖼️ Create image</button><button data-t=edit>✏️ Edit photo</button><button data-t=video>🎬 Video</button><button data-t=keys>🔑 My API keys</button></nav>
+<main class=st-main>
+<section id=t-gen class=card><label>Model</label><select id=m-image></select><label id=uplab style="display:none">Photo to edit</label><input type=file id=f-img accept="image/png,image/jpeg,image/webp" style="display:none"><img id=prev class=prev alt="" style="display:none">
+<label>Prompt</label><textarea id=p-image rows=3 placeholder="Describe the image…"></textarea><button class="btn pri" id=go-image>Generate</button><p id=note-image class=mut></p></section>
+<section id=t-video class=card style="display:none"><label>Model</label><select id=m-video></select><p id=vnote class=mut></p><label>Start image (optional)</label><input type=file id=f-vid accept="image/png,image/jpeg,image/webp">
+<label>Prompt</label><textarea id=p-video rows=3 placeholder="Describe the video…"></textarea><button class="btn pri" id=go-video>Generate video</button><p class=mut>Video can take 1–5 minutes.</p></section>
+<section id=t-keys class=card style="display:none"><p class=mut>Add your own key to use paid models. Keys are encrypted and never shown again in full. Usage is billed to your account at the provider.</p>
+<label>Provider</label><select id=k-prov></select><label>Label (optional)</label><input id=k-label placeholder="e.g. My OpenAI"><label>API key</label><input id=k-key type=password autocomplete=off placeholder="Paste key">
+<div id=k-custom style="display:none"><label>Base URL (OpenAI-compatible, https)</label><input id=k-base placeholder="https://api.example.com/v1"></div>
+<label>Extra model names (optional, comma separated)</label><input id=k-chat placeholder="Chat models"><input id=k-img placeholder="Image models"><input id=k-vid placeholder="Video models">
+<button class="btn pri" id=k-add>Save key</button><div id=k-list></div></section>
+<h3 class=st-h>My creations</h3><div id=gal class=gal></div></main><div id=toast></div>
+<script src=/bb/static/studio.js></script></body></html>

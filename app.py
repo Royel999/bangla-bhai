@@ -74,8 +74,10 @@ def persona(st,proj_instr="",uid=None):
     if proj_instr: p+="\n\nProject instructions:\n"+proj_instr
     return p
 def clean(t): return re.sub(r"<think>.*?</think>","",t or "",flags=re.S).strip()
+def _mres(mid): return MODELS.get(mid) or _BYOK_CTX.get(mid)
+_BYOK_CTX={}
 async def call(mid,msgs,tries=1,timeout=45):
-    _,url,key,model=MODELS[mid]
+    _,url,key,model=_mres(mid)
     async with httpx.AsyncClient(timeout=timeout) as c:
         for i in range(tries):
             try:
@@ -88,7 +90,7 @@ async def call(mid,msgs,tries=1,timeout=45):
     return None
 async def stream_model(mid,msgs):
     """yields ('meta',name) then ('delta',text)...; raises on failure before first token"""
-    _,url,key,model=MODELS[mid]
+    _,url,key,model=_mres(mid)
     async with httpx.AsyncClient(timeout=httpx.Timeout(90,connect=15)) as c:
         async with c.stream("POST",url,headers={"Authorization":f"Bearer {key}"},json={"model":model,"messages":msgs,"stream":True}) as r:
             if r.status_code!=200: raise RuntimeError(f"{mid} {r.status_code}")
@@ -366,7 +368,7 @@ async def _ao(request,exc): return JSONResponse({"error":"owner only"},403)
 def health(): return {"ok":True}
 @app.get("/bb/api/models")
 def models(request:Request):
-    need(request); return [{"id":"auto","name":"Auto (সেরা + ব্যাকআপ)"}]+[{"id":k,"name":v[0]} for k,v in MODELS.items()]
+    u=need(request); return [{"id":"auto","name":"Auto (best + backup)"}]+[{"id":k,"name":v[0]} for k,v in MODELS.items()]+MD.byok_chat_list(u)
 @app.get("/bb/api/settings")
 def gs(request:Request): return get_settings(need(request))
 @app.put("/bb/api/settings")
@@ -486,7 +488,11 @@ async def stream(request:Request,cid:str):
         first=c.execute("select count(*) n from messages where chat_id=?",(cid,)).fetchone()["n"]<=1
     msgs=[{"role":"system","content":persona(st,proj["instructions"] if proj else "",uid=u)}]+hist
     q=hist[-1]["content"] if hist else ""; sel=b.get("model") or "auto"
-    chain=AUTO if sel=="auto" or sel not in MODELS else [sel]+[m for m in AUTO if m!=sel]
+    if sel.startswith("byok:"):
+        res=MD.resolve_chat(u,sel)
+        if res: _BYOK_CTX[sel]=res
+        else: sel="auto"
+    chain=AUTO if sel=="auto" or not _mres(sel) else [sel]+[m for m in AUTO if m!=sel]
     council=b.get("council") or (sel=="auto" and HARD.search(q) and len(q)>60)
     async def gen():
         advisors=[]; msgs2=msgs
@@ -507,7 +513,7 @@ async def stream(request:Request,cid:str):
             except asyncio.CancelledError: raise
             except Exception as e:
                 if full: break
-                yield "event: status\ndata: "+json.dumps({"text":(f"{MODELS[mid][0]} সাড়া দেয়নি, পরেরটা চেষ্টা করছি..." if st.get("lang")=="bn" else f"{MODELS[mid][0]} did not respond, trying the next one...")})+"\n\n"
+                yield "event: status\ndata: "+json.dumps({"text":(f"{_mres(mid)[0]} সাড়া দেয়নি, পরেরটা চেষ্টা করছি..." if st.get("lang")=="bn" else f"{_mres(mid)[0]} did not respond, trying the next one...")})+"\n\n"
           if not full:
             full=tr(st.get("lang","en"),"err.no_model",name=(tr(st.get("lang","en"),"app.owner") if is_owner_uid(u) else "")); yield "data: "+json.dumps({"d":full})+"\n\n"
         finally:
@@ -674,6 +680,10 @@ async def stt(request:Request,file:UploadFile=File(...)):
     need(request); data=await file.read()
     try: t,q=await AG.stt(data,file.content_type); audit(ev="stt",chars=len(t)); return {"text":t,"mode":q}
     except Exception as e: return JSONResponse({"error":str(e)[:200]},502)
+# ---- media studio + BYOK ----
+import media as MD
+MD.H.update(need=need,rate_ok=rate_ok,db=db,audit=audit,is_owner=is_owner_uid)
+app.include_router(MD.router)
 # ---- Open WebUI proxy ----
 UP="http://127.0.0.1:8080"; WEBUI_PREFIXES=("/_app","/api/","/ws","/ollama","/openai","/manifest.json","/favicon","/auth","/c/","/workspace","/admin","/oauth","/assets","/static/","/notes","/channels","/playground","/home","/s/")
 client=httpx.AsyncClient(base_url=UP,timeout=120)
