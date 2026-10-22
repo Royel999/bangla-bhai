@@ -97,7 +97,7 @@ async def system(cmd):
     if cmd == "logs":
         s = await render("GET", f"/services/{SRV}"); own = s.get("ownerId")
         j = await render("GET", f"/logs?ownerId={own}&resource={SRV}&limit=40&direction=backward")
-        lines = [x.get("message", "") for x in j.get("logs", [])][::-1]
+        lines = [re.sub(r"\x1b\[[0-9;]*m", "", x.get("message", "")) for x in j.get("logs", [])]
         red = re.compile(r"(gh[opsu]_|github_pat_|sk-|rnd_|AIza|gsk_)[A-Za-z0-9_\-]{8,}")
         return "\n".join(red.sub("[redacted]", l)[:300] for l in lines) or "(no logs)"
     raise ValueError("unknown system command")
@@ -249,17 +249,33 @@ async def merge(j, label):
     try: await gh("DELETE", f"/git/refs/heads/{j['branch']}")
     except Exception: pass
     return m["sha"]
+def revert_text(cur, old, new):
+    """Undo old->new inside cur (which may have later unrelated edits): 3-way-ish hunk reversal with context."""
+    import difflib
+    if cur == new: return old
+    ol, nl = old.splitlines(True), new.splitlines(True); out = cur
+    for tag, i1, i2, j1, j2 in reversed(difflib.SequenceMatcher(None, ol, nl, autojunk=False).get_opcodes()):
+        if tag == "equal": continue
+        for ctx in (2, 1, 0, 4, 8):
+            a0, b0 = max(0, j1 - ctx), min(len(nl), j2 + ctx)
+            seg_new = "".join(nl[a0:b0]); seg_old = "".join(nl[a0:j1]) + "".join(ol[i1:i2]) + "".join(nl[j2:b0])
+            if seg_new and out.count(seg_new) == 1: out = out.replace(seg_new, seg_old, 1); break
+        else: raise RuntimeError("cannot cleanly undo: the same lines were changed again later")
+    return out
 async def rollback(j):
-    """Revert a merged job: PR that restores each touched file to its pre-merge content, then merge."""
+    """Revert a merged job via a PR that undoes its hunks on top of current main, then merge."""
     msha = j["merge_sha"]; c = await gh("GET", f"/commits/{msha}"); parent = c["parents"][0]["sha"]
     main = (await gh("GET", "/git/ref/heads/main"))["object"]["sha"]
     files = {}
     for f in c.get("files", []):
-        p = f["filename"]
-        if main != msha and await read(p, main) != await read(p, msha): raise RuntimeError(f"{p} changed after this merge; rollback newer changes first")
-        files[p] = await read(p, parent)
+        p = f["filename"]; old, new, cur = await read(p, parent), await read(p, msha), await read(p, main)
+        if old is None: files[p] = None if cur == new else cur  # file added by the change
+        elif cur is None: files[p] = old
+        else: files[p] = revert_text(cur, old, new)
+    files = {p: t for p, t in files.items() if t != (await read(p, main))}
+    if not files: raise RuntimeError("nothing to roll back (already reverted?)")
     br = "devagent/rollback-" + time.strftime("%Y%m%d-%H%M%S")
-    sha = await commit_files(main, br, files, f"devagent: rollback #{j['pr']}")
+    await commit_files(main, br, files, f"devagent: rollback #{j['pr']}")
     pr = await gh("POST", "/pulls", json={"title": f"[Dev Agent] Rollback #{j['pr']}: {j.get('title','')}"[:120], "head": br, "base": "main", "body": "Owner-approved rollback."})
     m = await gh("PUT", f"/pulls/{pr['number']}/merge", json={"merge_method": "squash"})
     try: await gh("DELETE", f"/git/refs/heads/{br}")
@@ -325,7 +341,7 @@ def setup(app, HH):
             elif act == "rollback" and j["status"] in ("deployed", "deploying", "merged", "deploy_failed"):
                 n, sha = await rollback(j); j.update(status="rolled_back", rollback_pr=n, rollback_sha=sha); jput(j); log("rollback", jid, pr=n)
             else: return JSONResponse({"error": f"'{act}' not allowed while {j['status']}"}, 409)
-        except RuntimeError as e: log("action_error", jid, act=act, error=str(e)[:300]); return JSONResponse({"error": str(e)[:300]}, 502)
+        except Exception as e: log("action_error", jid, act=act, error=str(e)[:300]); return JSONResponse({"error": str(e)[:300]}, 502)
         return {"ok": True, "status": j["status"]}
     @app.post("/bb/api/dev/sys")
     async def sysc(request: Request):
