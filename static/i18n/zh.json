@@ -192,5 +192,6 @@
  "cn.all": "全部",
  "cn.none": "未找到应用",
  "cn.saved": "已保存",
- "cn.apikey": "API 密钥"
+ "cn.apikey": "API 密钥",
+ "app.install_btn": "安装应用"
 }

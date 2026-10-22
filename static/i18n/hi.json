@@ -192,5 +192,6 @@
  "cn.all": "सभी",
  "cn.none": "कोई ऐप नहीं मिला",
  "cn.saved": "सेव हुआ",
- "cn.apikey": "API की"
+ "cn.apikey": "API की",
+ "app.install_btn": "ऐप इंस्टॉल करें"
 }

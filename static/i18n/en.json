@@ -194,5 +194,6 @@
  "cn.all": "All",
  "cn.none": "No apps found",
  "cn.saved": "Saved",
- "cn.apikey": "API key"
+ "cn.apikey": "API key",
+ "app.install_btn": "Install App"
 }

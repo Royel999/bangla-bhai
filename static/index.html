@@ -101,7 +101,7 @@ select{background:var(--panel2);color:var(--tx);border:1px solid var(--bd);borde
    <button onclick="location.href='/account'">💳 <span>Account &amp; Plan</span></button>
    <button onclick="location.href='/activity'">📋 <span data-i18n="app.activity">Activity</span></button>
    <button onclick="openSettings()">⚙️ <span data-i18n="app.settings">Settings</span></button>
-   <button id="installBtn" style="display:none" onclick="installApp()">📲 <span data-i18n="app.install">Install as app</span></button>
+   <button id="installBtn" style="display:none" onclick="installApp()">📲 <span data-i18n="app.install_btn">Install App</span></button>
    <button class="owner-only" onclick="location.href='/notebook'">📒 <span>Notebook / নোটবুক</span></button>
    <button class="owner-only" onclick="location.href='/admin/panel'">🛡️ <span data-i18n="admin.panel">Admin panel</span></button>
    <button class="owner-only" onclick="location.href='/change-password'">🔑 <span data-i18n="app.pw">Change password</span></button>
@@ -279,10 +279,8 @@ $('#model').onchange=()=>saveSettings({model:$('#model').value});
 document.addEventListener('keydown',e=>{const k=e.key.toLowerCase(),m=e.ctrlKey||e.metaKey;
  if(m&&e.shiftKey&&k==='o'){e.preventDefault();newChat()}else if(m&&k==='b'){e.preventDefault();toggleSide()}else if(m&&k==='k'){e.preventDefault();toggleSide(true);$('#srch').focus()}
  else if(m&&k===','){e.preventDefault();openSettings()}else if(k==='escape'){if(ctrl)ctrl.abort();closeM()}});
-let deferred;addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;$('#installBtn').style.display='flex'});
-function installApp(){if(deferred){deferred.prompt();deferred=null}else toast(L('Use the browser menu → "Add to Home screen"','ব্রাউজারের মেনু থেকে "Add to Home screen" চাপুন'))}
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js');
 matchMedia('(prefers-color-scheme: light)').addEventListener('change',applySettings);
 (async()=>{try{window.BB_ME=await api('/bb/api/me')}catch(e){window.BB_ME={}};if(isOwner()){document.body.classList.add('is-owner');const bd=document.createElement('a');bd.href='/admin/panel';bd.className='abdg owner-only';bd.textContent='🛡️ ADMIN';bd.style.textDecoration='none';document.body.appendChild(bd)};S=await api('/bb/api/settings');await window.bbI18nReady;if(bbLang()!==S.lang)await bbSetLang(S.lang);const ms=await api('/bb/api/models');$('#model').innerHTML=ms.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
  applySettings();renderEmpty();loadChats();if(innerWidth<=820)$('#side').classList.remove('closed')})();
-</script><script src="/bb/static/bb2.js"></script><script src="/bb/static/viz.js"></script></body></html>
+</script><script src="/bb/static/bb2.js"></script><script src="/bb/static/viz.js"></script><script src="/bb/static/install.js"></script></body></html>

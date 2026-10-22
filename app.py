@@ -147,7 +147,7 @@ a{color:#8fb0ff}.lhero{text-align:center;margin-bottom:8px}
 .tabs{display:flex;gap:8px;margin:12px 0 16px}.ton,.toff{flex:1;padding:10px;border-radius:10px;border:1px solid var(--bd);font-size:13px;cursor:pointer;font-family:inherit}
 .ton{background:var(--acc);color:#fff;border-color:var(--acc)}.toff{background:#0b1a33;color:var(--mut)}.err{color:#ff7a8a}.ok{color:#7dffa8}h3{margin:0 0 8px;font-weight:650;letter-spacing:-.01em}</style>"""
 BR='<div class=lhero><div class=holo><div class=holo-inner></div><img src=/bb/static/logo.png alt="Bangla Bhai"></div><img class=wmimg src=/bb/static/wordmark.svg alt="Bangla Bhai"></div>'
-def page(body,lang="en"): return HTMLResponse(f"<!doctype html><html lang={lang} dir={'rtl' if lang in ('ar','ur') else 'ltr'}><head><meta charset=utf-8><title>Bangla Bhai</title>{CSS}</head><body>{body}<script src=/bb/static/i18n.js></script><script src=/bb/static/viz.js></script></body></html>")
+def page(body,lang="en"): return HTMLResponse(f"<!doctype html><html lang={lang} dir={'rtl' if lang in ('ar','ur') else 'ltr'}><head><meta charset=utf-8><title>Bangla Bhai</title>{CSS}</head><body>{body}<script src=/bb/static/i18n.js></script><script src=/bb/static/viz.js></script><script src=/bb/static/install.js defer></script></body></html>")
 
 @app.get("/login")
 def login_page(request:Request, e:str="", m:str="", email:str="", lang:str=""):
@@ -175,6 +175,7 @@ def login_page(request:Request, e:str="", m:str="", email:str="", lang:str=""):
   <input name=code inputmode=numeric pattern="[0-9]{{6}}" maxlength=6 placeholder="123456" autocomplete=one-time-code>
   <button type=submit data-i18n="login.login">{T("login.login")}</button>
 </form>
+<button type=button data-install-btn style="display:none;align-items:center;justify-content:center;gap:8px;width:100%;margin:14px 0 4px;padding:12px;border-radius:10px;border:1px solid #f4b400;background:transparent;color:#f4b400;font-weight:700;font-size:15px;cursor:pointer">📲 <span data-i18n="app.install_btn">Install App</span></button>
 <p style="font-size:12px;opacity:.7;margin-top:10px" data-i18n="login.note">{T("login.note")}</p>
 <div class=foot><a href=/ data-i18n="nav.home">{T("nav.home")}</a> · <a href=/privacy data-i18n="nav.privacy">{T("nav.privacy")}</a> · ♛ © 2026 Royal Universe · <a href=/admin style="opacity:.45" data-i18n="admin.link">{T("admin.link")}</a></div>
 </div>""",L)
@@ -211,6 +212,7 @@ def admin_page(request:Request, e:str="", m:str="", lang:str=""):
   <label data-i18n="login.code">{T("login.code")}</label>
   <input name=code inputmode=numeric pattern="[0-9]{{6}}" maxlength=6 placeholder="123456" autocomplete=one-time-code>
   <button type=submit data-i18n="login.login">{T("login.login")}</button></form>
+<button type=button data-install-btn style="display:none;align-items:center;justify-content:center;gap:8px;width:100%;margin:14px 0 4px;padding:12px;border-radius:10px;border:1px solid #f4b400;background:transparent;color:#f4b400;font-weight:700;font-size:15px;cursor:pointer">📲 <span data-i18n="app.install_btn">Install App</span></button>
 <div class=foot><a href=/login data-i18n="admin.back">{T("admin.back")}</a> · ♛ Royal Universe</div>
 </div>""",L)
 
@@ -277,8 +279,16 @@ def cp(request:Request,current_password:str=Form(""),new_password:str=Form(""),c
     audit(ev="password_changed"); return RedirectResponse("/change-password?m=ok",303)
 @app.get("/manifest.webmanifest")
 def manifest():
-    return JSONResponse({"name":"Bangla Bhai — Royal Universe","short_name":"Bangla Bhai","description":"Bangla Bhai — a multilingual, permission-first AI agent. Chat, run tools and control paired devices with your approval.","start_url":"/app","scope":"/","id":"/app","display":"standalone","background_color":"#0b1a33","theme_color":"#0b1a33",
+    return JSONResponse({"name":"Bangla Bhai — Royal Universe","short_name":"Bangla Bhai","description":"Bangla Bhai — a multilingual, permission-first AI agent. Chat, run tools and control paired devices with your approval.","start_url":"/app?source=pwa","scope":"/","id":"/app","display":"standalone","background_color":"#0b1a33","theme_color":"#0b1a33",
       "icons":[{"src":"/bb/static/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},{"src":"/bb/static/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},{"src":"/bb/static/icon-192-maskable.png","sizes":"192x192","type":"image/png","purpose":"maskable"},{"src":"/bb/static/icon-512-maskable.png","sizes":"512x512","type":"image/png","purpose":"maskable"}],"display_override":["standalone","window-controls-overlay"],"lang":"en","dir":"ltr","share_target":{"action":"/app","method":"GET","params":{"title":"title","text":"text","url":"url"}},"shortcuts":[{"name":"New chat","url":"/app","icons":[{"src":"/bb/static/icon-192.png","sizes":"192x192"}]}]},media_type="application/manifest+json")
+@app.get("/.well-known/assetlinks.json")
+def assetlinks():
+    try: return JSONResponse(json.load(open(BASE+"/deploy/assetlinks.json")),headers={"Cache-Control":"public, max-age=3600"})
+    except Exception: return JSONResponse([])
+APK_URL="https://github.com/Royel999/bangla-bhai/releases/latest/download/bangla-bhai.apk"
+@app.get("/download/bangla-bhai.apk")
+@app.get("/download/android")
+def apk_dl(): return RedirectResponse(APK_URL,302)
 @app.get("/sw.js")
 def sw():
     return FileResponse(BASE+"/static/sw.js",media_type="application/javascript",headers={"Cache-Control":"no-cache","Service-Worker-Allowed":"/"})

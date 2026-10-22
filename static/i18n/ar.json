@@ -192,5 +192,6 @@
  "cn.all": "الكل",
  "cn.none": "لا توجد تطبيقات",
  "cn.saved": "تم الحفظ",
- "cn.apikey": "مفتاح API"
+ "cn.apikey": "مفتاح API",
+ "app.install_btn": "تثبيت التطبيق"
 }

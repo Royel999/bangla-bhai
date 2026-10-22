@@ -192,5 +192,6 @@
  "cn.all": "Tout",
  "cn.none": "Aucune app trouvée",
  "cn.saved": "Enregistré",
- "cn.apikey": "Clé API"
+ "cn.apikey": "Clé API",
+ "app.install_btn": "Installer l'app"
 }

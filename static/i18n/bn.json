@@ -194,5 +194,6 @@
  "cn.all": "সব",
  "cn.none": "কোনো অ্যাপ পাওয়া যায়নি",
  "cn.saved": "সেভ হয়েছে",
- "cn.apikey": "API কী"
+ "cn.apikey": "API কী",
+ "app.install_btn": "অ্যাপ ইনস্টল করুন"
 }
