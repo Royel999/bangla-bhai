@@ -10,6 +10,6 @@ jobs:
     steps:
       - name: Ping Render + domain
         run: |
-          for u in https://bangla-bhai.onrender.com/bb/health https://banglabhai.dpdns.org/bb/health; do
+          for u in https://bangla-bhai-q0x5.onrender.com/bb/health https://banglabhai.dpdns.org/bb/health; do
             for i in 1 2 3; do curl -fsS -m 60 "$u" && echo " OK $u" && break; sleep 10; done
           done
