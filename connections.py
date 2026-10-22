@@ -78,6 +78,35 @@ def admin_get(k):
 def client_of(app):
     cl=OAUTH[app]["client"]; cid=admin_get(cl+"_id"); cs=admin_get(cl+"_secret")
     return (cid,dec(cs)) if cid and cs else (None,None)
+def gmail_sender():
+    """Owner-connected Gmail (gmail.compose scope allows send). Returns account email or ''."""
+    own=os.environ.get("BB_OWNER_EMAIL","skbadol3210@gmail.com").strip().lower()
+    try:
+        with db() as c: r=c.execute("select account from conn_oauth where app='gmail' and lower(account)=? order by created desc limit 1",(own,)).fetchone()
+        return r["account"] if r else ""
+    except Exception: return ""
+def gmail_send(to,subject,body):
+    """Send mail via the owner's connected Gmail (OAuth). Returns (ok, detail). Never logs tokens."""
+    import base64
+    from email.message import EmailMessage
+    own=os.environ.get("BB_OWNER_EMAIL","skbadol3210@gmail.com").strip().lower()
+    try:
+        with db() as c: r=c.execute("select id,enc from conn_oauth where app='gmail' and lower(account)=? order by created desc limit 1",(own,)).fetchone()
+        if not r: return False,"gmail_not_connected"
+        j=json.loads(dec(r["enc"])); cid,cs=client_of("gmail")
+        def _send(tok):
+            m=EmailMessage(); m["To"]=to; m["From"]=f"Bangla Bhai <{own}>"; m["Subject"]=subject; m.set_content(body)
+            raw=base64.urlsafe_b64encode(m.as_bytes()).decode()
+            return httpx.post("https://gmail.googleapis.com/gmail/v1/users/me/messages/send",headers={"Authorization":"Bearer "+tok},json={"raw":raw},timeout=20)
+        x=_send(j.get("access_token",""))
+        if x.status_code==401 and j.get("refresh_token") and cid:
+            t=httpx.post(OAUTH["gmail"]["token"],data={"grant_type":"refresh_token","refresh_token":j["refresh_token"],"client_id":cid,"client_secret":cs},timeout=20).json()
+            if not t.get("access_token"): return False,"gmail_refresh_failed"
+            j["access_token"]=t["access_token"]
+            with db() as c: c.execute("update conn_oauth set enc=? where id=?",(enc(json.dumps(j)),r["id"]))
+            x=_send(j["access_token"])
+        return (x.status_code==200), f"gmail_api {x.status_code}"
+    except Exception as e: return False,"gmail_api "+type(e).__name__
 def csrf(request):
     t=request.session.get("csrf")
     if not t: t=secrets.token_urlsafe(24); request.session["csrf"]=t

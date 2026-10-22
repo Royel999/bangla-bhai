@@ -238,7 +238,15 @@ async def otp_req(request:Request, email:str=Form(""), src:str=Form("")):
     except ValueError as e:
         return RedirectResponse(LP+"?e=send&m="+quote(str(e)),303)
     if not ok:
-        return RedirectResponse(f"{LP}?e=send&email={quote(email)}&m="+quote(detail[:80]),303)
+        try:
+            with db() as c:
+                c.execute("create table if not exists otp_pending(email text primary key,t real)")
+                c.execute("insert or replace into otp_pending values(?,?)",(email,time.time()))
+            SJ.notify(CFG["BB_USER"],"🔐 Login code not delivered","A user is waiting for a login code. Open /admin/login-requests","/admin/login-requests")
+        except Exception: pass
+        msg=("We couldn't email your code right now. The admin has been notified and can approve your login — please try again in a few minutes. / "
+             "এই মুহূর্তে কোড ইমেইলে পাঠানো যায়নি। অ্যাডমিনকে জানানো হয়েছে, তিনি আপনার লগইন অনুমোদন করতে পারবেন — কয়েক মিনিট পরে আবার চেষ্টা করুন।")
+        return RedirectResponse(f"{LP}?e=send&email={quote(email)}&m="+quote(msg),303)
     # never put code in URL
     return RedirectResponse(f"{LP}?m=sent&email={quote(email)}",303)
 
@@ -771,3 +779,36 @@ async def fallback(request:Request,path:str):
         if not is_admin(request): return JSONResponse({"error":"owner only"},403)
         return await proxy(request,p)
     return RedirectResponse("/",303)
+
+
+import secrets
+# ---- Owner approval for logins when email delivery fails ----
+@app.get("/admin/login-requests")
+def login_reqs(request:Request):
+    if not is_admin(request): return RedirectResponse("/admin",303)
+    if not request.session.get("csrf"): request.session["csrf"]=secrets.token_urlsafe(24)
+    with db() as c:
+        c.execute("create table if not exists otp_pending(email text primary key,t real)")
+        c.execute("delete from otp_pending where t<?",(time.time()-86400,))
+        rows=c.execute("select email,t from otp_pending order by t desc").fetchall()
+    import connections as CN, html as _h
+    snd=CN.gmail_sender()
+    li="".join(f"<li><b>{_h.escape(r['email'])}</b> <small>{time.strftime('%d %b %H:%M',time.localtime(r['t']))}</small> <button onclick=\"ap('{_h.escape(r['email'])}',this)\">Approve → make code</button> <span></span></li>" for r in rows) or "<li>No pending requests / কোনো অনুরোধ নেই</li>"
+    st=(f"✅ Login codes are sent from <b>{_h.escape(snd)}</b> (Gmail)." if snd else "⚠️ Sender Gmail not connected — users can't receive codes. <a class=b href='/bb/conn/oauth/gmail/start'>Connect sender Gmail</a> (sign in with the owner Gmail, allow access).")
+    page=f"""<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><title>Login requests</title>
+<style>body{{font-family:system-ui;background:#0b1a3a;color:#eef;max-width:640px;margin:auto;padding:16px}}a.b,button{{background:#2a5bd7;color:#fff;border:0;border-radius:8px;padding:8px 12px;text-decoration:none;cursor:pointer}}li{{margin:10px 0}}code{{font-size:1.3em;background:#fff2;padding:2px 6px}}</style>
+<h2>🔐 Login requests</h2><p>{st}</p><p>Users whose code email failed. Approve → a 10-minute code appears; send it to the user yourself (WhatsApp/SMS).</p><ul>{li}</ul><p><a href='/admin/panel' style='color:#9bf'>← Admin panel</a></p>
+<script>async function ap(e,b){{let r=await fetch('/bb/api/admin/otp-approve',{{method:'POST',headers:{{'Content-Type':'application/json','X-CSRF':'{request.session["csrf"]}'}},body:JSON.stringify({{email:e}})}});let j=await r.json();b.nextElementSibling.innerHTML=j.code?'Code: <code>'+j.code+'</code>':(j.error||'error')}}</script>"""
+    return HTMLResponse(page)
+
+@app.post("/bb/api/admin/otp-approve")
+async def otp_approve(request:Request):
+    if not is_admin(request): return JSONResponse({"error":"forbidden"},403)
+    if not hmac.compare_digest(request.headers.get("x-csrf",""),request.session.get("csrf","") or "x"): return JSONResponse({"error":"csrf"},403)
+    b=await request.json(); email=AU.normalize_email(b.get("email",""))
+    with db() as c:
+        c.execute("create table if not exists otp_pending(email text primary key,t real)")
+        if not c.execute("select 1 from otp_pending where email=?",(email,)).fetchone(): return JSONResponse({"error":"no pending request"},404)
+        c.execute("delete from otp_pending where email=?",(email,))
+    code=AU.create_otp(email); audit(ev="otp_owner_approved",email=email)
+    return {"ok":True,"code":code}

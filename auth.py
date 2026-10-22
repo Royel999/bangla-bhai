@@ -75,7 +75,15 @@ def send_otp_email(email, code):
           f"আপনার বাংলা ভাই লগইন কোড: {code}\n\n"
           f"কোডটি ১০ মিনিটের জন্য বৈধ। কেউ চাইলে শেয়ার করবেন না।\n\n"
           f"— বাংলা ভাই · Royal Universe")
-    # 1) Resend
+    errs=[]
+    # 0) Owner's connected Gmail (OAuth gmail.compose) — free, any recipient
+    try:
+        import connections as CN
+        ok,d=CN.gmail_send(email,subject,body)
+        if ok: audit(ev="otp_sent",via="gmail_api",email=email); return True,"gmail_api","OK"
+        errs.append(d)
+    except Exception as e: errs.append("gmail_api "+type(e).__name__)
+    # 1) Resend (onboarding@resend.dev can only reach the Resend account owner until a domain is verified)
     if RESEND.get("RESEND_API_KEY"):
         try:
             import httpx
@@ -85,8 +93,8 @@ def send_otp_email(email, code):
                 json={"from":fr,"to":[email],"subject":subject,"text":body},timeout=30)
             if r.status_code in(200,201):
                 audit(ev="otp_sent",via="resend",email=email); return True,"resend","OK"
-            return False,"resend",f"Resend {r.status_code}"
-        except Exception as e: return False,"resend",str(e)[:120]
+            errs.append(f"resend {r.status_code}")
+        except Exception as e: errs.append("resend "+type(e).__name__)
     # 2) Gmail SMTP (existing agent mailbox — no new account)
     guser=GMAIL.get("AGENT_GMAIL") or GMAIL.get("EMAIL")
     gpw=GMAIL.get("AGENT_GMAIL_PASSWORD") or GMAIL.get("PASSWORD")
@@ -109,7 +117,9 @@ def send_otp_email(email, code):
         os.chmod(path,0o600)
         audit(ev="otp_sent",via="dev_file",email=email)
         return True,"dev","ডেভ মোড: ইমেইল পাঠানো যায়নি, কোড সার্ভার ফাইলে (পাবলিক নয়)"
-    return False,"none", last_err or "ইমেইল পাঠানোর উপায় নেই — Resend API কী বা Gmail SMTP ঠিক করুন (অনুমতি লাগবে)"
+    if last_err: errs.append("smtp")
+    audit(ev="otp_send_fail",email_dom=email.split("@")[-1],errs=errs)
+    return False,"none", ";".join(errs) or "ইমেইল পাঠানোর উপায় নেই — Resend API কী বা Gmail SMTP ঠিক করুন (অনুমতি লাগবে)"
 
 def user_row(uid):
     with db() as c: r=c.execute("select * from users where id=?",(uid,)).fetchone()
