@@ -1,0 +1,11 @@
+fastapi==0.159.1
+starlette==1.9.0
+uvicorn[standard]==0.54.0
+httpx==0.28.1
+itsdangerous==2.2.0
+python-multipart==0.0.32
+Jinja2==3.1.6
+websockets==15.0.1
+pillow==12.2.0
+# optional: web-browse tool (then run: python -m playwright install chromium)
+playwright==1.64.0
