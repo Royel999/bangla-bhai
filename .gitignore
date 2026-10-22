@@ -1,0 +1,26 @@
+# secrets / env
+.env
+.env.*
+*.env
+!.env.example
+.secrets/
+*secret*
+*.pem
+*.key
+otp_dev_last.json
+# data
+data.db
+data.db-*
+*.sqlite*
+audit.jsonl
+*.log
+# runtime
+venv/
+__pycache__/
+*.pyc
+static/shots/
+sandbox/
+# old/backup code
+app_v1.py
+app_v2.py
+agent_bak_*.py

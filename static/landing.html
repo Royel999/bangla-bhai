@@ -1,0 +1,108 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Bangla Bhai — Royal Universe</title>
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0b1a33">
+<link rel="apple-touch-icon" href="/bb/static/icon-180.png"><link rel="icon" href="/bb/static/icon-192.png">
+<meta name="description" content="Bangla Bhai — a permission-first AI agent. Install it on any phone.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/bb/static/viz.css">
+<style>
+:root{--bg:#0b1a33;--panel:#122442;--tx:#eef2f8;--mut:#8b98b0;--gold:#f4b400;--acc:#1e6fd9;--crimson:#d62839;--bd:#243a5c}
+*{box-sizing:border-box}body{margin:0;font-family:'Hind Siliguri','Noto Sans Bengali',Inter,system-ui,sans-serif;background:var(--bg);color:var(--tx);line-height:1.6;-webkit-font-smoothing:antialiased}
+nav{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:16px 22px;max-width:1080px;margin:0 auto;border-bottom:1px solid var(--bd);position:relative;z-index:2}
+nav .sp{flex:1}nav a{color:var(--mut);text-decoration:none;font-size:14px;margin:0 8px}nav a:hover{color:var(--tx)}
+nav strong{font-weight:650;letter-spacing:-.01em}
+.btn{display:inline-block;padding:12px 20px;border-radius:12px;background:var(--acc);color:#fff;font-weight:650;text-decoration:none;border:0;box-shadow:0 2px 12px #1e6fd944}
+.btn.sec{background:transparent;border:1px solid var(--bd);color:var(--tx);box-shadow:none}
+.btn.sec:hover{border-color:var(--acc)}
+.hero{max-width:1080px;margin:0 auto;padding:7vh 22px 5vh;display:grid;gap:36px;grid-template-columns:1.1fr .9fr;align-items:center;position:relative;z-index:1}
+@media(max-width:800px){.hero{grid-template-columns:1fr;text-align:center}.hero .cta{justify-content:center}}
+h1{font-size:clamp(26px,4.6vw,40px);margin:12px 0;font-weight:700;letter-spacing:-.02em;line-height:1.25}
+.lead{color:var(--mut);font-size:17px;max-width:520px}
+.wm{width:min(300px,86%);display:block;margin:8px 0}
+.lang{color:var(--mut);font-size:13px;margin-top:8px}
+.cta{margin-top:24px;display:flex;gap:10px;flex-wrap:wrap}
+.grid{max-width:1080px;margin:0 auto;padding:12px 22px 64px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));position:relative;z-index:1}
+.card{background:var(--panel);border:1px solid var(--bd);border-radius:14px;padding:20px;box-shadow:0 4px 20px #0002}
+.card h3{margin:0 0 8px;font-size:16px;font-weight:650}.card p{margin:0;color:var(--mut);font-size:14px}
+footer{text-align:center;padding:28px 14px 48px;color:var(--mut);font-size:13px;border-top:1px solid var(--bd);position:relative;z-index:1}
+footer a{color:#8fb0ff}
+.holo{width:210px;height:210px;margin:0 auto;position:relative;border-radius:50%}
+.holo::before{content:"";position:absolute;inset:-6px;border-radius:50%;
+  background:conic-gradient(from 210deg,#1e6fd9,#3d8bfd,#f4b400,#1e6fd9,#3d8bfd);
+  box-shadow:0 0 28px #1e6fd955,0 0 48px #f4b40022,0 12px 32px #0006;
+  animation:ringShimmer 4.8s ease-in-out infinite}
+.holo-inner{position:absolute;inset:3px;border-radius:50%;background:var(--bg);z-index:1}
+.holo img{position:relative;z-index:2;width:100%;height:100%;border-radius:50%;object-fit:contain;display:block}
+.holo::after{content:"";position:absolute;inset:3px;border-radius:50%;z-index:3;pointer-events:none;
+  background:radial-gradient(circle at 30% 22%,#fff3,transparent 45%)}
+@keyframes ringShimmer{0%,100%{opacity:.75;filter:brightness(1)}50%{opacity:1;filter:brightness(1.1)}}
+@media(prefers-reduced-motion:reduce){.holo::before{animation:none}}
+nav .navlogo{width:38px;height:38px;border-radius:50%;object-fit:contain;box-shadow:0 0 0 2px #1e6fd955,0 4px 14px #0005}
+.flow{max-width:1080px;margin:0 auto;padding:0 22px 40px;position:relative;z-index:1}
+.flow h2{font-size:18px;margin:0 0 14px;font-weight:650}
+.timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:700px){.timeline{grid-template-columns:1fr 1fr}}
+.tstep{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:14px;position:relative}
+.tstep .n{width:26px;height:26px;border-radius:50%;background:#1e6fd922;color:var(--acc);display:grid;place-items:center;font-size:12px;font-weight:700;margin-bottom:8px}
+.tstep b{display:block;font-size:13.5px;margin-bottom:4px}.tstep span{font-size:12.5px;color:var(--mut)}
+</style></head><body>
+<nav>
+  <img class="navlogo" src="/bb/static/logo.png" width="38" height="38" alt="">
+  <strong data-i18n="brand">Bangla Bhai</strong>
+  <span class="sp"></span>
+  <a href="/pricing" data-i18n="nav.pricing">Pricing</a>
+  <a href="/privacy" data-i18n="nav.privacy">Privacy</a>
+  <a href="/docs/api">API</a>
+  <span data-lang-picker></span><a class="btn" href="/login" style="padding:8px 14px;font-size:14px" data-i18n="nav.login">Log in / Start</a>
+</nav>
+<section class="hero">
+  <div>
+    <img class="wm reveal" src="/bb/static/wordmark.svg" alt="Bangla Bhai">
+    <h1 class="reveal d1" data-i18n="hero.title">The AI agent that works with your permission</h1>
+    <p class="lead reveal d2" data-i18n="hero.lead">Talks in your language, runs tools and works on your devices — asking your permission at every sensitive step. Install it like an app on any phone.</p>
+    <p class="lang reveal d3" data-i18n="hero.tags">Multilingual · Permission-gated agent · Installable PWA</p>
+    <p class="cta reveal d3">
+      <a class="btn" href="/login" data-i18n="hero.cta_email">Start with email</a>
+      <a class="btn sec" href="/app" data-i18n="hero.cta_app">Open the app</a>
+    </p>
+  </div>
+  <div class="holo reveal d2"><div class="holo-inner"></div><img src="/bb/static/logo.png" alt="Bangla Bhai"></div>
+</section>
+<section class="flow reveal">
+  <h2 data-i18n="flow.title">How the agent works</h2>
+  <div class="timeline">
+    <div class="tstep reveal d1"><div class="n">1</div><b data-i18n="flow.s1">Ask</b><span data-i18n="flow.s1d">Give a task in your language</span></div>
+    <div class="tstep reveal d2"><div class="n">2</div><b data-i18n="flow.s2">Plan</b><span data-i18n="flow.s2d">Chooses steps and tools</span></div>
+    <div class="tstep reveal d3"><div class="n">3</div><b data-i18n="flow.s3">Approve</b><span data-i18n="flow.s3d">Shows an Approve card</span></div>
+    <div class="tstep reveal d4"><div class="n">4</div><b data-i18n="flow.s4">Done</b><span data-i18n="flow.s4d">Result + audit log</span></div>
+  </div>
+</section>
+<section class="grid">
+  <div class="card reveal d1">
+    <div class="ficon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M4 20c1.5-3.5 4-5 8-5s6.5 1.5 8 5"/><path d="M18 4h2v2M4 4h2v2M19 14h2M3 14h2"/></svg></div>
+    <h3 data-i18n="feat.council">Council intelligence</h3>
+    <p data-i18n="feat.council_d">Answers drawing on several free models — automatic fallback if one fails.</p>
+  </div>
+  <div class="card reveal d2">
+    <div class="ficon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 22h8M12 18v4"/><path d="M7 9h4M7 12h10"/></svg></div>
+    <h3 data-i18n="feat.tools">Agent tools</h3>
+    <p data-i18n="feat.tools_d">Browse, search, shell, files — with a step log and Approve cards.</p>
+  </div>
+  <div class="card reveal d3">
+    <div class="ficon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><circle cx="12" cy="18" r="1"/><path d="M9 5h6"/></svg></div>
+    <h3 data-i18n="feat.phone">Any phone</h3>
+    <p data-i18n="feat.phone_d">PWA — add to your home screen like an app. Android and iOS Safari.</p>
+  </div>
+  <div class="card reveal d4">
+    <div class="ficon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
+    <h3 data-i18n="feat.control">Owner control</h3>
+    <p data-i18n="feat.control_d">No sending, payments or device actions without permission. Everything is audit-logged.</p>
+  </div>
+</section>
+<footer class="reveal"><span data-i18n="brand">Bangla Bhai</span> · ♛ Royal Universe · <a href="/privacy" data-i18n="nav.privacy">Privacy</a> · <a href="/pricing" data-i18n="nav.pricing">Pricing</a><br>© 2026 Royal Universe</footer>
+<script src="/bb/static/i18n.js"></script><script src="/bb/static/viz.js"></script>
+<script>if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js')</script>
+</body></html>

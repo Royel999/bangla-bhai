@@ -1,0 +1,1 @@
+- 2026-10-22: i18n — English default; static/i18n/{en,bn,hi,ar,ur,es,fr,zh}.json + i18n.js (t/data-i18n), lang in settings+localStorage+bb_lang cookie, RTL ar/ur, persona replies in chosen/user language; SW bb-v60.
