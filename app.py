@@ -444,13 +444,18 @@ async def upload(request:Request,file:UploadFile=File(...)):
             return {"name":name,"kind":"text","text":text[:60000],"chars":len(text),"note":"📄 PDF read ("+how+")"}
         elif (file.content_type or "").startswith("image/"):
             import ocr as OC
-            try: ot=await asyncio.to_thread(OC.image_text,data)
-            except Exception: ot=""
-            try: m,desc=await AG.vision(data,file.content_type)
-            except Exception: m,desc="",""
+            async def _ocr():
+                if OC.LOW_MEM: return ""          # Render: the vision model already transcribes text; skip a 2nd call
+                try: return await asyncio.to_thread(OC.image_text,data)
+                except Exception: return ""
+            async def _vis():
+                try: return await AG.vision(data,file.content_type)
+                except Exception: return "",""
+            ot,(m,desc)=await asyncio.gather(_ocr(),_vis())
+            if not desc and OC.LOW_MEM: ot=await asyncio.to_thread(OC.cloud_image_text,data,file.content_type)
             audit(ev="vision",name=name,model=m,ocr=len(ot))
             if not (ot or desc): return JSONResponse({"error":"Could not read image / ছবি পড়া যায়নি"},400)
-            txt=(f"[Image description — {m}]\n{desc}\n\n" if desc else "")+(f"[OCR text (RapidOCR, local)]\n{ot}" if ot else "")
+            txt=(f"[Image description — {m}]\n{desc}\n\n" if desc else "")+(f"[OCR text ({'cloud' if OC.LOW_MEM else 'RapidOCR, local'})]\n{ot}" if ot else "")
             return {"name":name,"kind":"text","text":txt[:60000],"chars":len(txt),"note":"🖼️ Image read"+(" + OCR" if ot else "")}
         else: text=data.decode("utf-8","ignore")
     except Exception as e: audit(ev="upload_err",err=str(e)[:200]); return JSONResponse({"error":"ফাইল পড়া যায়নি — অন্য ফরম্যাটে চেষ্টা করুন। / Could not read this file."},400)
@@ -723,6 +728,8 @@ async def _tg_start():
     asyncio.get_running_loop().create_task(TG.run())
 import connections as CN
 CN.setup(app,dict(need=need,user=user,is_owner=is_owner_uid,db=db,audit=audit,rate_ok=rate_ok))
+import vault as VLT
+VLT.setup(app,dict(user=user,is_owner=is_owner_uid))
 BZ.setup(app,dict(need=need,is_admin=is_admin,FT=FT,db=db,cip=cip,RT=RT,AdminOnly=AdminOnly,user=user,rate_ok=rate_ok,audit=audit,notify=SJ.notify,owner=CFG["BB_USER"]))
 # ---- Open WebUI proxy ----
 UP="http://127.0.0.1:8080"; WEBUI_PREFIXES=("/_app","/api/","/ws","/ollama","/openai","/manifest.json","/favicon","/auth","/c/","/workspace","/admin","/oauth","/assets","/static/","/notes","/channels","/playground","/home","/s/")
