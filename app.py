@@ -1,0 +1,601 @@
+from urllib.parse import quote
+import os, json, time, re, asyncio, hmac, httpx, sqlite3, uuid, io
+from fastapi import FastAPI, Request, Form, UploadFile, File, WebSocket
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response, StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+BASE=os.path.dirname(os.path.abspath(__file__)); S=os.environ.get('BB_SECRETS_DIR') or (os.path.expanduser('~/.secrets') if os.path.isdir(os.path.expanduser('~/.secrets')) else BASE); ENVF=S+'/bangla_bhai.env'
+def env(f):
+    """Portable: merges <app>/.env, then the named file if present, then real env vars."""
+    d={}
+    for p in (os.path.join(BASE,'.env'),f):
+        try:
+            for l in open(p,encoding='utf-8'):
+                l=l.strip()
+                if l and not l.startswith('#') and '=' in l: k,v=l.split('=',1); d[k.strip()]=v.strip().strip('"')
+        except Exception: pass
+    d.update({k:v for k,v in os.environ.items() if k.isupper() and (k.startswith(('BB_','RESEND','BREVO','GMAIL','AGENT_')) or k.endswith('_API_KEY'))})
+    return d
+CFG=env(ENVF); K={**env(S+'/groq.env'),**env(S+'/gemini.env'),**env(S+'/openrouter.env')}
+AUDIT=BASE+'/audit.jsonl'; os.makedirs(BASE+'/static/shots',exist_ok=True)
+def audit(**k): open(AUDIT,'a').write(json.dumps({"t":time.time(),**k},ensure_ascii=False)+"\n")
+# ---------- DB ----------
+DB=BASE+'/data.db'
+def db():
+    c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; return c
+with db() as c:
+    c.executescript("""create table if not exists chats(id text primary key,user text,title text,pinned int default 0,project text,created real,updated real);
+create table if not exists messages(id integer primary key autoincrement,chat_id text,role text,content text,model text,advisors text,created real);
+create table if not exists settings(user text primary key,data text);
+create table if not exists projects(id text primary key,user text,name text,instructions text,created real);""")
+DEFAULT_SETTINGS={"theme":"dark","accent":"blue","lang":"en","font":16,"instructions":"","memory":True,"memory_notes":"","model":"auto","council":False}
+def get_settings(u):
+    with db() as c: r=c.execute("select data from settings where user=?",(u,)).fetchone()
+    return {**DEFAULT_SETTINGS,**(json.loads(r["data"]) if r else {})}
+# ---------- models ----------
+GROQ="https://api.groq.com/openai/v1/chat/completions"; GEM="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"; OR="https://openrouter.ai/api/v1/chat/completions"
+MODELS={
+ "groq:openai/gpt-oss-120b":("Groq · GPT-OSS 120B",GROQ,K.get("GROQ_API_KEY"),"openai/gpt-oss-120b"),
+ "groq:openai/gpt-oss-20b":("Groq · GPT-OSS 20B (দ্রুত)",GROQ,K.get("GROQ_API_KEY"),"openai/gpt-oss-20b"),
+ "groq:qwen/qwen3.8-27b":("Groq · Qwen 3.8 27B",GROQ,K.get("GROQ_API_KEY"),"qwen/qwen3.8-27b"),
+ "gemini:gemini-3.8-flash":("Google · Gemini 3.8 Flash",GEM,K.get("GEMINI_API_KEY"),"gemini-3.8-flash"),
+ "gemini:gemini-3.1-flash-lite":("Google · Gemini 3.1 Flash Lite",GEM,K.get("GEMINI_API_KEY"),"gemini-3.1-flash-lite"),
+ "openrouter:openrouter/free":("OpenRouter · Auto Free",OR,K.get("OPENROUTER_API_KEY"),"openrouter/free"),
+}
+AUTO=["groq:openai/gpt-oss-120b","gemini:gemini-3.8-flash","gemini:gemini-3.1-flash-lite","openrouter:openrouter/free","groq:openai/gpt-oss-20b"]
+ADVISORS=["gemini:gemini-3.1-flash-lite","openrouter:openrouter/free","groq:qwen/qwen3.8-27b"]
+LANG_NAMES={"en":"English","bn":"Bangla (Bengali)","hi":"Hindi","ar":"Arabic","ur":"Urdu","es":"Spanish","fr":"French","zh":"Chinese (Simplified)"}
+_I18N={}
+def i18n(lang):
+    lang=lang if lang in LANG_NAMES else "en"
+    if lang not in _I18N:
+        try: _I18N[lang]=json.load(open(os.path.join(BASE,"static","i18n",lang+".json"),encoding="utf-8"))
+        except Exception: _I18N[lang]={}
+    return _I18N[lang]
+def tr(lang,key,**kw):
+    s=i18n(lang).get(key) or i18n("en").get(key) or key
+    for k,v in kw.items(): s=s.replace("{"+k+"}",str(v))
+    return s
+def is_owner_uid(uid): return bool(uid) and str(uid)==str(CFG["BB_USER"])
+def lang_rule(st):
+    name=LANG_NAMES.get(st.get("lang","en"),"English")
+    return (f"LANGUAGE: The user's chosen app language is {name}. Reply in {name} by default. "
+            "If the user writes their message in a different language, reply in the language they wrote in. "
+            "Keep code, commands and proper nouns as-is.")
+def addr_rule(uid):
+    if is_owner_uid(uid):
+        return ("ADDRESS: This user is the owner. Address him as 'Royal' (when replying in Bangla write 'রয়েল'). "
+                "Never call him 'আব্বা'/'Abba'.")
+    return "ADDRESS: Address the user politely (you / their name). Never call them 'Royal', 'রয়েল' or 'আব্বা'."
+def persona(st,proj_instr="",uid=None):
+    try:
+        devs=AG.devices(); dlist=", ".join(f"{d['name']} ({d['id']}, {d['kind']}, {'online' if d.get('online') else 'offline'}, {d['status']})" for d in devs)
+    except Exception: dlist="(not loaded)"
+    p=("You are 'Bangla Bhai', the real AI agent of Royal Universe — not just a chatbot. "+lang_rule(st)+" "+addr_rule(uid)+" "
+       "You have real tools (shell, browse, web_search, screenshot, camera, mic) and paired devices: "+dlist+". "
+       "Never claim you cannot run commands on devices or have no tools — when an action is needed the system routes it to the agent loop. "
+       "Be concise and honest; use Markdown. Never send, pay or delete without permission.")
+    if st.get("instructions"): p+="\n\nOwner's custom instructions:\n"+st["instructions"]
+    if st.get("memory") and st.get("memory_notes"): p+="\n\nThings to remember about the user:\n"+st["memory_notes"]
+    if proj_instr: p+="\n\nProject instructions:\n"+proj_instr
+    return p
+def clean(t): return re.sub(r"<think>.*?</think>","",t or "",flags=re.S).strip()
+async def call(mid,msgs,tries=1,timeout=45):
+    _,url,key,model=MODELS[mid]
+    async with httpx.AsyncClient(timeout=timeout) as c:
+        for i in range(tries):
+            try:
+                r=await c.post(url,headers={"Authorization":f"Bearer {key}"},json={"model":model,"messages":msgs})
+                if r.status_code==200:
+                    j=r.json(); t=clean(j["choices"][0]["message"]["content"])
+                    if t: return f"{mid.split(':')[0]}/{j.get('model',model)}",t
+            except Exception: pass
+            await asyncio.sleep(1.5*(i+1))
+    return None
+async def stream_model(mid,msgs):
+    """yields ('meta',name) then ('delta',text)...; raises on failure before first token"""
+    _,url,key,model=MODELS[mid]
+    async with httpx.AsyncClient(timeout=httpx.Timeout(90,connect=15)) as c:
+        async with c.stream("POST",url,headers={"Authorization":f"Bearer {key}"},json={"model":model,"messages":msgs,"stream":True}) as r:
+            if r.status_code!=200: raise RuntimeError(f"{mid} {r.status_code}")
+            started=False; name=None; buf=""; inthink=False
+            async for line in r.aiter_lines():
+                if not line.startswith("data:"): continue
+                d=line[5:].strip()
+                if d=="[DONE]": break
+                try: j=json.loads(d)
+                except Exception: continue
+                if not name and j.get("model"): name=f"{mid.split(':')[0]}/{j['model']}"
+                ch=(j.get("choices") or [{}])[0].get("delta",{}).get("content") or ""
+                if not ch: continue
+                buf+=ch
+                if "<think>" in buf and "</think>" not in buf: inthink=True; continue
+                if inthink: buf=buf.split("</think>",1)[1]; inthink=False
+                if not started: yield ("meta",name or f"{mid.split(':')[0]}/{model}"); started=True
+                yield ("delta",buf); buf=""
+            if not started: raise RuntimeError(f"{mid} empty")
+HARD=re.compile(r"(পরিকল্পনা|plan|কোড|code|বিশ্লেষণ|analy|তুলনা|compare|সিদ্ধান্ত|decide|strategy|কৌশল)",re.I)
+# ---------- app ----------
+app=FastAPI(); app.add_middleware(SessionMiddleware,secret_key=CFG["BB_SESSION_SECRET"],https_only=False,same_site="lax",max_age=86400*30)
+app.mount("/bb/static",StaticFiles(directory=BASE+"/static"),name="static")
+import agent as AG
+import auth as AU
+def user(r):
+    u=r.session.get("u")
+    if not u: return None
+    if u==CFG["BB_USER"]: return u
+    # registered email users
+    try:
+        import auth as AU
+        if AU.user_row(u): return u
+    except Exception: pass
+    return None
+def is_admin(r): return r.session.get("role")=="owner" or r.session.get("u")==CFG["BB_USER"]
+CSS="""<meta name=viewport content="width=device-width,initial-scale=1"><link rel=manifest href=/manifest.webmanifest><meta name=theme-color content="#0b1a33"><link rel=icon href=/bb/static/icon-192.png><link rel=stylesheet href=/bb/static/viz.css>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet"><style>
+:root{--bg:#0b1a33;--panel:#122442;--tx:#eef2f8;--mut:#8b98b0;--acc:#1e6fd9;--gold:#f4b400;--bd:#243a5c;--crimson:#d62839}
+body{margin:0;font-family:'Hind Siliguri','Noto Sans Bengali',Inter,system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;-webkit-font-smoothing:antialiased}
+.box{max-width:400px;margin:8vh auto 0;background:var(--panel);border:1px solid var(--bd);border-radius:16px;padding:28px;box-shadow:0 16px 48px #0006;animation:up .35s ease}
+@keyframes up{from{opacity:0;transform:translateY(10px)}}
+label{display:block;margin:14px 0 5px;font-size:14px;color:var(--mut)}input{width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid var(--bd);background:#0b1a33;color:var(--tx);font-size:16px;font-family:inherit}
+input:focus{outline:2px solid var(--acc);border-color:var(--acc)}button{margin-top:16px;width:100%;padding:13px;border:0;border-radius:10px;background:var(--acc);color:#fff;font-size:16px;font-weight:650;cursor:pointer;font-family:inherit;box-shadow:0 2px 12px #1e6fd944}
+a{color:#8fb0ff}.lhero{text-align:center;margin-bottom:8px}
+.holo{width:120px;height:120px;margin:0 auto;position:relative;border-radius:50%}
+.holo::before{content:"";position:absolute;inset:-5px;border-radius:50%;background:conic-gradient(from 210deg,#1e6fd9,#3d8bfd,#f4b400,#1e6fd9,#3d8bfd);box-shadow:0 0 24px #1e6fd955,0 0 40px #f4b40022,0 8px 24px #0005;animation:ringShimmer 4.8s ease-in-out infinite}
+.holo-inner{position:absolute;inset:2px;border-radius:50%;background:var(--bg);z-index:1}
+.holo img{position:relative;z-index:2;width:100%;height:100%;border-radius:50%;object-fit:contain;display:block}
+.holo::after{content:"";position:absolute;inset:2px;border-radius:50%;z-index:3;pointer-events:none;background:radial-gradient(circle at 30% 22%,#fff3,transparent 45%)}
+.wmimg{width:220px;max-width:78%;margin-top:12px}
+@keyframes ringShimmer{0%,100%{opacity:.75;filter:brightness(1)}50%{opacity:1;filter:brightness(1.1)}}
+@media(prefers-reduced-motion:reduce){.holo::before{animation:none}}
+.foot{text-align:center;color:var(--mut);font-size:12px;margin-top:20px}
+.tabs{display:flex;gap:8px;margin:12px 0 16px}.ton,.toff{flex:1;padding:10px;border-radius:10px;border:1px solid var(--bd);font-size:13px;cursor:pointer;font-family:inherit}
+.ton{background:var(--acc);color:#fff;border-color:var(--acc)}.toff{background:#0b1a33;color:var(--mut)}.err{color:#ff7a8a}.ok{color:#7dffa8}h3{margin:0 0 8px;font-weight:650;letter-spacing:-.01em}</style>"""
+BR='<div class=lhero><div class=holo><div class=holo-inner></div><img src=/bb/static/logo.png alt="Bangla Bhai"></div><img class=wmimg src=/bb/static/wordmark.svg alt="Bangla Bhai"></div>'
+def page(body,lang="en"): return HTMLResponse(f"<!doctype html><html lang={lang} dir={'rtl' if lang in ('ar','ur') else 'ltr'}><head><meta charset=utf-8><title>Bangla Bhai</title>{CSS}</head><body>{body}<script src=/bb/static/i18n.js></script><script src=/bb/static/viz.js></script></body></html>")
+
+@app.get("/login")
+def login_page(request:Request, e:str="", m:str="", email:str="", lang:str=""):
+    L=lang if lang in LANG_NAMES else (request.cookies.get("bb_lang") if request.cookies.get("bb_lang") in LANG_NAMES else "en")
+    T=lambda k: tr(L,k)
+    import html as _h
+    email=_h.escape(email or "")
+    err={"otp":T("login.err_otp"),"send":T("login.err_send")}.get(e,"")
+    okmsg=T("login.sent") if m=="sent" else _h.escape(m or "")
+    return page(f"""<div class=box>
+<div style="display:flex;justify-content:flex-end" data-lang-picker></div>
+{BR}
+<div class=tabs>
+  <button type=button class=ton id=tEmail onclick="showTab('email')" data-i18n="login.email_tab">{T("login.email_tab")}</button>
+  <button type=button class=toff id=tAdmin onclick="showTab('admin')" data-i18n="login.admin_tab">{T("login.admin_tab")}</button>
+</div>
+<div id=paneEmail>
+  <h3 data-i18n="login.email_h">{T("login.email_h")}</h3>
+  {'<p class=err>'+err+'</p>' if err else ''}
+  {'<p class=ok>'+okmsg+'</p>' if okmsg else ''}
+  <form method=post action=/auth/otp/request>
+    <label data-i18n="login.email">{T("login.email")}</label>
+    <input name=email type=email required value="{email}" placeholder="you@gmail.com" autocomplete=email>
+    <button type=submit data-i18n="login.send">{T("login.send")}</button>
+  </form>
+  <form method=post action=/auth/otp/verify style="margin-top:14px">
+    <input type=hidden name=email value="{email}">
+    <label data-i18n="login.code">{T("login.code")}</label>
+    <input name=code inputmode=numeric pattern="[0-9]{{6}}" maxlength=6 placeholder="123456" autocomplete=one-time-code>
+    <button type=submit data-i18n="login.login">{T("login.login")}</button>
+  </form>
+  <p style="font-size:12px;opacity:.7;margin-top:10px" data-i18n="login.note">{T("login.note")}</p>
+</div>
+<div id=paneAdmin style="display:none">
+  <h3 data-i18n="login.admin_h">{T("login.admin_h")}</h3>
+  {'<p class=err data-i18n="login.err_pw">'+T("login.err_pw")+'</p>' if e=='1' else ''}
+  <form method=post action=/login>
+    <label for=username data-i18n="login.username">{T("login.username")}</label><input id=username name=username autocomplete=username autocapitalize=none>
+    <label for=password data-i18n="login.password">{T("login.password")}</label><input id=password name=password type=password autocomplete=current-password>
+    <button type=submit data-i18n="login.admin_btn">{T("login.admin_btn")}</button>
+  </form>
+</div>
+<div class=foot><a href=/ data-i18n="nav.home">{T("nav.home")}</a> · <a href=/privacy data-i18n="nav.privacy">{T("nav.privacy")}</a> · ♛ © 2026 Royal Universe</div>
+</div>
+<script>
+function showTab(t){{
+  document.getElementById('paneEmail').style.display=t==='email'?'block':'none';
+  document.getElementById('paneAdmin').style.display=t==='admin'?'block':'none';
+  document.getElementById('tEmail').className=t==='email'?'ton':'toff';
+  document.getElementById('tAdmin').className=t==='admin'?'ton':'toff';
+}}
+{'showTab("email")' if e!='1' else 'showTab("admin")'}
+</script>""",L)
+
+@app.post("/login")
+def do_login(request:Request,username:str=Form(""),password:str=Form("")):
+    if not rate_ok("login:"+cip(request),8,600): audit(ev="login_ratelimited"); return RedirectResponse("/login?e=1",303)
+    ok=hmac.compare_digest(username.strip(),CFG["BB_USER"]) and hmac.compare_digest(password,CFG["BB_PASSWORD"])
+    audit(ev="login",ok=ok,via="admin")
+    if not ok: return RedirectResponse("/login?e=1",303)
+    AU.ensure_owner()
+    request.session["u"]=CFG["BB_USER"]; request.session["role"]="owner"
+    return RedirectResponse("/app",303)
+
+@app.post("/auth/otp/request")
+async def otp_req(request:Request, email:str=Form("")):
+    email=AU.normalize_email(email)
+    if not (rate_ok("otp:"+cip(request),5,900) and rate_ok("otpm:"+email,3,900)):
+        return RedirectResponse("/login?e=send&m="+quote("Too many requests, try later"),303)
+    try:
+        code=AU.create_otp(email)
+        ok,via,detail=AU.send_otp_email(email, code)
+    except ValueError as e:
+        return RedirectResponse("/login?e=send&m="+quote(str(e)),303)
+    if not ok:
+        return RedirectResponse(f"/login?e=send&email={quote(email)}&m="+quote(detail[:80]),303)
+    # never put code in URL
+    return RedirectResponse(f"/login?m=sent&email={quote(email)}",303)
+
+@app.post("/auth/otp/verify")
+async def otp_ver(request:Request, email:str=Form(""), code:str=Form("")):
+    if not rate_ok("otpv:"+cip(request),15,900): return RedirectResponse("/login?e=otp&m="+quote("Too many attempts"),303)
+    ok,uid=AU.verify_otp(email, code)
+    if not ok: return RedirectResponse(f"/login?e=otp&email={quote(AU.normalize_email(email))}&m="+quote(str(uid)),303)
+    request.session["u"]=uid; request.session["role"]="user"
+    return RedirectResponse("/app",303)
+
+@app.get("/logout")
+def logout(request:Request): request.session.clear(); return RedirectResponse("/",303)
+@app.get("/change-password")
+def cp_page(request:Request,m:str=""):
+    if not user(request): return RedirectResponse("/login",303)
+    msg={"ok":"<p class=ok>পাসওয়ার্ড বদলানো হয়েছে</p>","bad":"<p class=err>বর্তমান পাসওয়ার্ড ভুল</p>","mm":"<p class=err>নতুন পাসওয়ার্ড দুটো মেলেনি বা ৮ অক্ষরের কম</p>"}.get(m,"")
+    return page(f"""<form class=box method=post action=/change-password>{BR}<h3>পাসওয়ার্ড বদলান</h3>{msg}
+<label for=current_password>Current Password</label><input id=current_password name=current_password type=password>
+<label for=new_password>New Password</label><input id=new_password name=new_password type=password autocomplete=new-password>
+<label for=confirm_password>Confirm New Password</label><input id=confirm_password name=confirm_password type=password autocomplete=new-password>
+<button type=submit>Change Password</button><p><a href=/app>← চ্যাটে ফিরুন</a></p></form>""")
+@app.post("/change-password")
+def cp(request:Request,current_password:str=Form(""),new_password:str=Form(""),confirm_password:str=Form("")):
+    if not user(request): return RedirectResponse("/login",303)
+    if not is_admin(request): return RedirectResponse("/app",303)
+    if not rate_ok("cp:"+cip(request),5,600): return RedirectResponse("/change-password?m=bad",303)
+    if not hmac.compare_digest(current_password,CFG["BB_PASSWORD"]): return RedirectResponse("/change-password?m=bad",303)
+    if new_password!=confirm_password or len(new_password)<8: return RedirectResponse("/change-password?m=mm",303)
+    CFG["BB_PASSWORD"]=new_password
+    open(ENVF,'w').write("".join(f"{k}={v}\n" for k,v in CFG.items())); os.chmod(ENVF,0o600)
+    audit(ev="password_changed"); return RedirectResponse("/change-password?m=ok",303)
+@app.get("/manifest.webmanifest")
+def manifest():
+    return JSONResponse({"name":"Bangla Bhai — Royal Universe","short_name":"Bangla Bhai","description":"Bangla Bhai — a multilingual, permission-first AI agent. Chat, run tools and control paired devices with your approval.","start_url":"/app","scope":"/","id":"/app","display":"standalone","background_color":"#0b1a33","theme_color":"#0b1a33",
+      "icons":[{"src":"/bb/static/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},{"src":"/bb/static/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},{"src":"/bb/static/icon-192-maskable.png","sizes":"192x192","type":"image/png","purpose":"maskable"},{"src":"/bb/static/icon-512-maskable.png","sizes":"512x512","type":"image/png","purpose":"maskable"}],"display_override":["standalone","window-controls-overlay"],"lang":"en","dir":"ltr","share_target":{"action":"/app","method":"GET","params":{"title":"title","text":"text","url":"url"}},"shortcuts":[{"name":"New chat","url":"/app","icons":[{"src":"/bb/static/icon-192.png","sizes":"192x192"}]}]},media_type="application/manifest+json")
+@app.get("/sw.js")
+def sw():
+    return FileResponse(BASE+"/static/sw.js",media_type="application/javascript",headers={"Cache-Control":"no-cache","Service-Worker-Allowed":"/"})
+@app.get("/")
+def landing(request:Request):
+    return FileResponse(BASE+"/static/landing.html",headers={"Cache-Control":"no-cache"})
+@app.get("/app")
+def home(request:Request):
+    if not user(request): return RedirectResponse("/login",303)
+    return FileResponse(BASE+"/static/index.html",headers={"Cache-Control":"no-cache"})
+@app.get("/pricing")
+def pricing(): return FileResponse(BASE+"/static/pricing.html",headers={"Cache-Control":"no-cache"})
+@app.get("/privacy")
+def privacy(): return FileResponse(BASE+"/static/privacy.html",headers={"Cache-Control":"no-cache"})
+@app.get("/docs/api")
+def api_docs(): return FileResponse(BASE+"/static/api.html",headers={"Cache-Control":"no-cache"})
+@app.get("/bb/api/me")
+def me(request:Request):
+    u=need(request); row=AU.user_row(u) or {"id":u,"role":"owner" if u==CFG["BB_USER"] else "user","email":None,"name":u}
+    return {"id":row.get("id") or u,"email":row.get("email"),"name":row.get("name"),"role":row.get("role") or ("owner" if is_admin(request) else "user")}
+def need(request):
+    u=user(request)
+    if not u: raise PermissionError
+    return u
+class AdminOnly(Exception): pass
+def need_admin(request):
+    u=need(request)
+    if not is_admin(request): raise AdminOnly
+    return u
+_RL={}
+def SAFE_EXT(e): e=str(e or 'png').lower(); return e if e in('png','jpg','jpeg','webp','gif','mp4','m4a','ogg','wav') else 'png'
+def rate_ok(key,n,win):
+    now=time.time(); q=[t for t in _RL.get(key,[]) if now-t<win]
+    if len(q)>=n: _RL[key]=q; return False
+    q.append(now); _RL[key]=q; return True
+def cip(r): return (r.headers.get("cf-connecting-ip") or r.headers.get("x-forwarded-for","").split(",")[0] or (r.client.host if r.client else "?")).strip()
+@app.exception_handler(PermissionError)
+async def _pe(request,exc): return JSONResponse({"error":"login required"},401)
+@app.exception_handler(AdminOnly)
+async def _ao(request,exc): return JSONResponse({"error":"owner only"},403)
+# --- API ---
+@app.get("/bb/health")
+def health(): return {"ok":True}
+@app.get("/bb/api/models")
+def models(request:Request):
+    need(request); return [{"id":"auto","name":"Auto (সেরা + ব্যাকআপ)"}]+[{"id":k,"name":v[0]} for k,v in MODELS.items()]
+@app.get("/bb/api/settings")
+def gs(request:Request): return get_settings(need(request))
+@app.put("/bb/api/settings")
+async def ps(request:Request):
+    u=need(request); b=await request.json(); st={**get_settings(u),**{k:v for k,v in b.items() if k in DEFAULT_SETTINGS}}
+    with db() as c: c.execute("insert or replace into settings values(?,?)",(u,json.dumps(st,ensure_ascii=False)))
+    audit(ev="settings_saved"); return st
+@app.get("/bb/api/chats")
+def list_chats(request:Request,q:str=""):
+    u=need(request)
+    with db() as c:
+        if q: rows=c.execute("select distinct c.* from chats c left join messages m on m.chat_id=c.id where c.user=? and (c.title like ? or m.content like ?) order by pinned desc,updated desc",(u,f"%{q}%",f"%{q}%")).fetchall()
+        else: rows=c.execute("select * from chats where user=? order by pinned desc,updated desc",(u,)).fetchall()
+    return [dict(r) for r in rows]
+@app.post("/bb/api/chats")
+async def new_chat(request:Request):
+    u=need(request); b=await request.json() if (await request.body()) else {}
+    cid=uuid.uuid4().hex[:12]; t=time.time()
+    with db() as c: c.execute("insert into chats values(?,?,?,?,?,?,?)",(cid,u,b.get("title","নতুন চ্যাট"),0,b.get("project"),t,t))
+    return {"id":cid}
+def own(c,u,cid):
+    r=c.execute("select * from chats where id=? and user=?",(cid,u)).fetchone()
+    if not r: raise PermissionError
+    return r
+@app.get("/bb/api/chats/{cid}")
+def get_chat(request:Request,cid:str):
+    u=need(request)
+    with db() as c:
+        ch=own(c,u,cid); ms=c.execute("select id,role,content,model,advisors from messages where chat_id=? order by id",(cid,)).fetchall()
+    return {**dict(ch),"messages":[{**dict(m),"advisors":json.loads(m["advisors"] or "[]")} for m in ms]}
+@app.patch("/bb/api/chats/{cid}")
+async def patch_chat(request:Request,cid:str):
+    u=need(request); b=await request.json()
+    with db() as c:
+        own(c,u,cid)
+        for k in ("title","pinned","project"):
+            if k in b: c.execute(f"update chats set {k}=? where id=?",(b[k],cid))
+    return {"ok":True}
+@app.delete("/bb/api/chats/{cid}")
+def del_chat(request:Request,cid:str):
+    u=need(request)
+    with db() as c: own(c,u,cid); c.execute("delete from messages where chat_id=?",(cid,)); c.execute("delete from chats where id=?",(cid,))
+    audit(ev="chat_deleted",chat=cid); return {"ok":True}
+@app.get("/bb/api/chats/{cid}/export.md")
+def export_md(request:Request,cid:str):
+    ch=get_chat(request,cid); out=f"# {ch['title']}\n\n_বাংলা ভাই · Royal Universe_\n\n"
+    for m in ch["messages"]: out+=("## 🧑 User\n\n" if m["role"]=="user" else f"## 🤖 Bangla Bhai ({m['model']})\n\n")+m["content"]+"\n\n"
+    return Response(out,media_type="text/markdown; charset=utf-8",headers={"Content-Disposition":f'attachment; filename="bangla-bhai-{cid}.md"'})
+@app.get("/bb/api/projects")
+def lp(request:Request):
+    u=need(request)
+    with db() as c: return [dict(r) for r in c.execute("select * from projects where user=? order by created",(u,))]
+@app.post("/bb/api/projects")
+async def cpj(request:Request):
+    u=need(request); b=await request.json(); pid=uuid.uuid4().hex[:10]
+    with db() as c: c.execute("insert into projects values(?,?,?,?,?)",(pid,u,b.get("name","নতুন প্রজেক্ট"),b.get("instructions",""),time.time()))
+    return {"id":pid}
+@app.patch("/bb/api/projects/{pid}")
+async def upj(request:Request,pid:str):
+    u=need(request); b=await request.json()
+    with db() as c:
+        for k in ("name","instructions"):
+            if k in b: c.execute(f"update projects set {k}=? where id=? and user=?",(b[k],pid,u))
+    return {"ok":True}
+@app.delete("/bb/api/projects/{pid}")
+def dpj(request:Request,pid:str):
+    u=need(request)
+    with db() as c: c.execute("delete from projects where id=? and user=?",(pid,u)); c.execute("update chats set project=null where project=? and user=?",(pid,u))
+    return {"ok":True}
+@app.get("/bb/api/export")
+def export_all(request:Request):
+    u=need(request)
+    with db() as c:
+        chats=[dict(r) for r in c.execute("select * from chats where user=?",(u,))]
+        for ch in chats: ch["messages"]=[dict(m) for m in c.execute("select role,content,model,created from messages where chat_id=? order by id",(ch["id"],))]
+        pr=[dict(r) for r in c.execute("select * from projects where user=?",(u,))]
+    audit(ev="data_export")
+    return Response(json.dumps({"settings":get_settings(u),"projects":pr,"chats":chats},ensure_ascii=False,indent=1),media_type="application/json",headers={"Content-Disposition":'attachment; filename="bangla-bhai-export.json"'})
+@app.delete("/bb/api/data")
+def clear_all(request:Request):
+    u=need(request)
+    with db() as c:
+        for (cid,) in c.execute("select id from chats where user=?",(u,)).fetchall(): c.execute("delete from messages where chat_id=?",(cid,))
+        c.execute("delete from chats where user=?",(u,)); c.execute("delete from projects where user=?",(u,))
+    audit(ev="data_cleared"); return {"ok":True}
+@app.post("/bb/api/upload")
+async def upload(request:Request,file:UploadFile=File(...)):
+    need(request); data=await file.read(); name=file.filename or "file"
+    if len(data)>15_000_000: return JSONResponse({"error":"ফাইল ১৫MB-এর বেশি"},400)
+    text=""
+    try:
+        if name.lower().endswith(".pdf") or file.content_type=="application/pdf":
+            from pypdf import PdfReader; text="\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(data)).pages[:60])
+        elif (file.content_type or "").startswith("image/"):
+            m,desc=await AG.vision(data,file.content_type); audit(ev="vision",name=name,model=m)
+            return {"name":name,"kind":"text","text":f"[ছবি বিশ্লেষণ — {m}]\n{desc}","chars":len(desc),"note":"🖼️ ছবি পড়া হয়েছে ("+m+")"}
+        else: text=data.decode("utf-8","ignore")
+    except Exception as e: return JSONResponse({"error":f"ফাইল পড়া যায়নি: {e}"},400)
+    audit(ev="upload",name=name,size=len(data))
+    return {"name":name,"kind":"text","text":text[:60000],"chars":len(text)}
+@app.post("/bb/api/chats/{cid}/stream")
+async def stream(request:Request,cid:str):
+    u=need(request); b=await request.json(); st=get_settings(u)
+    with db() as c:
+        ch=own(c,u,cid); proj=c.execute("select instructions from projects where id=?",(ch["project"],)).fetchone() if ch["project"] else None
+        if b.get("edit_id"):  # edit a user message: replace it and drop everything after
+            c.execute("delete from messages where chat_id=? and id>=?",(cid,int(b["edit_id"]) if str(b["edit_id"]).isdigit() else 10**12))
+        if b.get("regenerate"):
+            last=c.execute("select id from messages where chat_id=? and role='assistant' order by id desc limit 1",(cid,)).fetchone()
+            if last: c.execute("delete from messages where id=?",(last["id"],))
+        elif b.get("content") is not None:
+            c.execute("insert into messages(chat_id,role,content,created) values(?,?,?,?)",(cid,"user",b["content"],time.time()))
+        hist=[{"role":m["role"],"content":m["content"]} for m in c.execute("select role,content from messages where chat_id=? order by id",(cid,)).fetchall()][-24:]
+        first=c.execute("select count(*) n from messages where chat_id=?",(cid,)).fetchone()["n"]<=1
+    msgs=[{"role":"system","content":persona(st,proj["instructions"] if proj else "",uid=u)}]+hist
+    q=hist[-1]["content"] if hist else ""; sel=b.get("model") or "auto"
+    chain=AUTO if sel=="auto" or sel not in MODELS else [sel]+[m for m in AUTO if m!=sel]
+    council=b.get("council") or (sel=="auto" and HARD.search(q) and len(q)>60)
+    async def gen():
+        advisors=[]; msgs2=msgs
+        if council:
+            yield "event: status\ndata: "+json.dumps({"text":("কাউন্সিলের পরামর্শ নিচ্ছি..." if st.get("lang")=="bn" else "Consulting the council...")})+"\n\n"
+            res=await asyncio.gather(*[call(a,msgs,1,35) for a in ADVISORS if a!=chain[0]])
+            notes=[r for r in res if r]; advisors=[n for n,_ in notes]
+            if notes: msgs2=msgs+[{"role":"system","content":"কাউন্সিলের পরামর্শদাতাদের মতামত (মিলিয়ে সেরা উত্তর দাও, তাদের কথা উল্লেখ করার দরকার নেই):\n\n"+"\n\n---\n".join(f"[{n}]\n{t[:2500]}" for n,t in notes)}]
+            yield "event: advisors\ndata: "+json.dumps(advisors)+"\n\n"
+        full=""; name="none"
+        try:
+          for mid in chain:
+            try:
+                async for kind,val in stream_model(mid,msgs2):
+                    if kind=="meta": name=val; yield "event: meta\ndata: "+json.dumps({"model":val})+"\n\n"
+                    else: full+=val; yield "data: "+json.dumps({"d":val})+"\n\n"
+                break
+            except asyncio.CancelledError: raise
+            except Exception as e:
+                if full: break
+                yield "event: status\ndata: "+json.dumps({"text":(f"{MODELS[mid][0]} সাড়া দেয়নি, পরেরটা চেষ্টা করছি..." if st.get("lang")=="bn" else f"{MODELS[mid][0]} did not respond, trying the next one...")})+"\n\n"
+          if not full:
+            full=tr(st.get("lang","en"),"err.no_model",name=(tr(st.get("lang","en"),"app.owner") if is_owner_uid(u) else "")); yield "data: "+json.dumps({"d":full})+"\n\n"
+        finally:
+          save(full or "_(থামানো হয়েছে)_",name,advisors)
+        yield "event: done\ndata: "+json.dumps({"model":name})+"\n\n"
+    def save(full,name,advisors):
+        with db() as c:
+            c.execute("insert into messages(chat_id,role,content,model,advisors,created) values(?,?,?,?,?,?)",(cid,"assistant",full,name,json.dumps(advisors),time.time()))
+            c.execute("update chats set updated=? where id=?",(time.time(),cid))
+            if first and ch["title"]=="নতুন চ্যাট":
+                t=re.sub(r"\s+"," ",q)[:40]; c.execute("update chats set title=? where id=?",(t or "নতুন চ্যাট",cid))
+        audit(ev="chat",chat=cid,model=name,advisors=advisors)
+    return StreamingResponse(gen(),media_type="text/event-stream",headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"})
+# legacy non-stream endpoint (kept)
+@app.post("/bb/api/chat")
+async def chat(request:Request):
+    u=need(request); b=await request.json(); hist=b.get("messages",[])[-20:]; st=get_settings(u)
+    msgs=[{"role":"system","content":persona(st,uid=u)}]+hist; advisors=[]
+    if b.get("council"):
+        notes=[r for r in await asyncio.gather(*[call(a,msgs) for a in ADVISORS]) if r]; advisors=[n for n,_ in notes]
+        if notes: msgs+= [{"role":"system","content":"কাউন্সিলের মতামত:\n"+"\n---\n".join(t[:2500] for _,t in notes)}]
+    for mid in AUTO:
+        r=await call(mid,msgs,2)
+        if r: audit(ev="chat",model=r[0]); return {"answer":r[1],"model":r[0],"advisors":advisors}
+    return {"answer":"দুঃখিত, কোনো মডেল সাড়া দিচ্ছে না।","model":"none","advisors":advisors}
+
+# ---------- agent / link / voice / vision ----------
+@app.post("/bb/api/chats/{cid}/note")
+async def note(request:Request,cid:str):
+    u=need(request); b=await request.json()
+    with db() as c:
+        own(c,u,cid)
+        if b.get("user"): c.execute("insert into messages(chat_id,role,content,created) values(?,?,?,?)",(cid,"user",b["user"],time.time()))
+        if b.get("assistant") is not None: c.execute("insert into messages(chat_id,role,content,model,created) values(?,?,?,?,?)",(cid,"assistant",b["assistant"],"বাংলা ভাই এজেন্ট",time.time()))
+        c.execute("update chats set updated=?, title=CASE WHEN title='নতুন চ্যাট' THEN ? ELSE title END where id=?",(time.time(),(b.get("user") or "")[:40] or "নতুন চ্যাট",cid))
+    return {"ok":True}
+@app.post("/bb/api/intent")
+async def intent(request:Request):
+    need_admin(request); b=await request.json(); r=await AG.classify_intent(b.get("text",""))
+    audit(ev="intent",**{k:r.get(k) for k in("action","reason","device_hint","confidence")}); return r
+@app.post("/bb/api/agent")
+async def ag_start(request:Request):
+    u=need_admin(request); b=await request.json(); st=get_settings(u)
+    sysx=lang_rule(st)+" "+addr_rule(u)+" Write the JSON 'thought' and 'final' fields in that language."
+    return {"id":AG.start_task(b.get("goal",""),sysx)}
+@app.get("/bb/api/agent/{tid}")
+def ag_events(request:Request,tid:str,since:int=0):
+    need_admin(request); t=AG.TASKS.get(tid)
+    if not t: return JSONResponse({"error":"নেই"},404)
+    return {"status":t["status"],"events":t["events"][since:],"n":len(t["events"])}
+@app.post("/bb/api/agent/{tid}/decide")
+async def ag_decide(request:Request,tid:str):
+    need_admin(request); b=await request.json(); return {"ok":AG.decide(tid,b["id"],"yes" if b.get("ok") else "no")}
+@app.get("/bb/api/devices")
+def dv(request:Request): need_admin(request); return {"devices":AG.devices(),"caps":AG.CAPS}
+@app.post("/bb/api/devices/{did}/{act}")
+async def dv_act(request:Request,did:str,act:str):
+    need_admin(request)
+    if act in("approve","deny"): AG.pair_decide(did,act=="approve")
+    elif act=="perm": b=await request.json(); AG.set_perm(did,b["cap"],b["mode"]) if b["mode"] in AG.MODES and b["cap"] in AG.CAPS else None
+    elif act=="remove":
+        with AG.db() as c: c.execute("update devices set status='revoked' where id=?",(did,))
+        audit(ev="device_revoked",device=did)
+    return {"ok":True}
+@app.post("/bb/api/revoke-all")
+def rv(request:Request): need_admin(request); AG.revoke_all(); return {"ok":True}
+@app.post("/bb/link/pair")
+async def lk_pair(request:Request):
+    if not rate_ok("pair:"+cip(request),5,3600): return JSONResponse({"error":"rate limited"},429)
+    b=await request.json(); info=b.get("info",{}) if isinstance(b.get("info"),dict) else {}
+    if len(json.dumps(info))>4000: info={}
+    did,tok=AG.pair_request(str(b.get("name","device"))[:60],str(b.get("kind","laptop"))[:20],info); return {"device":did,"token":tok}
+@app.get("/bb/link/status")
+def lk_status(token:str):
+    d=AG.dev_by_token(token); return {"status":d["status"] if d else "unknown","perms":{k:AG.get_perm(d["id"],k) for k in AG.CAPS} if d else {}}
+@app.get("/bb/link/poll")
+async def lk_poll(token:str):
+    d=AG.dev_by_token(token)
+    if not d or d["status"]!="approved": return JSONResponse({"status":d["status"] if d else "unknown"},403)
+    q=AG.LINK_Q.setdefault(d["id"],asyncio.Queue())
+    try: job=await asyncio.wait_for(q.get(),25)
+    except asyncio.TimeoutError: return {"job":None}
+    audit(ev="link_dispatch",device=d["id"],action=job["action"]); return {"job":job}
+@app.post("/bb/link/result")
+async def lk_res(request:Request):
+    b=await request.json(); d=AG.dev_by_token(b.get("token"))
+    if not d: return JSONResponse({},403)
+    f=AG.LINK_RES.get(b.get("cid"))
+    r=b.get("result") or {}
+    if r.get("image_b64"):
+        import base64; fn=f"shots/{uuid.uuid4().hex[:8]}.{SAFE_EXT(r.get('ext'))}"; open(BASE+"/static/"+fn,"wb").write(base64.b64decode(r.pop("image_b64"))); r["image"]="/bb/static/"+fn
+    audit(ev="link_result",device=d["id"],ok=not r.get("error"))
+    if f and not f.done(): f.set_result(r)
+    return {"ok":True}
+
+@app.websocket("/bb/link/ws")
+async def lk_ws(ws: WebSocket):
+    from starlette.websockets import WebSocketDisconnect
+    await ws.accept(); tok=ws.query_params.get("token"); d=AG.dev_by_token(tok)
+    if not d or d["status"]!="approved": await ws.close(code=4403); return
+    q=AG.LINK_Q.setdefault(d["id"],asyncio.Queue()); audit(ev="link_ws_open",device=d["id"])
+    async def push():
+        while True:
+            job=await q.get(); await ws.send_json(job); audit(ev="link_dispatch",device=d["id"],action=job["action"],via="ws")
+    t=asyncio.create_task(push())
+    try:
+        while True:
+            b=await ws.receive_json(); f=AG.LINK_RES.get(b.get("cid")); r=b.get("result") or {}
+            if r.get("image_b64"):
+                import base64; fn=f"shots/{uuid.uuid4().hex[:8]}.{SAFE_EXT(r.get('ext'))}"; open(BASE+"/static/"+fn,"wb").write(base64.b64decode(r.pop("image_b64"))); r["image"]="/bb/static/"+fn
+            audit(ev="link_result",device=d["id"],ok=not r.get("error"),via="ws")
+            if f and not f.done(): f.set_result(r)
+            AG.dev_by_token(tok)  # touch last_seen
+    except WebSocketDisconnect: pass
+    finally: t.cancel(); audit(ev="link_ws_close",device=d["id"])
+
+@app.get("/bb/link/{fn}")
+def lk_file(fn:str):
+    if fn not in("royal_link.py","royal_link_termux.sh","royal_link_tray.py","install_termux.sh","README.md","SHIZUKU_BN.md"): return Response(status_code=404)
+    return FileResponse(BASE+"/link/"+fn,media_type="text/plain; charset=utf-8")
+@app.post("/bb/api/tts")
+async def tts(request:Request):
+    need(request); b=await request.json()
+    try: return Response(await AG.tts(re.sub(r"[`*#>|_\[\]()]","",b.get("text",""))),media_type="audio/mpeg")
+    except Exception as e: return JSONResponse({"error":str(e)[:200]},502)
+@app.post("/bb/api/stt")
+async def stt(request:Request,file:UploadFile=File(...)):
+    need(request); data=await file.read()
+    try: t,q=await AG.stt(data,file.content_type); audit(ev="stt",chars=len(t)); return {"text":t,"mode":q}
+    except Exception as e: return JSONResponse({"error":str(e)[:200]},502)
+# ---- Open WebUI proxy ----
+UP="http://127.0.0.1:8080"; WEBUI_PREFIXES=("/_app","/api/","/ws","/ollama","/openai","/manifest.json","/favicon","/auth","/c/","/workspace","/admin","/oauth","/assets","/static/","/notes","/channels","/playground","/home","/s/")
+client=httpx.AsyncClient(base_url=UP,timeout=120)
+async def proxy(request:Request,path:str):
+    h={k:v for k,v in request.headers.items() if k.lower() not in("host","content-length","accept-encoding")}
+    r=await client.request(request.method,path+("?"+request.url.query if request.url.query else ""),headers=h,content=await request.body())
+    rh={k:v for k,v in r.headers.items() if k.lower() not in("content-length","transfer-encoding","content-encoding","connection")}
+    return Response(r.content,r.status_code,rh)
+@app.api_route("/webui{path:path}",methods=["GET","POST","PUT","DELETE","PATCH"])
+async def webui(request:Request,path:str):
+    r=await proxy(request,path or "/")
+    if (path in("","/")) and r.headers.get("content-type","").startswith("text/html"):
+        b=r.body.decode().replace("<head>","<head><script>history.replaceState(null,'','/c/');</script>",1)
+        return HTMLResponse(b,r.status_code)
+    return r
+@app.api_route("/{path:path}",methods=["GET","POST","PUT","DELETE","PATCH"])
+async def fallback(request:Request,path:str):
+    p="/"+path
+    if p.startswith(WEBUI_PREFIXES): return await proxy(request,p)
+    return RedirectResponse("/",303)

@@ -1,0 +1,268 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Bangla Bhai — Royal Universe</title>
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0b1a33"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;650;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="/bb/static/icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="apple-touch-icon" href="/bb/static/icon-180.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/github-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@14/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/highlight.min.js"></script>
+<style>
+:root{--acc:#1e6fd9;--acc2:#1e6fd9;--crimson:#d62839;--gold:#f4b400;--bg:#0b1a33;--panel:#122442;--panel2:#183054;--tx:#eef2f8;--mut:#8b98b0;--bd:#243a5c;--fs:16px}
+:root[data-theme=light]{--bg:#f7f4ef;--panel:#ffffff;--panel2:#f0ebe3;--tx:#152238;--mut:#5c6678;--bd:#e2d9cc;--gold:#c99700}
+:root[data-acc=red]{--acc:#d62839;--acc2:#d62839}:root[data-acc=black]{--acc:#1a2233;--acc2:#1a2233}
+:root[data-theme=light][data-acc=black]{--acc:#1a2233}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font-family:'Hind Siliguri','Noto Sans Bengali',Inter,system-ui,sans-serif;font-size:var(--fs);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+#app{display:flex;height:100dvh;overflow:hidden}
+#side{width:290px;background:var(--panel);border-right:1px solid var(--bd);display:flex;flex-direction:column;transition:transform .25s ease,width .25s ease;z-index:30}
+#side.closed{width:0;overflow:hidden;border:0}
+@media(max-width:820px){#side{position:fixed;inset:0 auto 0 0;transform:translateX(-100%);width:84vw;max-width:320px;box-shadow:10px 0 40px #0008}#side.open{transform:none}#side.closed{width:84vw}}
+#scrim{display:none;position:fixed;inset:0;background:#0007;z-index:25}#scrim.on{display:block}
+.brand{display:flex;align-items:center;gap:10px;padding:14px 14px 8px}.brand img{width:36px;height:36px;border-radius:10px}.brand b{display:block}.brand small{color:var(--mut);font-size:12px}
+.sbtn{display:flex;align-items:center;gap:8px;margin:8px 14px;padding:11px 14px;border-radius:12px;background:var(--acc);color:#fff;font-weight:600;box-shadow:0 2px 10px #1e6fd944}
+.srch{margin:6px 12px;padding:9px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--panel2);color:var(--tx);width:calc(100% - 24px);font:inherit;font-size:14px}
+.sec{color:var(--mut);font-size:12px;margin:12px 16px 4px;display:flex;justify-content:space-between;align-items:center}
+.sec button{color:var(--mut);font-size:16px}
+#list{flex:1;overflow:auto;padding:0 6px 10px}
+.it{display:flex;align-items:center;gap:6px;padding:9px 10px;border-radius:10px;font-size:14px;cursor:pointer;position:relative}
+.it:hover,.it.act{background:var(--panel2)}.it .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .mb{opacity:.0;padding:2px 6px}.it:hover .mb,.it.act .mb{opacity:.8}@media(max-width:820px){.it .mb{opacity:.7}}
+.menu{position:fixed;background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:6px;z-index:60;min-width:170px;box-shadow:0 10px 30px #0006;animation:pop .15s ease}
+.menu button{display:block;width:100%;text-align:left;padding:9px 12px;border-radius:8px;font-size:14px}.menu button:hover{background:var(--panel2)}
+@keyframes pop{from{opacity:0;transform:scale(.96)}}
+.sfoot{border-top:1px solid var(--bd);padding:8px}.sfoot button{display:flex;gap:8px;width:100%;padding:9px 10px;border-radius:10px;font-size:14px}.sfoot button:hover{background:var(--panel2)}
+#main{flex:1;display:flex;flex-direction:column;min-width:0}
+#top{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--bd);background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(8px)}
+.ib{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:18px}.ib:hover{background:var(--panel2)}
+select{background:var(--panel2);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:7px 8px;font:inherit;font-size:14px;max-width:52vw}
+.tog{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mut);padding:6px 10px;border-radius:999px;border:1px solid var(--bd)}
+.tog.on{color:#fff;background:var(--acc);border-color:var(--acc)}
+#ttl{flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px}
+#scroll{flex:1;overflow:auto;scroll-behavior:smooth}
+#msgs{max-width:820px;margin:0 auto;padding:18px 14px 30px}
+.msg{display:flex;gap:10px;margin:14px 0;animation:up .25s ease}@keyframes up{from{opacity:0;transform:translateY(8px)}}
+.msg .av{width:30px;height:30px;border-radius:9px;flex:none}.msg.user{justify-content:flex-end}
+.bub{max-width:100%;min-width:0;line-height:1.65}.msg.user .bub{background:var(--acc);color:#fff;padding:10px 14px;border-radius:18px 18px 4px 18px;max-width:85%;white-space:pre-wrap}
+.msg.bot .bub{flex:1}.bub p{margin:.4em 0}.bub pre{position:relative;background:var(--panel2);border:1px solid var(--bd);border-radius:12px;padding:12px;overflow:auto;font-size:13.5px}
+.bub code{font-family:ui-monospace,Menlo,monospace}.bub :not(pre)>code{background:var(--panel2);padding:1px 5px;border-radius:5px}
+.bub table{border-collapse:collapse;display:block;overflow:auto;margin:8px 0}.bub th,.bub td{border:1px solid var(--bd);padding:6px 10px}.bub th{background:var(--panel2)}
+.cpy{position:absolute;top:6px;right:6px;font-size:12px;background:#ffffff1a;color:#fff;padding:3px 8px;border-radius:6px}
+.meta{font-size:12px;color:var(--mut);margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.meta .chip{background:var(--panel2);border:1px solid var(--bd);padding:2px 8px;border-radius:999px}
+.acts{display:flex;gap:2px;margin-top:4px}.acts button{font-size:13px;color:var(--mut);padding:4px 7px;border-radius:7px}.acts button:hover{background:var(--panel2);color:var(--tx)}
+.status{font-size:13px;color:var(--mut);display:flex;align-items:center;gap:8px}
+.dots span{display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:var(--acc);animation:b 1s infinite}.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
+@keyframes b{50%{transform:translateY(-5px);opacity:.5}}
+.cursor::after{content:'▍';animation:bl 1s infinite;color:var(--acc)}@keyframes bl{50%{opacity:0}}
+#empty{text-align:center;padding:8vh 14px 0}
+#empty h1{font-size:26px;margin:14px 0 4px}#empty p{color:var(--mut);margin:0 0 20px}
+.sugs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;max-width:700px;margin:0 auto}
+.sug{text-align:left;padding:14px;border-radius:14px;border:1px solid var(--bd);background:var(--panel);font-size:14px;transition:border-color .15s,box-shadow .15s;line-height:1.45}
+.sug:hover{border-color:var(--acc);box-shadow:0 4px 16px #1e6fd922}.sug b{display:block;margin-bottom:4px;font-weight:600}
+#comp{padding:8px 10px calc(10px + env(safe-area-inset-bottom))}
+.cbox{max-width:820px;margin:0 auto;background:var(--panel);border:1px solid var(--bd);border-radius:20px;padding:10px;box-shadow:0 4px 24px #0002;transition:border-color .2s,box-shadow .2s}
+.cbox:focus-within{border-color:var(--acc)}
+#att{display:flex;flex-wrap:wrap;gap:6px;padding:0 4px}.att{font-size:12px;background:var(--panel2);border:1px solid var(--bd);border-radius:9px;padding:4px 8px}
+#inp{width:100%;border:0;background:none;color:var(--tx);font:inherit;resize:none;outline:0;padding:8px 8px;max-height:200px}
+.crow{display:flex;align-items:center;gap:4px}.crow .sp{flex:1}
+#send{width:40px;height:40px;border-radius:50%;background:var(--acc);color:#fff;font-size:18px;display:grid;place-items:center;transition:transform .15s;box-shadow:0 2px 12px #1e6fd955}#send:active{transform:scale(.92)}
+#send.stop{background:var(--tx);color:var(--bg)}
+.hint{text-align:center;font-size:11px;color:var(--mut);margin-top:6px}
+.modal{position:fixed;inset:0;background:#000a;display:none;align-items:flex-end;justify-content:center;z-index:70}.modal.on{display:flex}
+@media(min-width:700px){.modal{align-items:center}}
+.sheet{background:var(--panel);width:100%;max-width:560px;max-height:88dvh;overflow:auto;border-radius:20px 20px 0 0;padding:18px;animation:sl .25s ease}
+@media(min-width:700px){.sheet{border-radius:20px}}@keyframes sl{from{transform:translateY(30px);opacity:0}}
+.sheet h2{margin:0 0 10px;font-size:19px;display:flex;justify-content:space-between}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--bd);font-size:14px}
+.row textarea,.fld{width:100%;background:var(--panel2);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:9px;font:inherit;font-size:14px}
+.seg{display:flex;background:var(--panel2);border-radius:10px;padding:3px}.seg button{padding:6px 10px;border-radius:8px;font-size:13px}.seg button.on{background:var(--acc);color:#fff}
+.btn{padding:9px 14px;border-radius:10px;background:var(--panel2);border:1px solid var(--bd);font-size:14px}.btn.pri{background:var(--acc);color:#fff;border:0}.btn.dan{background:var(--crimson,#d62839);color:#fff;border:0}
+#toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%) translateY(20px);background:var(--tx);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:90}
+#toast.on{opacity:1;transform:translateX(-50%)}
+.kbd{font-family:ui-monospace,monospace;background:var(--panel2);border:1px solid var(--bd);border-radius:5px;padding:1px 6px;font-size:12px}
+</style><link rel="stylesheet" href="/bb/static/bb2.css"><link rel="stylesheet" href="/bb/static/viz.css"><script>window.BB_APP=1</script><script src="/bb/static/i18n.js"></script></head><body>
+<div id="app">
+ <aside id="side">
+  <div class="brand"><div class="holo sm"><div class="holo-inner"></div><img src="/bb/static/logo.png" alt="Bangla Bhai"></div><img class="wm" src="/bb/static/wordmark.svg" alt="Bangla Bhai"></div>
+  <button class="sbtn" onclick="newChat()">✚ <span data-i18n="app.new">New chat</span></button>
+  <input class="srch" id="srch" data-i18n-ph="app.search" placeholder="🔍 Search chats..." oninput="loadChats()">
+  <div class="sec"><span data-i18n="app.projects">Projects</span><button title="+" onclick="newProject()">＋</button></div>
+  <div id="plist" style="padding:0 6px"></div>
+  <div class="sec"><span data-i18n="app.chats">Chats</span></div>
+  <div id="list"></div>
+  <div class="sfoot">
+   <button onclick="openSettings()">⚙️ <span data-i18n="app.settings">Settings</span></button>
+   <button id="installBtn" style="display:none" onclick="installApp()">📲 <span data-i18n="app.install">Install as app</span></button>
+   <button onclick="location.href='/change-password'">🔑 <span data-i18n="app.pw">Change password</span></button>
+   <button onclick="location.href='/logout'">↩︎ <span data-i18n="app.logout">Log out</span></button>
+  </div>
+ </aside>
+ <div id="scrim" onclick="toggleSide(false)"></div>
+ <main id="main">
+  <div id="top">
+   <button class="ib" onclick="toggleSide()" title="Sidebar (Ctrl+B)">☰</button>
+   <select id="model" title="Model"></select>
+   <button class="tog" id="agentT" onclick="setAgent(!AGENT)" title="Agent mode: uses tools, asks permission for every action">🤖 <span data-i18n="app.agent">Agent</span></button>
+   <button class="tog" id="council" onclick="setCouncil(!S.council)" title="Council">🧠 <span data-i18n="app.council">Council</span></button>
+   <div id="ttl"></div>
+   <button class="ib" onclick="shareChat()" title="Export / share">⤴︎</button>
+   <button class="ib" onclick="newChat()" title="New chat (Ctrl+Shift+O)">✎</button>
+  </div>
+  <div id="scroll"><div id="msgs"></div></div>
+  <div id="comp"><div class="cbox">
+   <div id="att"></div>
+   <textarea id="inp" rows="1" placeholder="Ask Bangla Bhai anything..."></textarea>
+   <div class="crow">
+    <button class="ib" title="Attach file (PDF/text/image)" onclick="document.getElementById('file').click()">📎</button>
+    <input type="file" id="file" hidden multiple accept=".pdf,.txt,.md,.csv,.json,.html,.py,.js,image/*,text/*">
+    <button class="ib" id="micB" title="Voice input" onclick="toggleMic()">🎙️</button>
+    <button class="ib" id="camB" title="Show via camera" onclick="openCam()">📷</button>
+    <span class="sp"></span>
+    <button id="send" onclick="sendOrStop()" title="Send (Enter)">➤</button>
+   </div></div>
+   <div class="hint" data-i18n="app.hint">Bangla Bhai can make mistakes. Verify important information.</div>
+  </div>
+ </main>
+</div>
+<div class="modal" id="mset" onclick="if(event.target===this)closeM()"><div class="sheet" id="setbody"></div></div>
+<div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s);let S={},CH=null,CHATS=[],PROJ=[],FILES=[],ctrl=null,curProject=null;
+const T={bn:{new:"নতুন চ্যাট",projects:"প্রজেক্ট",chats:"চ্যাট",settings:"সেটিংস",pw:"পাসওয়ার্ড বদলান",logout:"লগআউট",council:"কাউন্সিল",ph:"বাংলা ভাইকে কিছু জিজ্ঞেস করুন..."},
+ en:{new:"New chat",projects:"Projects",chats:"Chats",settings:"Settings",pw:"Change password",logout:"Log out",council:"Council",ph:"Ask Bangla Bhai anything..."}};
+const api=async(u,o={})=>{const r=await fetch(u,{headers:{'Content-Type':'application/json'},...o});if(r.status===401){location.href='/login';throw 0}return r.headers.get('content-type')?.includes('json')?r.json():r.text()};
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2200)}
+marked.setOptions({breaks:true,gfm:true});
+function md(t){const h=DOMPurify.sanitize(marked.parse(t||''));const d=document.createElement('div');d.innerHTML=h;
+ d.querySelectorAll('pre code').forEach(c=>{try{hljs.highlightElement(c)}catch(e){}const b=document.createElement('button');b.className='cpy';b.textContent=L('Copy','কপি');b.onclick=()=>{navigator.clipboard.writeText(c.innerText);b.textContent=L('✓ Copied','✓ কপি হয়েছে');setTimeout(()=>b.textContent=L('Copy','কপি'),1500)};c.parentElement.appendChild(b)});
+ d.querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});return d}
+function applySettings(){const r=document.documentElement;let th=S.theme;if(th==='system')th=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';
+ r.dataset.theme=th;r.dataset.acc=S.accent;r.style.setProperty('--fs',(S.font||16)+'px');r.lang=S.lang;
+ if(window.bbSetLang&&bbLang()!==S.lang)bbSetLang(S.lang);setPh();
+ $('#council').classList.toggle('on',!!S.council);if($('#model').options.length)$('#model').value=S.model||'auto'}
+async function saveSettings(p){Object.assign(S,p);applySettings();S=await api('/bb/api/settings',{method:'PUT',body:JSON.stringify(S)});applySettings()}
+function setCouncil(v){saveSettings({council:v});toast(t(v?'app.council_on':'app.council_off'))}
+function setPh(){$('#inp').placeholder=t((typeof AGENT!=='undefined'&&AGENT)?'app.ph_agent':'app.ph')}
+function isOwner(){return !!(window.BB_ME&&(BB_ME.role==='owner'||BB_ME.id==='abba'))}
+document.addEventListener('bb:lang',()=>{setPh();if($('#empty'))renderEmpty();if(typeof renderList==='function')renderList();if(window.bbRefreshLivebar)bbRefreshLivebar()});
+function toggleSide(v){const s=$('#side');const mob=innerWidth<=820;if(mob){const o=v??!s.classList.contains('open');s.classList.toggle('open',o);$('#scrim').classList.toggle('on',o)}else s.classList.toggle('closed',v===undefined?undefined:!v)}
+async function loadChats(){CHATS=await api('/bb/api/chats?q='+encodeURIComponent($('#srch').value));PROJ=await api('/bb/api/projects');renderList()}
+function renderList(){const pl=$('#plist');pl.innerHTML='';
+ PROJ.forEach(p=>{const d=document.createElement('div');d.className='it'+(curProject===p.id?' act':'');d.innerHTML=`<span>📁</span><span class=t></span><button class=mb>⋯</button>`;d.querySelector('.t').textContent=p.name;
+  d.onclick=e=>{if(e.target.classList.contains('mb'))return projMenu(e,p);curProject=curProject===p.id?null:p.id;renderList()};pl.appendChild(d)});
+ const l=$('#list');l.innerHTML='';let arr=CHATS.filter(c=>!curProject||c.project===curProject);
+ if(curProject){const h=document.createElement('div');h.className='sec';h.textContent='📁 '+(PROJ.find(p=>p.id===curProject)||{}).name+L(' chats','-এর চ্যাট');l.appendChild(h)}
+ if(!arr.length){l.insertAdjacentHTML('beforeend','<div style="color:var(--mut);font-size:13px;padding:10px">'+t('app.no_chats')+'</div>')}
+ arr.forEach(c=>{const d=document.createElement('div');d.className='it'+(CH&&CH.id===c.id?' act':'');d.innerHTML=`<span>${c.pinned?'📌':'💬'}</span><span class=t></span><button class=mb>⋯</button>`;d.querySelector('.t').textContent=c.title;
+  d.onclick=e=>{if(e.target.classList.contains('mb'))return chatMenu(e,c);openChat(c.id);if(innerWidth<=820)toggleSide(false)};l.appendChild(d)})}
+function menu(e,items){e.stopPropagation();document.querySelectorAll('.menu').forEach(m=>m.remove());const m=document.createElement('div');m.className='menu';
+ items.forEach(([t,f])=>{const b=document.createElement('button');b.textContent=t;b.onclick=()=>{m.remove();f()};m.appendChild(b)});document.body.appendChild(m);
+ const r=e.target.getBoundingClientRect();m.style.top=Math.min(r.bottom+4,innerHeight-m.offsetHeight-8)+'px';m.style.left=Math.min(r.left,innerWidth-m.offsetWidth-8)+'px';
+ setTimeout(()=>document.addEventListener('click',()=>m.remove(),{once:true}),0)}
+async function chatMenu(e,c){menu(e,[[c.pinned?L('📌 Unpin','📌 আনপিন'):L('📌 Pin','📌 পিন করুন'),async()=>{await api('/bb/api/chats/'+c.id,{method:'PATCH',body:JSON.stringify({pinned:c.pinned?0:1})});loadChats()}],
+ [L('✏️ Rename','✏️ নাম বদলান'),async()=>{const t=await uiPrompt(L('New name','নতুন নাম'),c.title);if(t){await api('/bb/api/chats/'+c.id,{method:'PATCH',body:JSON.stringify({title:t})});if(CH&&CH.id===c.id)$('#ttl').textContent=t;loadChats()}}],
+ [L('📁 Move to project','📁 প্রজেক্টে সরান'),async()=>{if(!PROJ.length)return toast(L('Create a project first','আগে একটা প্রজেক্ট বানান'));const n=await uiPrompt(L('Enter project number (0 = none):\n','প্রজেক্টের নম্বর লিখুন (0 = কোনোটা না):\n')+PROJ.map((p,i)=>(i+1)+'. '+p.name).join('\n'));if(n===null)return;const p=PROJ[+n-1];await api('/bb/api/chats/'+c.id,{method:'PATCH',body:JSON.stringify({project:p?p.id:null})});loadChats()}],
+ [L('⬇️ Export Markdown','⬇️ Markdown এক্সপোর্ট'),()=>location.href='/bb/api/chats/'+c.id+'/export.md'],
+ [L('🗑️ Delete','🗑️ মুছে ফেলুন'),async()=>{if(await uiConfirm(L('Delete this chat?','এই চ্যাটটা মুছে ফেলবেন?'))){await api('/bb/api/chats/'+c.id,{method:'DELETE'});if(CH&&CH.id===c.id)newChat();loadChats();toast(L('Deleted','মুছে ফেলা হয়েছে'))}}]])}
+async function projMenu(e,p){menu(e,[[L('💬 New chat in this project','💬 এই প্রজেক্টে নতুন চ্যাট'),()=>{curProject=p.id;newChat()}],[L('✏️ Rename','✏️ নাম বদলান'),async()=>{const t=await uiPrompt(L('Name','নাম'),p.name);if(t){await api('/bb/api/projects/'+p.id,{method:'PATCH',body:JSON.stringify({name:t})});loadChats()}}],
+ [L('📝 Project instructions','📝 প্রজেক্ট নির্দেশনা'),async()=>{const t=await uiPrompt(L('Instructions Bangla Bhai follows in every chat of this project:','এই প্রজেক্টের সব চ্যাটে বাংলা ভাই যা মেনে চলবে:'),p.instructions||'');if(t!==null){await api('/bb/api/projects/'+p.id,{method:'PATCH',body:JSON.stringify({instructions:t})});loadChats();toast(L('Saved','সেভ হয়েছে'))}}],
+ [L('🗑️ Delete project','🗑️ প্রজেক্ট মুছুন'),async()=>{if(await uiConfirm(L('Delete project? (chats are kept)','প্রজেক্ট মুছবেন? (চ্যাটগুলো থাকবে)'))){await api('/bb/api/projects/'+p.id,{method:'DELETE'});curProject=null;loadChats()}}]])}
+async function newProject(){const n=await uiPrompt(L('Project name','প্রজেক্টের নাম'));if(!n)return;const i=await uiPrompt(L('Instructions (optional)','নির্দেশনা (ঐচ্ছিক)'))||'';const r=await api('/bb/api/projects',{method:'POST',body:JSON.stringify({name:n,instructions:i})});curProject=r.id;loadChats();toast(L('📁 Project created','📁 প্রজেক্ট তৈরি হয়েছে'))}
+const SUGS=['agent','write','earn','code','tr'];
+function renderEmpty(){const L=bbLang();const nm=isOwner()?t('app.owner'):(BB_ME&&BB_ME.name&&BB_ME.role!=='owner'?BB_ME.name:'');
+ const h=nm?t('app.greet',{name:nm}):t('app.greet_guest');
+ $('#msgs').innerHTML=`<div id=empty><div class="holo xl"><div class="holo-inner"></div><img src="/bb/static/logo.png" alt="Bangla Bhai"></div><img class="wm big" src="/bb/static/wordmark.svg" alt="Bangla Bhai"><h1></h1><p></p><div class=sugs></div></div>`;
+ $('#empty h1').textContent=h;$('#empty p').textContent=t('app.welcome_sub');
+ const g=$('.sugs');SUGS.forEach(k=>{const q=t('sug.'+k+'_q');const b=document.createElement('button');b.className='sug';b.innerHTML='<b></b>';b.firstChild.textContent=t('sug.'+k+'_t');b.append(q);b.onclick=()=>{$('#inp').value=q;send()};g.appendChild(b)})}
+function newChat(){CH=null;FILES=[];renderAtt();$('#ttl').textContent='';renderEmpty();renderList();$('#inp').focus()}
+async function openChat(id){CH=await api('/bb/api/chats/'+id);$('#ttl').textContent=CH.title;$('#msgs').innerHTML='';CH.messages.forEach(m=>addMsg(m));renderList();scrollEnd(true)}
+function scrollEnd(f){const s=$('#scroll');if(f||s.scrollHeight-s.scrollTop-s.clientHeight<160)s.scrollTop=s.scrollHeight}
+function addMsg(m){const e=$('#empty');if(e)e.remove();const w=document.createElement('div');w.className='msg '+(m.role==='user'?'user':'bot');
+ if(m.role==='user'){const b=document.createElement('div');b.className='bub';b.textContent=m.content;const wrap=document.createElement('div');wrap.style.cssText='display:flex;flex-direction:column;align-items:flex-end;max-width:85%';b.style.maxWidth='100%';
+  const a=document.createElement('div');a.className='acts';a.innerHTML='<button title="'+t('app.copy')+'">📋</button><button title="Edit">✏️</button>';a.children[0].onclick=()=>{navigator.clipboard.writeText(m.content);toast(t('app.copied'))};a.children[1].onclick=()=>editMsg(m,w);wrap.append(b,a);w.append(wrap)}
+ else{const av=document.createElement('div');av.className='avslot holo sm';av.innerHTML='<div class="holo-inner"></div><img class=av src="/bb/static/logo.png" alt="">';w.appendChild(av);const b=document.createElement('div');b.className='bub';const c=document.createElement('div');c.className='content';b.appendChild(c);
+  const meta=document.createElement('div');meta.className='meta';const acts=document.createElement('div');acts.className='acts';b.append(meta,acts);w.appendChild(b);
+  if(m.content!=null){c.replaceChildren(md(m.content));setMeta(meta,m.model,m.advisors);setActs(acts,m)}}
+ $('#msgs').appendChild(w);return w}
+function setMeta(meta,model,adv){meta.innerHTML='';if(model){const s=document.createElement('span');s.className='chip';s.textContent='⚡ '+model;meta.appendChild(s)}
+ if(adv&&adv.length){const s=document.createElement('span');s.className='chip';s.textContent=L('🧠 Council: ','🧠 কাউন্সিল: ')+adv.join(', ');meta.appendChild(s)}}
+function setActs(acts,m){acts.innerHTML='<button title="'+t('app.copy')+'">📋 '+t('app.copy')+'</button><button title="Regenerate">🔄</button><button title="Read aloud">🔊</button>';
+ acts.children[0].onclick=()=>{navigator.clipboard.writeText(m.content);toast(t('app.copied'))};acts.children[1].onclick=()=>regen();acts.children[2].onclick=e=>speak(m.content,e.currentTarget)}
+async function editMsg(m,w){if(ctrl)return;const t=await uiPrompt(L('Edit message','মেসেজ এডিট করুন'),m.content);if(!t||t===m.content)return;
+ let n=w;while(n){const x=n.nextSibling;n.remove();n=x}run({content:t,edit_id:m.id})}
+async function regen(){if(ctrl||!CH)return;const bots=[...document.querySelectorAll('.msg.bot')];bots.at(-1)?.remove();run({regenerate:true})}
+function renderAtt(){$('#att').innerHTML='';FILES.forEach((f,i)=>{const s=document.createElement('span');s.className='att';s.textContent='📄 '+f.name+' ✕';s.onclick=()=>{FILES.splice(i,1);renderAtt()};$('#att').appendChild(s)})}
+$('#file').onchange=async e=>{for(const f of e.target.files){const fd=new FormData();fd.append('file',f);toast('⏳ '+f.name+L(' reading...',' পড়ছি...'));
+ const r=await fetch('/bb/api/upload',{method:'POST',body:fd});const j=await r.json();if(j.error){toast(j.error);continue}FILES.push(j);renderAtt();if(j.note)toast(j.note)}e.target.value=''};
+function sendOrStop(){if(ctrl){ctrl.abort();return}send()}
+async function send(){if(/^(এজেন্ট|Agent):/i.test($('#inp').value)&&!AGENT)setAgent(true);if(AGENT)return agentSend();
+ const inp=$('#inp');let t=inp.value.trim();if(!t&&!FILES.length)return;
+ // Intent router: action → agent loop in same chat (step log + Approve)
+ if(t&&!FILES.length){try{const it=await api('/bb/api/intent',{method:'POST',body:JSON.stringify({text:t})});
+  if(it&&it.action){toast(L('🤖 Action detected — I’ll run it with your permission','🤖 অ্যাকশন ধরা পড়েছে — অনুমতি নিয়ে চালাব'));return agentSend();}
+ }catch(e){}}
+ let full=t;if(FILES.length){full=(t||L('Summarize this file.','এই ফাইলের সারাংশ বাংলায় দাও।'))+FILES.map(f=>f.kind==='text'?`\n\n---\n📄 File: ${f.name}\n\`\`\`\n${f.text}\n\`\`\``:`\n\n[Image attached: ${f.name}]`).join('');}
+ inp.value='';autoGrow();FILES=[];renderAtt();
+ if(!CH){const r=await api('/bb/api/chats',{method:'POST',body:JSON.stringify({project:curProject})});CH={id:r.id,title:L('New chat','নতুন চ্যাট'),messages:[]}}
+ run({content:full})}
+async function run(body){const isNew=body.content!=null&&!body.edit_id||body.edit_id;
+ if(body.content!=null)addMsg({role:'user',content:body.content.length>1500?body.content.slice(0,1500)+L('\n…(file text attached)','\n…(ফাইলের লেখা সংযুক্ত)'):body.content});
+ const w=addMsg({role:'assistant'});const c=w.querySelector('.content'),meta=w.querySelector('.meta'),acts=w.querySelector('.acts');
+ c.innerHTML=(window.bbThinkHTML?bbThinkHTML(t('app.thinking')):'<div class=status><span class=dots><span></span><span></span><span></span></span><span>'+t('app.thinking')+'</span></div>');scrollEnd(true);
+ ctrl=new AbortController();$('#send').classList.add('stop');$('#send').textContent='■';
+ let txt='',model='',adv=[],raf=0;
+ const paint=()=>{raf=0;c.replaceChildren(md(txt));c.lastElementChild?.classList.add('cursor');scrollEnd()};
+ try{const r=await fetch(`/bb/api/chats/${CH.id}/stream`,{method:'POST',headers:{'Content-Type':'application/json'},signal:ctrl.signal,body:JSON.stringify({...body,model:$('#model').value,council:S.council})});
+  if(r.status===401){location.href='/login';return}
+  const rd=r.body.getReader(),dec=new TextDecoder();let buf='';
+  while(true){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});let i;
+   while((i=buf.indexOf('\n\n'))>=0){const blk=buf.slice(0,i);buf=buf.slice(i+2);let ev='message',data='';
+    blk.split('\n').forEach(l=>{if(l.startsWith('event:'))ev=l.slice(6).trim();else if(l.startsWith('data:'))data+=l.slice(5).trim()});if(!data)continue;const j=JSON.parse(data);
+    if(ev==='status'){if(!txt){const lab=c.querySelector('.think-lab')||c.querySelector('.status span:last-child');if(lab)lab.textContent=j.text}}
+    else if(ev==='advisors'){adv=j;setMeta(meta,model,adv)}else if(ev==='meta'){model=j.model;setMeta(meta,model,adv)}
+    else if(ev==='done'){model=j.model}else if(j.d){txt+=j.d;if(!raf)raf=requestAnimationFrame(paint)}}}
+ }catch(e){if(e&&e.name==='AbortError'){txt+=txt?L('\n\n_(stopped)_','\n\n_(থামানো হয়েছে)_'):L('_(stopped)_','_(থামানো হয়েছে)_')}else if(e){txt+=L('\n\n⚠️ Connection problem.','\n\n⚠️ সংযোগে সমস্যা হয়েছে।')}}
+ ctrl=null;$('#send').classList.remove('stop');$('#send').textContent='➤';c.replaceChildren(md(txt));setMeta(meta,model,adv);
+ const ch=await api('/bb/api/chats/'+CH.id);CH=ch;$('#ttl').textContent=ch.title;const last=ch.messages.at(-1);
+ if(last&&last.role==='assistant')setActs(acts,last);
+ // refresh user msg ids for editing
+ const um=[...document.querySelectorAll('.msg.user')];const ums=ch.messages.filter(m=>m.role==='user');
+ if(um.length===ums.length)um.forEach((el,i)=>{const b=el.querySelector('.acts');b.children[1].onclick=()=>editMsg(ums[i],el)});
+ loadChats()}
+function shareChat(){if(!CH)return toast(L('Start a chat first','আগে একটা চ্যাট শুরু করুন'));menu({stopPropagation(){},target:document.querySelector('#top .ib:nth-last-child(2)')},[
+ [L('⬇️ Download Markdown','⬇️ Markdown ডাউনলোড'),()=>location.href='/bb/api/chats/'+CH.id+'/export.md'],
+ [L('📋 Copy Markdown','📋 Markdown কপি'),async()=>{const t=await fetch('/bb/api/chats/'+CH.id+'/export.md').then(r=>r.text());navigator.clipboard.writeText(t);toast(bbT('app.copied'))}],
+ [L('📤 Share','📤 শেয়ার করুন'),async()=>{const t=await fetch('/bb/api/chats/'+CH.id+'/export.md').then(r=>r.text());if(navigator.share)navigator.share({title:CH.title,text:t});else{navigator.clipboard.writeText(t);toast(L('Sharing not supported — copied instead','শেয়ার সাপোর্ট নেই, কপি করা হলো'))}}]])}
+function seg(key,opts){return `<div class=seg>${opts.map(([v,l])=>`<button class="${S[key]==v?'on':''}" onclick="saveSettings({${key}:${typeof v==='number'?v:`'${v}'`}});openSettings()">${l}</button>`).join('')}</div>`}
+async function setLangUI(l){await bbSetLang(l);await saveSettings({lang:l});openSettings()}
+async function openSettings(){let me={};try{me=await api('/bb/api/me')}catch(e){}; $('#setbody').innerHTML=`<h2>${t('set.title')} <button onclick=closeM()>✕</button></h2>
+<div class=row><span>${t('set.theme')}</span>${seg('theme',[['dark',t('set.dark')],['light',t('set.light')],['system',t('set.system')]])}</div>
+<div class=row><span>${t('set.accent')}</span>${seg('accent',[['blue',t('set.blue')],['black',t('set.navy')],['red',t('set.crimson')]])}</div>
+<div class=row><span>🌐 ${t('lang.label')}</span><select class="bb-lang" onchange="setLangUI(this.value)">${Object.entries(BB_LANGS).map(([k,v])=>`<option value=${k} ${S.lang===k?'selected':''}>${v.n}</option>`).join('')}</select></div>
+<div class=row><span>${t('set.font')}</span>${seg('font',[[14,t('set.small')],[16,t('set.medium')],[18,t('set.large')],[20,t('set.xl')]])}</div>
+<div class=row style="display:block"><div style="margin-bottom:6px">${t('set.persona')}</div><textarea id=sins rows=3 placeholder="${esc(t('set.persona_ph'))}">${esc(S.instructions)}</textarea></div>
+<div class=row><span>${t('set.memory')}</span>${seg('memory',[[true,t('set.on')],[false,t('set.off')]]).replace(/'true'|'false'/g,m=>m.slice(1,-1))}</div>
+<div class=row style="display:block"><div style="margin-bottom:6px">${t('set.memory_notes')}</div><textarea id=smem rows=3>${esc(S.memory_notes)}</textarea></div>
+<div style="display:flex;gap:8px;padding:12px 0"><button class="btn pri" onclick="saveSettings({instructions:$('#sins').value,memory_notes:$('#smem').value});toast(t('set.saved'))">${t('set.save')}</button></div>
+<div class=row><span>${t('set.data')}</span><div style="display:flex;gap:6px;flex-wrap:wrap"><button class=btn onclick="location.href='/bb/api/export'">${t('set.export')}</button><button class="btn dan" onclick="clearAll()">${t('set.clear')}</button></div></div>
+<div class=row style="display:block"><div style="margin-bottom:6px">${t('set.shortcuts')}</div><div style="font-size:13px;line-height:2;color:var(--mut)">
+<span class=kbd>Enter</span> · <span class=kbd>Shift+Enter</span> · <span class=kbd>Ctrl+Shift+O</span> · <span class=kbd>Ctrl+B</span> · <span class=kbd>Ctrl+K</span> · <span class=kbd>Ctrl+,</span> · <span class=kbd>Esc</span></div></div>
+`+`<div class=row><span>${t('set.account')}</span><span style="font-size:13px;color:var(--mut)">${esc(me.email||(me.role==='owner'?t('app.owner'):me.name)||me.id||'')} · ${me.role||''}</span></div>`+`<div class=row style="display:block"><b>${t('set.summary')}</b><div id=dash>${t('set.loading')}</div></div>`+permCenter()+aboutHTML();loadPerms();$('#mset').classList.add('on');if(window.bbBuildDash)bbBuildDash().then(h=>{const d=$('#dash');if(d)d.innerHTML=h})}
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function closeM(){$('#mset').classList.remove('on')}
+async function clearAll(){if(!await uiConfirm(L('All chats and projects will be deleted forever. Sure?','সব চ্যাট আর প্রজেক্ট চিরতরে মুছে যাবে। নিশ্চিত?')))return;await api('/bb/api/data',{method:'DELETE'});newChat();loadChats();closeM();toast(L('Everything deleted','সব মুছে ফেলা হয়েছে'))}
+function autoGrow(){const i=$('#inp');i.style.height='auto';i.style.height=Math.min(i.scrollHeight,200)+'px'}
+$('#inp').addEventListener('input',autoGrow);
+$('#inp').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&innerWidth>820){e.preventDefault();send()}});
+$('#model').onchange=()=>saveSettings({model:$('#model').value});
+document.addEventListener('keydown',e=>{const k=e.key.toLowerCase(),m=e.ctrlKey||e.metaKey;
+ if(m&&e.shiftKey&&k==='o'){e.preventDefault();newChat()}else if(m&&k==='b'){e.preventDefault();toggleSide()}else if(m&&k==='k'){e.preventDefault();toggleSide(true);$('#srch').focus()}
+ else if(m&&k===','){e.preventDefault();openSettings()}else if(k==='escape'){if(ctrl)ctrl.abort();closeM()}});
+let deferred;addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;$('#installBtn').style.display='flex'});
+function installApp(){if(deferred){deferred.prompt();deferred=null}else toast(L('Use the browser menu → "Add to Home screen"','ব্রাউজারের মেনু থেকে "Add to Home screen" চাপুন'))}
+if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js');
+matchMedia('(prefers-color-scheme: light)').addEventListener('change',applySettings);
+(async()=>{try{window.BB_ME=await api('/bb/api/me')}catch(e){window.BB_ME={}};S=await api('/bb/api/settings');await window.bbI18nReady;if(bbLang()!==S.lang)await bbSetLang(S.lang);const ms=await api('/bb/api/models');$('#model').innerHTML=ms.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+ applySettings();renderEmpty();loadChats();if(innerWidth<=820)$('#side').classList.remove('closed')})();
+</script><script src="/bb/static/bb2.js"></script><script src="/bb/static/viz.js"></script></body></html>

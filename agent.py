@@ -1,0 +1,333 @@
+import os, json, time, asyncio, uuid, re, hashlib, secrets, httpx, sqlite3, base64
+BASE=os.path.dirname(os.path.abspath(__file__)); S=os.environ.get('BB_SECRETS_DIR') or (os.path.expanduser('~/.secrets') if os.path.isdir(os.path.expanduser('~/.secrets')) else BASE)
+def env(f):
+    """Portable: merges <app>/.env, then the named file if present, then real env vars."""
+    d={}
+    for p in (os.path.join(BASE,'.env'),f):
+        try:
+            for l in open(p,encoding='utf-8'):
+                l=l.strip()
+                if l and not l.startswith('#') and '=' in l: k,v=l.split('=',1); d[k.strip()]=v.strip().strip('"')
+        except Exception: pass
+    d.update({k:v for k,v in os.environ.items() if k.isupper() and (k.startswith(('BB_','RESEND','BREVO','GMAIL','AGENT_')) or k.endswith('_API_KEY'))})
+    return d
+K={}
+for f in ("groq","gemini","openrouter","deepgram","cartesia"): K.update(env(f"{S}/{f}.env"))
+AUDIT=BASE+'/audit.jsonl'
+def audit(**k): open(AUDIT,'a').write(json.dumps({"t":time.time(),**k},ensure_ascii=False)+"\n")
+DB=BASE+'/data.db'
+def db():
+    c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; return c
+with db() as c:
+    c.executescript("""create table if not exists devices(id text primary key,name text,kind text,token_hash text,status text,created real,last_seen real,info text);
+create table if not exists perms(device text,cap text,mode text,primary key(device,cap));""")
+CAPS={"camera":"📷 ক্যামেরা","mic":"🎙️ মাইক্রোফোন","screen":"🖥️ স্ক্রিন দেখা ও নিয়ন্ত্রণ","browser":"🌐 ব্রাউজার নিয়ন্ত্রণ","sms":"💬 এসএমএস পড়া","sms_send":"✉️ এসএমএস পাঠানো","call":"📞 কল","personal":"📒 ব্যক্তিগত তথ্য (কল লগ/কন্টাক্ট/নোটিফ/ব্যাটারি)","location":"📍 লোকেশন ও সেন্সর","settings_ctl":"⚙️ ফোন সেটিংস (ওয়াইফাই/ব্লুটুথ/ভলিউম ইত্যাদি)","apps":"📱 অ্যাপ নিয়ন্ত্রণ","full":"🛠️ পূর্ণ ডিভাইস নিয়ন্ত্রণ (শেল, ফাইল, অ্যাপ)"}
+MODES=("ask","once","always","off")
+def get_perm(dev,cap):
+    with db() as c: r=c.execute("select mode from perms where device=? and cap=?",(dev,cap)).fetchone()
+    return r["mode"] if r else "ask"
+def set_perm(dev,cap,mode):
+    with db() as c: c.execute("insert or replace into perms values(?,?,?)",(dev,cap,mode))
+    audit(ev="perm_set",device=dev,cap=cap,mode=mode)
+def revoke_all():
+    with db() as c:
+        c.execute("delete from perms"); c.execute("update devices set status='revoked' where status='approved'")
+    for d in list(LINK_Q): LINK_Q[d]=asyncio.Queue()
+    audit(ev="revoke_all")
+def devices():
+    with db() as c: rows=[dict(r) for r in c.execute("select id,name,kind,status,created,last_seen,info from devices order by created")]
+    out=[{"id":"box","name":"বাংলা ভাই সার্ভার (বক্স)","kind":"server","status":"approved","last_seen":time.time(),"online":True}]
+    for r in rows: r["online"]=bool(r["last_seen"] and time.time()-r["last_seen"]<40); out.append(r)
+    for d in out: d["perms"]={k:get_perm(d["id"],k) for k in CAPS}
+    return out
+# ---------------- Royal Link ----------------
+LINK_Q={}; LINK_RES={}
+def pair_request(name,kind,info):
+    did=uuid.uuid4().hex[:10]; tok=secrets.token_urlsafe(32)
+    with db() as c: c.execute("insert into devices values(?,?,?,?,?,?,?,?)",(did,name[:60],kind[:20],hashlib.sha256(tok.encode()).hexdigest(),"pending",time.time(),None,json.dumps(info)[:500]))
+    audit(ev="pair_request",device=did,name=name,kind=kind); return did,tok
+def pair_decide(did,ok):
+    with db() as c: c.execute("update devices set status=? where id=?",("approved" if ok else "denied",did))
+    audit(ev="pair_"+("approved" if ok else "denied"),device=did)
+def dev_by_token(tok):
+    h=hashlib.sha256((tok or "").encode()).hexdigest()
+    with db() as c:
+        r=c.execute("select * from devices where token_hash=?",(h,)).fetchone()
+        if r: c.execute("update devices set last_seen=? where id=?",(time.time(),r["id"]))
+    return dict(r) if r else None
+async def device_call(did,action,args,timeout=120):
+    q=LINK_Q.setdefault(did,asyncio.Queue()); cid=uuid.uuid4().hex[:8]; fut=asyncio.get_running_loop().create_future(); LINK_RES[cid]=fut
+    await q.put({"cid":cid,"action":action,"args":args})
+    try: return await asyncio.wait_for(fut,timeout)
+    finally: LINK_RES.pop(cid,None)
+# ---------------- tools ----------------
+TOOLS={
+ "web_search":("browser","ইন্টারনেটে খোঁজা",{"query":"str"}),
+ "browse":("browser","হেডলেস ব্রাউজারে ওয়েবপেজ খোলা ও পড়া (স্ক্রিনশটসহ)",{"url":"str"}),
+ "shell":("full","ডিভাইসে শেল কমান্ড চালানো",{"device":"box বা device id","cmd":"str"}),
+ "screenshot":("screen","ডিভাইসের স্ক্রিনশট নেওয়া",{"device":"device id"}),
+ "click":("screen","মাউস ক্লিক",{"device":"id","x":"int","y":"int"}),
+ "type_text":("screen","কীবোর্ডে লেখা",{"device":"id","text":"str"}),
+ "camera_photo":("camera","ক্যামেরায় ছবি তোলা",{"device":"id"}),
+ "mic_record":("mic","মাইকে কয়েক সেকেন্ড রেকর্ড",{"device":"id","seconds":"int"}),
+ "sms_list":("sms","এসএমএস ইনবক্স পড়া",{"device":"id","limit":"int"}),
+ "sms_send":("sms_send","এসএমএস পাঠানো (সবসময় অনুমতি কার্ড)",{"device":"id","number":"str","text":"str"}),
+ "call_make":("call","কল করা",{"device":"id","number":"str"}),
+ "call_control":("call","কল answer/end/reject",{"device":"id","do":"answer|end|reject"}),
+ "call_log":("personal","কল লগ",{"device":"id","limit":"int"}),
+ "contacts":("personal","কন্টাক্ট তালিকা",{"device":"id"}),
+ "notifications":("personal","নোটিফিকেশন তালিকা",{"device":"id"}),
+ "battery":("personal","ব্যাটারি স্ট্যাটাস",{"device":"id"}),
+ "location":("location","লোকেশন",{"device":"id"}),
+ "sensor":("location","সেন্সর পড়া",{"device":"id","name":"str"}),
+ "clipboard":("personal","ক্লিপবোর্ড পড়া/লেখা",{"device":"id","set":"str"}),
+ "settings_ctl":("settings_ctl","ওয়াইফাই/ব্লুটুথ/ব্রাইটনেস/ভলিউম/টর্চ/এয়ারপ্লেন/DND/settings put-get",{"device":"id","what":"wifi|bluetooth|brightness|volume|torch|airplane|dnd|put|get","value":"str"}),
+ "app_list":("apps","ইনস্টলড অ্যাপ তালিকা (pm list)",{"device":"id"}),
+ "app_launch":("apps","অ্যাপ খোলা",{"device":"id","package":"str"}),
+ "app_stop":("apps","অ্যাপ force-stop",{"device":"id","package":"str"}),
+ "open_url":("apps","ফোনে URL খোলা",{"device":"id","url":"str"}),
+ "ui_dump":("screen","স্ক্রিনের UI পড়া (uiautomator dump)",{"device":"id"}),
+ "keyevent":("screen","কীইভেন্ট (BACK/HOME/ENTER ইত্যাদি)",{"device":"id","key":"str"}),
+ "swipe":("screen","সোয়াইপ",{"device":"id","x1":"int","y1":"int","x2":"int","y2":"int","ms":"int"}),
+ "am_start":("full","অ্যাপ খোলা (am start)",{"device":"id","component":"str"}),
+ "list_devices":(None,"সংযুক্ত ডিভাইসের তালিকা",{}),
+}
+async def _shell_box(cmd):
+    p=await asyncio.create_subprocess_shell(cmd,cwd=BASE+"/sandbox",stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.STDOUT)
+    try: out,_=await asyncio.wait_for(p.communicate(),60)
+    except asyncio.TimeoutError: p.kill(); raise RuntimeError("৬০ সেকেন্ডে শেষ হয়নি (timeout)")
+    o=out.decode("utf-8","ignore")[-4000:]
+    if p.returncode: raise RuntimeError(f"exit {p.returncode}: {o}")
+    return o or "(কোনো আউটপুট নেই)"
+_PW=None
+async def _browser():
+    global _PW
+    if not _PW:
+        from playwright.async_api import async_playwright
+        pw=await async_playwright().start(); _PW=await pw.chromium.launch(headless=True)
+    return _PW
+async def run_tool(name,a):
+    if name=="list_devices": return json.dumps([{k:d[k] for k in ("id","name","kind","status","online")} for d in devices()],ensure_ascii=False)
+    if name=="web_search":
+        async with httpx.AsyncClient(timeout=20,headers={"User-Agent":"Mozilla/5.0"}) as c:
+            r=await c.post("https://html.duckduckgo.com/html/",data={"q":a["query"]})
+        res=re.findall(r'class="result__a" href="([^"]+)"[^>]*>(.*?)</a>',r.text)[:6]
+        if not res: raise RuntimeError("কোনো ফলাফল পাওয়া যায়নি")
+        return "\n".join(f"- {re.sub('<.*?>','',t)} — {u}" for u,t in res)
+    if name=="browse":
+        b=await _browser(); pg=await b.new_page(viewport={"width":1200,"height":800})
+        try:
+            await pg.goto(a["url"],timeout=30000); fn=f"shots/{uuid.uuid4().hex[:8]}.png"; await pg.screenshot(path=BASE+"/static/"+fn)
+            t=await pg.inner_text("body"); return {"text":f"শিরোনাম: {await pg.title()}\n{t[:3500]}","image":"/bb/static/"+fn}
+        finally: await pg.close()
+    dev=a.get("device","box")
+    if dev=="box":
+        if name=="shell": return await _shell_box(a.get("cmd") or a.get("command") or "echo ok")
+        raise RuntimeError("বক্সে ক্যামেরা/মাইক/স্ক্রিন নেই — একটা যুক্ত ডিভাইস বেছে নাও")
+    # phone/laptop shell etc → device_call below
+    d=[x for x in devices() if x["id"]==dev]
+    if not d or d[0]["status"]!="approved": raise RuntimeError(f"ডিভাইস '{dev}' যুক্ত/অনুমোদিত নয়")
+    if not d[0]["online"]: raise RuntimeError(f"ডিভাইস '{d[0]['name']}' অফলাইন")
+    r=await device_call(dev,name,a)
+    if r.get("error"): raise RuntimeError(r["error"])
+    return r
+
+def redact_secrets(text):
+    if not text: return text
+    t=re.sub(r'(?i)(OTP|one[ -]?time|verification code|কোড|পিন|PIN)([^0-9]{0,24})([0-9]{4,8})', r'\1\2****', text)
+    t=re.sub(r'(?i)(\bis\s+)([0-9]{4,8})(\s+for)', r'\1****\3', t)
+    return t
+# ---------- intent ----------
+ACTION_KW=re.compile(r"(ফোন|মোবাইল|ডিভাইস|ল্যাপটপ|কম্পিউটার|বক্স|চালাও|চালান|খোলো|খুলে|স্ক্রিনশট|screenshot|ক্যামেরা|মাইক|ব্রাউজ|সার্চ|খুঁজে|ডাউনলোড|ইনস্টল|shell|uname|df|termux|কমান্ড|command|tap|swipe|NEXG|ডিভাইসে|ফোনে|মেসেজ|ইনবক্স|sms|এসএমএস|পাঠাও|কল\s*কর|কল\s*লগ|ডায়াল|কন্টাক্ট|পরিচিতি|নোটিফ|ব্যাটারি|battery|পড়ে|পড়ো|ওয়াইফাই|wifi|ব্লুটুথ|ব্রাইটনেস|ভলিউম|টর্চ|এয়ারপ্লেন|লোকেশন|location|ক্লিপবোর্ড|অ্যাপ|app|খোল)",re.I)
+async def classify_intent(text:str)->dict:
+    """Return {action:bool, reason, goal, device_hint}"""
+    t=(text or "").strip()
+    if not t: return {"action":False,"reason":"empty","goal":t,"device_hint":None}
+    phone=bool(re.search(r"(ফোন|মোবাইল|অ্যান্ড্রয়েড|android|NEXG|termux)",t,re.I))
+    box=bool(re.search(r"(বক্স|সার্ভার|laptop|ল্যাপটপ|কম্পিউটার)",t,re.I))
+    kw=bool(ACTION_KW.search(t))
+    # paired phone id if any
+    ph=next((d for d in devices() if d["status"]=="approved" and d["kind"] in("android","phone") and d["id"]!="box"),None)
+    hint=(ph["id"] if ph and phone else ("box" if box else (ph["id"] if ph and kw and not box else None)))
+    if kw:
+        return {"action":True,"reason":"keyword","goal":t,"device_hint":hint,"confidence":0.9}
+    # LLM tie-break for ambiguous
+    try:
+        _,j=await llm_json([
+          {"role":"system","content":'Classify user message. JSON only: {"action":true/false,"reason":"...","device_hint":"phone"|"box"|null}. action=true if they want you to DO something on a device, browse, search the live web, take photo/screenshot, run a command — not if they only want an explanation/tutorial.'},
+          {"role":"user","content":t[:1500]}])
+        act=bool(j.get("action"))
+        dh=j.get("device_hint")
+        if dh=="phone" and ph: hint=ph["id"]
+        elif dh=="box": hint="box"
+        return {"action":act,"reason":j.get("reason") or "llm","goal":t,"device_hint":hint,"confidence":0.7}
+    except Exception as e:
+        return {"action":False,"reason":f"llm-fail:{e}","goal":t,"device_hint":hint,"confidence":0.2}
+
+def pick_device(hint=None, goal=""):
+    ds=[d for d in devices() if d["status"]=="approved"]
+    phones=[d for d in ds if d["id"]!="box" and d.get("kind") in("android","phone")]
+    phone=next((d for d in phones if d.get("online")), phones[0] if phones else None)
+    if hint and hint!="box":
+        d=next((x for x in ds if x["id"]==hint),None)
+        if d: return d["id"]
+    if hint=="box" and not re.search(r"(ফোন|মোবাইল|NEXG|android)",goal or "",re.I): return "box"
+    if phone and re.search(r"(ফোন|মোবাইল|অ্যান্ড্রয়েড|android|NEXG|termux|চালাও|কমান্ড|shell|uname|df|স্ক্রিন|ক্যামেরা|মেসেজ|ইনবক্স|sms|এসএমএস|পাঠাও|কল|কন্টাক্ট|নোটিফ|ব্যাটারি|ওয়াইফাই|ব্লুটুথ|ভলিউম|টর্চ|লোকেশন|ক্লিপবোর্ড|অ্যাপ)",goal or "",re.I):
+        return phone["id"]
+    return "box"
+
+
+# ---------------- agent loop ----------------
+TASKS={}
+SYS="""তুমি 'বাংলা ভাই' — Royal Universe-এর আসল এজেন্ট। মালিক 'রয়েল'। তোমার হাতে আসল টুল আছে; কখনো বলো না যে ডিভাইসে কমান্ড চালাতে পারো না। অনুমতি নিয়ে টুল চালাও।
+টুল: {tools}
+ডিভাইস: {devs}
+নিয়ম:
+- ফোন/মোবাইল/অ্যান্ড্রয়েড/NEXG বললে device = সেই paired ফোনের id (বক্স নয়)।
+- ল্যাপটপ/কম্পিউটার/বক্স না বললে এবং ফোন অনলাইন থাকলে শেল/স্ক্রিন/ক্যামেরা/মাইকের জন্য ফোন বেছে নাও।
+- shell টুল: args={{"device":"<id>","cmd":"..."}} — কখনো tool=none নয়।
+- প্রতি ধাপে শুধু একটা JSON:
+{{"thought":"সংক্ষিপ্ত বাংলা ভাবনা","alternatives":["বিকল্প ১","বিকল্প ২"],"action":{{"tool":"shell|web_search|browse|list_devices|screenshot|camera_photo|mic_record|sms_list|sms_send|call_make|call_control|call_log|contacts|notifications|battery|location|sensor|clipboard|settings_ctl|app_list|app_launch|app_stop|open_url|ui_dump|keyevent|click|type_text|swipe|am_start","args":{{...}}}},"why":"কেন"}}
+- টুলের আসল ফলাফল পাওয়ার আগে final দিও না এবং কল্পিত uname/df আউটপুট লিখো না।
+- শেষ: {{"thought":"...","final":"রয়েলের জন্য বাংলা Markdown উত্তর"}}
+- টুল ব্যর্থ হলে রিপেয়ার করে অন্য পথ চেষ্টা করো। মালিক 'না' বললে সেই কাজ আর করবে না।
+"""
+async def llm_json(msgs):
+    chain=[("https://api.groq.com/openai/v1/chat/completions",K.get("GROQ_API_KEY"),"openai/gpt-oss-120b"),
+           ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",K.get("GEMINI_API_KEY"),"gemini-3.1-flash-lite"),
+           ("https://openrouter.ai/api/v1/chat/completions",K.get("OPENROUTER_API_KEY"),"openrouter/free")]
+    err=""
+    async with httpx.AsyncClient(timeout=60) as c:
+        for url,key,m in chain:
+            for _ in range(2):
+                try:
+                    r=await c.post(url,headers={"Authorization":f"Bearer {key}"},json={"model":m,"messages":msgs,"response_format":{"type":"json_object"}})
+                    if r.status_code==200:
+                        t=re.sub(r"<think>.*?</think>","",r.json()["choices"][0]["message"]["content"] or "",flags=re.S)
+                        j=json.loads(t[t.find("{"):t.rfind("}")+1]); return m,j
+                    err=f"{m} {r.status_code}"
+                except Exception as e: err=f"{m}: {e}"
+                await asyncio.sleep(1)
+    raise RuntimeError("কোনো মডেল সাড়া দেয়নি: "+err)
+def ev(t,**k):
+    k.update(type=t,ts=time.time()); TASKS[t_id_ctx.get()]["events"].append(k)
+import contextvars; t_id_ctx=contextvars.ContextVar("tid")
+def start_task(goal,sysx=""):
+    tid=uuid.uuid4().hex[:10]; TASKS[tid]={"events":[],"pending":{},"status":"running","goal":goal}
+    async def runner():
+        t_id_ctx.set(tid)
+        try: await loop(tid,goal,sysx)
+        except Exception as e: ev("error",text=f"এজেন্ট থেমে গেছে: {e}")
+        TASKS[tid]["status"]="done"; ev("end")
+    asyncio.create_task(runner()); audit(ev="agent_task",task=tid,goal=goal[:200]); return tid
+async def ask(tid,tool,args,why,cap):
+    aid=uuid.uuid4().hex[:8]; f=asyncio.get_running_loop().create_future(); TASKS[tid]["pending"][aid]=f
+    ev("approval",id=aid,tool=tool,args=args,why=why,cap=cap,capname=CAPS.get(cap,""))
+    try: d=await asyncio.wait_for(f,600)
+    except asyncio.TimeoutError: d="timeout"
+    TASKS[tid]["pending"].pop(aid,None); ev("decision",id=aid,decision=d); audit(ev="agent_decision",task=tid,tool=tool,decision=d); return d
+def decide(tid,aid,d):
+    f=TASKS.get(tid,{}).get("pending",{}).get(aid)
+    if f and not f.done(): f.set_result(d); return True
+    return False
+async def loop(tid,goal,sysx=""):
+    devs=", ".join(f"{d['id']}={d['name']}({'অনলাইন' if d['online'] else 'অফলাইন'})" for d in devices() if d["status"]=="approved")
+    tools="; ".join(f"{n}{list(v[2])}: {v[1]}" for n,v in TOOLS.items())
+    hint=pick_device(None,goal)
+    msgs=[{"role":"system","content":SYS.format(tools=tools,devs=devs)+f"\nডিফল্ট টার্গেট ডিভাইস id: {hint} (ফোনের কাজ হলে এটাই use করো।)"+("\n\nOVERRIDES (highest priority): "+sysx if sysx else "")},{"role":"user","content":goal}]
+    ev("plan",text="লক্ষ্য বুঝে পরিকল্পনা করছি...")
+    fails=0
+    for step in range(10):
+        model,j=await llm_json(msgs); msgs.append({"role":"assistant","content":json.dumps(j,ensure_ascii=False)})
+        ev("think",text=j.get("thought",""),alternatives=j.get("alternatives",[]),model=model,step=step+1)
+        fin=j.get("final"); act=j.get("action")
+        needs_tool=bool(re.search(r"(চালাও|চালান|uname|df\s*-h|স্ক্রিনশট|ক্যামেরা|shell|কমান্ড|ফোনে|ডিভাইসে|ব্রাউজ|সার্চ|মেসেজ|ইনবক্স|sms|এসএমএস|পাঠাও|কল|কন্টাক্ট|নোটিফ|ব্যাটারি|ওয়াইফাই|অ্যাপ|পড়)",goal,re.I))
+        if fin and not act:
+            if needs_tool and step<6:
+                msgs.append({"role":"user","content":"তুমি টুল চালাওনি। কল্পিত ফলাফল নিষিদ্ধ। এখনই action JSON দাও — shell দিয়ে আসল কমান্ড চালাও (device=ফোনের id)।"}); ev("repair",text="টুল ছাড়া উত্তর বাতিল — আসল টুল চাই"); continue
+            ev("final",text=fin); return
+        if not act and not fin: msgs.append({"role":"user","content":"action বা final — একটা JSON দাও।"}); ev("repair",text="খালি উত্তর — আবার"); continue
+        if not act:
+            if needs_tool and step<6:
+                msgs.append({"role":"user","content":"আগে tool action লাগবে। final এখন নয়।"}); ev("repair",text="final বাতিল — টুল চাই"); continue
+            ev("final",text=fin or j.get("thought","")); return
+        a=j["action"]; tool=a.get("tool"); args=a.get("args") or {}
+        if not tool or tool in("none","null","N/A"): tool="shell"
+        if tool in("shell","bash","cmd") and not (args.get("cmd") or args.get("command")):
+            cmd=None
+            m=re.search(r"`([^`]+)`",goal)
+            if m: cmd=m.group(1).strip()
+            if not cmd:
+                # "uname -a আর df -h চালিয়ে" / "run: foo"
+                m=re.search(r"(uname\s+-a(?:\s*(?:আর|,|and|&|&&)\s*df\s*-h(?:\s*/?)?)|(?:df\s*-h(?:\s*/?)?)\s*(?:আর|,|and|&|&&)\s*uname\s+-a)",goal,re.I)
+                if m: cmd=re.sub(r"\s*(?:আর|,|and)\s*"," && ",m.group(1),flags=re.I)
+            if not cmd:
+                m=re.search(r"(?:চালাও|চালান|run|execute)\s*[:\-]?\s*(.+)$",goal,re.I)
+                if m and len(m.group(1))<200: cmd=m.group(1).strip()
+            if not cmd: cmd="uname -a && df -h" if re.search(r"uname|df\s*-h",goal,re.I) else "echo ok"
+            args={"device":args.get("device") or "box","cmd":cmd}
+        
+        alias={"bash":"shell","cmd":"shell","terminal":"shell","search":"web_search","open":"browse","navigate":"browse"}
+        tool=alias.get(tool,tool)
+        if tool not in TOOLS: msgs.append({"role":"user","content":f"'{tool}' নামে কোনো টুল নেই। তালিকা: {', '.join(TOOLS)}"}); ev("repair",text=f"অজানা টুল '{tool}' — ঠিক করছি"); continue
+        cap=TOOLS[tool][0]
+        if tool=="shell" or cap not in(None,"browser"):
+            raw=args.get("device")
+            if not raw or raw in("phone","android","mobile","ফোন") or (raw=="box" and re.search(r"(ফোন|মোবাইল|NEXG|android)",goal,re.I)):
+                args["device"]=pick_device(raw if raw not in("phone","android","mobile","ফোন",None,"") else None, goal)
+            dev=args.get("device","box")
+        else:
+            dev="box"
+        mode=get_perm(dev,cap) if cap else "always"
+        force_card = tool in("sms_send","call_make")  # outgoing: always confirm
+        if mode=="off": d="no"; ev("blocked",text=f"{CAPS[cap]} এই ডিভাইসে বন্ধ (অনুমতি কেন্দ্র)")
+        elif (mode=="always" and not force_card) or tool=="list_devices": d="yes"; cap and ev("auto",text=f"'সবসময় অনুমতি' দেওয়া আছে — {CAPS[cap]}")
+        else:
+            d=await ask(tid,tool,args,j.get("why",""),cap)
+            if mode=="once" and d=="yes": set_perm(dev,cap,"ask")
+        if d!="yes":
+            msgs.append({"role":"user","content":f"মালিক এই কাজের অনুমতি দেননি ({d})। এটা করবে না; বিকল্প বা চূড়ান্ত উত্তর দাও।"}); continue
+        for attempt in range(2):
+            ev("run",tool=tool,args=args,attempt=attempt+1)
+            try:
+                out=await run_tool(tool,args); img=None
+                if isinstance(out,dict): img=out.get("image"); out=out.get("text") or json.dumps({k:v for k,v in out.items() if k!="image"},ensure_ascii=False)[:3000]
+                out_s=redact_secrets(str(out)); ev("result",tool=tool,text=out_s[:1500],image=img); audit(ev="agent_tool",task=tid,tool=tool,args=args,ok=True)
+                msgs.append({"role":"user","content":f"টুল ফলাফল ({tool}):\n{out_s[:3500]}\n(সারাংশ বাংলায়; OTP পূর্ণ নয়)"}); break
+            except Exception as e:
+                er=str(e)[:800]; audit(ev="agent_tool",task=tid,tool=tool,args=args,ok=False,err=er[:200])
+                transient=any(w in er.lower() for w in("timeout","connect","temporar","503","502"))
+                if transient and attempt==0: ev("retry",text=f"সাময়িক সমস্যা ({er[:120]}) — ২ সেকেন্ড পর আবার চেষ্টা"); await asyncio.sleep(2); continue
+                fails+=1; ev("error",tool=tool,text=er)
+                ev("repair",text="ভুলটা বিশ্লেষণ করে বিকল্প পথ খুঁজছি...")
+                msgs.append({"role":"user","content":f"টুল ব্যর্থ ({tool}): {er}\nকারণ বিশ্লেষণ করো এবং অন্য বিকল্প পথে চেষ্টা করো।"}); break
+        if fails>=4: ev("final",text="রয়েল, কয়েকবার চেষ্টা করেও কাজটা শেষ করতে পারিনি। বিস্তারিত উপরের ধাপগুলোতে আছে।"); return
+    ev("final",text="ধাপের সীমা (১০) শেষ হয়েছে।")
+# ---------------- voice & vision ----------------
+VOICE="910fb75e-1d20-4840-ac63-ac6b26a71bdc"
+async def tts(text):
+    async with httpx.AsyncClient(timeout=60) as c:
+        r=await c.post("https://api.cartesia.ai/tts/bytes",headers={"X-API-Key":K.get("CARTESIA_API_KEY",""),"Cartesia-Version":"2025-04-16"},
+          json={"model_id":"sonic-3","transcript":text[:2500],"voice":{"mode":"id","id":VOICE},"language":"bn","output_format":{"container":"mp3","bit_rate":128000,"sample_rate":44100}})
+    if r.status_code!=200: raise RuntimeError(f"Cartesia {r.status_code}: {r.text[:200]}")
+    return r.content
+async def stt(data,ctype):
+    async with httpx.AsyncClient(timeout=60) as c:
+        for q in ("model=nova-3&language=bn","model=nova-2&detect_language=true","model=nova-3&language=multi"):
+            r=await c.post("https://api.deepgram.com/v1/listen?smart_format=true&"+q,headers={"Authorization":"Token "+K.get("DEEPGRAM_API_KEY",""),"Content-Type":ctype or "audio/webm"},content=data)
+            if r.status_code==200:
+                t=r.json()["results"]["channels"][0]["alternatives"][0]["transcript"]
+                if t: return t,q
+    raise RuntimeError(f"Deepgram: কিছু শোনা যায়নি ({r.status_code})")
+async def vision(data,ctype,prompt="এই ছবিতে কী আছে বাংলায় বিস্তারিত বলো; কোনো লেখা থাকলে হুবহু তুলে দাও।"):
+    url="data:"+(ctype or "image/png")+";base64,"+base64.b64encode(data).decode()
+    msg=[{"role":"user","content":[{"type":"text","text":prompt},{"type":"image_url","image_url":{"url":url}}]}]
+    async with httpx.AsyncClient(timeout=90) as c:
+        for u,k,m in (("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",K.get("GEMINI_API_KEY"),"gemini-3.1-flash-lite"),
+                      ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",K.get("GEMINI_API_KEY"),"gemini-3.8-flash"),
+                      ("https://openrouter.ai/api/v1/chat/completions",K.get("OPENROUTER_API_KEY"),"openrouter/free")):
+            try:
+                r=await c.post(u,headers={"Authorization":f"Bearer {k}"},json={"model":m,"messages":msg})
+                if r.status_code==200: return m,r.json()["choices"][0]["message"]["content"]
+            except Exception: pass
+    raise RuntimeError("ভিশন মডেল সাড়া দেয়নি")
