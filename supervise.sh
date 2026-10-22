@@ -24,7 +24,9 @@ start_app(){
 }
 
 ngrok_ok(){
-  curl -fsS -m3 "$NGROK_API" 2>/dev/null | grep -q "$DOMAIN_HOST"
+  curl -fsS -m3 "$NGROK_API" 2>/dev/null | grep -q "$DOMAIN_HOST" || return 1
+  # also verify the public tunnel really answers (catches dead sessions)
+  curl -fsS -m10 -H "ngrok-skip-browser-warning: 1" "https://$DOMAIN_HOST/bb/health" >/dev/null 2>&1 || { sleep 5; curl -fsS -m10 -H "ngrok-skip-browser-warning: 1" "https://$DOMAIN_HOST/bb/health" >/dev/null 2>&1; }
 }
 
 start_ngrok(){
