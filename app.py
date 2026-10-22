@@ -478,20 +478,23 @@ async def stream(request:Request,cid:str):
         hist=[{"role":m["role"],"content":m["content"]} for m in c.execute("select role,content from messages where chat_id=? order by id",(cid,)).fetchall()][-24:]
         first=c.execute("select count(*) n from messages where chat_id=?",(cid,)).fetchone()["n"]<=1
     q=hist[-1]["content"] if hist else ""; sel=b.get("model") or "auto"
-    sched_reply=None
-    if b.get("content") and not b.get("regenerate"):
-        xs=SJ.chat_skill(u,q)
-        if xs: hist[-1]={"role":"user","content":xs}
-        else:
-            try: sched_reply=await SJ.chat_schedule(u,q,st.get("lang","en"))
-            except Exception: sched_reply=None
-    mems=[]
-    if st.get("memory",True):
-        try: mems=await MEM.arecall(u,q)
-        except Exception: mems=[]
-    try:
-        import ground as GR; gctx=await GR.context(q if b.get("content") is not None or b.get("regenerate") else "")
-    except Exception: gctx=""
+    # run schedule-detect, memory recall and web grounding in parallel (was serial: saves ~0.5-2s before first token)
+    async def _sched():
+        if b.get("content") and not b.get("regenerate"):
+            xs=SJ.chat_skill(u,q)
+            if xs: hist[-1]={"role":"user","content":xs}; return None
+            try: return await SJ.chat_schedule(u,q,st.get("lang","en"))
+            except Exception: return None
+        return None
+    async def _mem():
+        if not st.get("memory",True): return []
+        try: return await asyncio.wait_for(MEM.arecall(u,q),6)
+        except Exception: return []
+    async def _gr():
+        try:
+            import ground as GR; return await GR.context(q if b.get("content") is not None or b.get("regenerate") else "")
+        except Exception: return ""
+    sched_reply,mems,gctx=await asyncio.gather(_sched(),_mem(),_gr())
     msgs=[{"role":"system","content":persona(st,proj["instructions"] if proj else "",uid=u,mems=mems)+("\n\n"+gctx if gctx else "")}]+hist
     if sel.startswith("byok:"):
         res=MD.resolve_chat(u,sel)
