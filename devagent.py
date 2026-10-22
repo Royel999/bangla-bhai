@@ -103,14 +103,13 @@ async def system(cmd):
     raise ValueError("unknown system command")
 # ---------- LLM ----------
 GEMK = RT.K.get("GEMINI_API_KEY"); ORK = RT.K.get("OPENROUTER_API_KEY"); GQK = RT.K.get("GROQ_API_KEY")
-FREE = [("da:gemini-2.5-pro", ("Gemini 2.5 Pro", RT.GEM, GEMK, "gemini-2.5-pro", "oa")),
+FREE = [("da:gemini-3.8-flash", ("Gemini 3.8 Flash", RT.GEM, GEMK, "gemini-3.8-flash", "oa")),
         ("da:groq-gptoss", ("Groq GPT-OSS 120B", RT.GROQ, GQK, "openai/gpt-oss-120b", "oa")),
+        ("da:gemini-3.5-flash", ("Gemini 3.5 Flash", RT.GEM, GEMK, "gemini-3.5-flash", "oa")),
         ("da:gemini-2.5-flash", ("Gemini 2.5 Flash", RT.GEM, GEMK, "gemini-2.5-flash", "oa")),
-        ("da:qwen3-coder", ("Qwen3 Coder (free)", RT.OR, ORK, "qwen/qwen3-coder:free", "oa")),
-        ("da:deepseek", ("DeepSeek (free)", RT.OR, ORK, "deepseek/deepseek-chat-v3.1:free", "oa")),
         ("da:or-free", ("OpenRouter Free", RT.OR, ORK, "openrouter/free", "oa"))]
 def models(u):
-    out = [{"id": "auto", "name": "Auto (free: Gemini Pro → Groq → Qwen Coder…)"}]
+    out = [{"id": "auto", "name": "Auto (free: Gemini 3.8 Flash → Groq GPT-OSS → …)"}]
     try: out += H["MD"].byok_chat_list(u)
     except Exception: pass
     return out
@@ -124,22 +123,34 @@ def _json(t):
     t = re.sub(r"^```(?:json)?|```$", "", t.strip(), flags=re.M).strip()
     m = re.search(r"\{.*\}", t, re.S)
     return json.loads(m.group(0) if m else t)
+LAST_TRACE = []
 async def llm(u, sel, msgs, tries=2):
     last = None
     for _ in range(tries):
         try:
-            n, t, _ = await RT.complete(msgs, chain=["__none__"], extra=specs(u, sel), json_mode=True, timeout=120, tries=1)
+            n, t, tr = await RT.complete(msgs, chain=["__none__"], extra=specs(u, sel), json_mode=True, timeout=90, tries=1)
+            LAST_TRACE[:] = [f"{m}={s}"[:80] for m, s in tr]
             return n, _json(t)
         except (ValueError, json.JSONDecodeError) as e: last = e
     raise RuntimeError(f"model gave invalid JSON: {last}")
 SYS = """You are the Dev Agent for the "Bangla Bhai" FastAPI app (Python, inline HTML/JS/CSS in app.py, static/ assets).
+Map: login/admin-login/app/chat pages are inline HTML f-strings in app.py; landing page = static/landing.html; admin panel UI = biz.py; connections = connections.py + static/connections.*; translations = static/i18n/*.json.
 The owner writes commands in Bangla or English. Make the smallest correct change. Respond ONLY with JSON."""
 async def pick_files(u, sel, cmd, paths):
     n, j = await llm(u, sel, [{"role": "system", "content": SYS}, {"role": "user", "content":
         f"Command: {cmd}\n\nRepository files:\n" + "\n".join(paths) + '\n\nReturn {"files":[up to 6 paths most likely needing edits or needed for context],"needle":"one short literal string likely present in the code to change, or empty"}'}])
     return n, [p for p in j.get("files", []) if p in paths][:6], (j.get("needle") or "")[:80]
-async def plan_edits(u, sel, cmd, files):
-    ctx = "\n\n".join(f"=== {p} ===\n{t[:60000]}" for p, t in files.items())
+def excerpt(t, needle):
+    if len(t) <= 14000: return t
+    idx = [m.start() for m in re.finditer(re.escape(needle), t)][:3] if needle else []
+    if not idx: return t[:9000] + "\n…(truncated)…"
+    out, last = [], -1
+    for i in idx:
+        a, b = max(0, i - 2500, last), min(len(t), i + 2500)
+        if b > a: out.append(t[a:b]); last = b
+    return "\n…\n".join(out)
+async def plan_edits(u, sel, cmd, files, needle=""):
+    ctx = "\n\n".join(f"=== {p} (excerpt) ===\n{excerpt(t, needle)}" for p, t in files.items())[:60000]
     msgs = [{"role": "system", "content": SYS}, {"role": "user", "content": f"""Command: {cmd}
 
 Files:
@@ -193,18 +204,21 @@ async def run_job(jid, u, sel, allow_protected=False):
             except Exception: pass
         picks = picks[:6] or ["app.py"]
         files = {p: await read(p) for p in picks}; files = {p: t for p, t in files.items() if t is not None}
+        if needle:  # keep files that actually contain the needle first; drop context-only files that don't
+            hit = {p: t for p, t in files.items() if needle in t}
+            if hit: files = hit
         st("planning", files=list(files))
-        n2, out = await plan_edits(u, sel, j["cmd"], files)
+        n2, out = await plan_edits(u, sel, j["cmd"], files, needle)
         new, errs = apply(files, out.get("edits") or [])
         for nf in out.get("new_files") or []:
             p = nf.get("path", "")
             if p and p not in paths: new[p] = nf.get("content", "")
         if errs and not any(new[p] != files.get(p) for p in new):
-            n2, out = await plan_edits(u, sel, j["cmd"] + "\n\nPrevious attempt failed: " + "; ".join(errs) + ". Copy search text verbatim.", files)
+            n2, out = await plan_edits(u, sel, j["cmd"] + "\n\nPrevious attempt failed: " + "; ".join(errs) + ". Copy search text verbatim.", files, needle)
             new, errs = apply(files, out.get("edits") or [])
         changed, issues, need = check(files, new, allow_protected)
         diff = "".join(udiff(files.get(p), t, p) for p, t in changed.items())
-        j.update(plan=out.get("plan", ""), title=(out.get("title") or j["cmd"])[:80], diff=diff[:60000], model=n2, warnings=errs)
+        j.update(plan=out.get("plan", ""), title=(out.get("title") or j["cmd"])[:80], diff=diff[:60000], model=n2, warnings=errs, trace=list(LAST_TRACE))
         if issues: st("blocked", error="; ".join(issues)); log("blocked", jid, issues=issues); return
         if need: st("needs_confirm", protected=need, pending=changed); log("needs_confirm", jid, files=need); return
         await open_pr(j, changed)
