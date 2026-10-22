@@ -1,0 +1,58 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Dev Agent · Bangla Bhai</title><meta name=robots content=noindex>
+<style>
+:root{--bg:#0b1a33;--card:#112447;--line:#1f3a6b;--txt:#e8eefc;--mut:#8fa3c8;--acc:#3b6fe0;--ok:#2fb47c;--bad:#e05a5a;--warn:#e0a83b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 system-ui,-apple-system,"Noto Sans Bengali",sans-serif}
+header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 14px;display:flex;gap:10px;align-items:center;z-index:2}
+header b{flex:1;font-size:17px}header a,header button{color:var(--mut);background:none;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;text-decoration:none;cursor:pointer}
+main{max-width:860px;margin:0 auto;padding:12px 12px 170px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0}
+.me{background:#1a3466;border-color:#2a4f94;margin-left:12%}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.mut{color:var(--mut);font-size:13px}
+.pill{font-size:12px;border-radius:99px;padding:2px 9px;border:1px solid var(--line)}.g{color:var(--ok);border-color:var(--ok)}.r{color:var(--bad);border-color:var(--bad)}.y{color:var(--warn);border-color:var(--warn)}
+button.b{background:var(--acc);color:#fff;border:0;border-radius:9px;padding:9px 14px;font-size:14px;cursor:pointer;min-height:40px}button.b.sec{background:#203a6a}button.b.bad{background:#7a2b2b}button:disabled{opacity:.5}
+details summary{cursor:pointer;color:var(--mut);font-size:13px;margin-top:6px}
+pre{white-space:pre;overflow:auto;background:#081327;border-radius:10px;padding:10px;font:12px/1.45 ui-monospace,monospace;max-height:420px}
+.add{color:#7ee2a8}.del{color:#ff9c9c}.hd{color:#8fb4ff}
+footer{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid var(--line);padding:10px}
+footer .in{max-width:860px;margin:0 auto}textarea{width:100%;background:#081327;color:var(--txt);border:1px solid var(--line);border-radius:12px;padding:10px;font:inherit;resize:vertical;min-height:54px}
+select{background:#081327;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px;max-width:60vw}
+a{color:#8fb4ff}
+</style></head><body>
+<header><b>🛠 Dev Agent</b><button id=lng>বাংলা</button><a href=/admin/panel>Admin</a></header>
+<main id=feed><div class="card mut" id=intro></div><div class=card id=sys></div><div id=jobs></div></main>
+<footer><div class=in><textarea id=t></textarea><div class=row style="margin-top:6px"><select id=m></select><label class=mut><input type=checkbox id=prot> <span id=protl></span></label><span style=flex:1></span><button class=b id=go></button></div></div></footer>
+<script>
+const CSRF="__CSRF__";let L=localStorage.da_lang||"en";
+const TX={en:{intro:"Tell me what to change in the app (English or Bangla). I read the code, open a pull request, CI tests it, and nothing goes live until you tap <b>Approve & Deploy</b>.",ph:"e.g. Change the footer text to include …",send:"Send",prot:"Allow protected files (CI/auth/secrets) — asks extra confirm",sys:"System",approve:"Approve & Deploy",reject:"Reject",rollback:"Rollback",confirm:"Confirm protected change",plan:"Plan",diff:"Changes (diff)",ci:"CI",deploy:"Deploy",steps:"Steps",audit:"Audit log",nocfg:"⚠ Not configured: "},
+bn:{intro:"অ্যাপে কী বদলাতে হবে লিখুন (বাংলা বা ইংরেজি)। আমি কোড পড়ে একটা PR খুলব, CI পরীক্ষা করবে, আর আপনি <b>Approve & Deploy</b> না চাপা পর্যন্ত কিছুই চালু হবে না।",ph:"যেমন: ফুটারের লেখা বদলাও …",send:"পাঠাও",prot:"সুরক্ষিত ফাইল (CI/auth/secrets) বদলানোর অনুমতি — আলাদা নিশ্চিতকরণ লাগবে",sys:"সিস্টেম",approve:"Approve & Deploy",reject:"বাতিল",rollback:"আগের অবস্থায় ফেরাও",confirm:"সুরক্ষিত পরিবর্তন নিশ্চিত করো",plan:"পরিকল্পনা",diff:"পরিবর্তন (diff)",ci:"CI",deploy:"ডিপ্লয়",steps:"ধাপ",audit:"অডিট লগ",nocfg:"⚠ সেটআপ বাকি: "}};
+const $=i=>document.getElementById(i),T=k=>TX[L][k],E=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function api(u,b){const r=await fetch(u,b===undefined?{}:{method:"POST",headers:{"content-type":"application/json","x-csrf":CSRF},body:JSON.stringify(b)});const j=await r.json().catch(()=>({error:r.status}));if(!r.ok)throw new Error(j.error||r.status);return j}
+function diffHtml(d){return d.split("\n").map(l=>`<span class="${l.startsWith("+")&&!l.startsWith("+++")?"add":l.startsWith("-")&&!l.startsWith("---")?"del":l.startsWith("@@")||l.startsWith("+++")||l.startsWith("---")?"hd":""}">${E(l)}</span>`).join("\n")}
+const PC={pr_open:"y",deploying:"y",queued:"y","reading repo":"y",planning:"y",needs_confirm:"y",deployed:"g",green:"g",rolled_back:"mut",failed:"r",blocked:"r",red:"r",deploy_failed:"r",rejected:"mut",live:"g"};
+let S={jobs:[]},busy=0;
+function render(){ $("intro").innerHTML=T("intro")+(S.configured&&(!S.configured.github||!S.configured.render)?`<br><span class="pill r">${T("nocfg")}${!S.configured.github?"GitHub token ":""}${!S.configured.render?"Render key":""}</span>`:"");
+ $("t").placeholder=T("ph");$("go").textContent=T("send");$("protl").textContent=T("prot");$("lng").textContent=L=="en"?"বাংলা":"English";
+ $("sys").innerHTML=`<div class=row><b>${T("sys")}</b>${Object.entries(S.sys||{}).map(([k,v])=>`<button class="b sec" title="${E(v)}" data-sys=${k}>${k}</button>`).join("")}<button class="b sec" id=aud>${T("audit")}</button></div><pre id=sysout style="display:none"></pre>`;
+ $("jobs").innerHTML=S.jobs.map(j=>{const ac=[];
+  if(j.status=="pr_open")ac.push(`<button class=b data-a=approve data-j=${j.id} ${j.ci!="green"?"disabled title='waiting for CI'":""}>✅ ${T("approve")}</button>`);
+  if(["pr_open","needs_confirm","blocked","failed"].includes(j.status))ac.push(`<button class="b sec" data-a=reject data-j=${j.id}>✖ ${T("reject")}</button>`);
+  if(j.status=="needs_confirm")ac.push(`<button class="b bad" data-a=confirm data-j=${j.id}>⚠ ${T("confirm")}</button>`);
+  if(["deployed","deploying","deploy_failed"].includes(j.status))ac.push(`<button class="b bad" data-a=rollback data-j=${j.id}>↩ ${T("rollback")}</button>`);
+  return `<div class="card me">${E(j.cmd)}</div><div class=card><div class=row><span class="pill ${PC[j.status]||""}">${E(j.status)}</span>${j.pr?`<a href="${E(j.pr_url)}" target=_blank>PR #${j.pr}</a>`:""}${j.ci?`<span class="pill ${PC[j.ci]||""}">${T("ci")}: ${E(j.ci)}</span>`:""}${j.deploy?`<span class="pill ${PC[j.deploy.status]||""}">${T("deploy")}: ${E(j.deploy.status)} ${E(j.deploy.commit)}</span>`:""}${j.rollback_pr?`<span class=pill>rollback PR #${j.rollback_pr}</span>`:""}<span class=mut>${new Date(j.created*1000).toLocaleString()}</span></div>
+  ${j.plan?`<p><b>${T("plan")}:</b> ${E(j.plan)}</p>`:""}${j.error?`<p class=mut style="color:var(--bad)">${E(j.error)}</p>`:""}${j.protected?`<p class=mut>Protected: ${E(j.protected.join(", "))}</p>`:""}
+  ${j.diff?`<details ${j.status=="pr_open"||j.status=="needs_confirm"?"open":""}><summary>${T("diff")}</summary><pre>${diffHtml(j.diff)}</pre></details>`:""}
+  <details><summary>${T("steps")}${j.model?" · "+E(j.model):""}</summary><div class=mut>${(j.steps||[]).map(s=>new Date(s[0]*1000).toLocaleTimeString()+" "+E(s[1])).join("<br>")}</div></details>
+  <div class=row style="margin-top:8px">${ac.join("")}</div></div>`}).join("");}
+async function load(){try{S=await api("/bb/api/dev/state");const m=$("m"),v=m.value;m.innerHTML=S.models.map(x=>`<option value="${E(x.id)}">${E(x.name)}</option>`).join("");if(v)m.value=v;render()}catch(e){$("intro").textContent=e.message}}
+$("go").onclick=async()=>{const t=$("t").value.trim();if(!t)return;$("go").disabled=1;try{await api("/bb/api/dev/cmd",{text:t,model:$("m").value,allow_protected:$("prot").checked});$("t").value="";await load()}catch(e){alert(e.message)}$("go").disabled=0};
+document.addEventListener("click",async e=>{const b=e.target.closest("button");if(!b)return;
+ if(b.id=="lng"){L=L=="en"?"bn":"en";localStorage.da_lang=L;render();return}
+ if(b.id=="aud"){const j=await api("/bb/api/dev/audit");const o=$("sysout");o.style.display="block";o.textContent=j.log.map(x=>new Date(x.t*1000).toLocaleString()+"  "+x.ev+"  "+x.job+"  "+x.detail).join("\n");return}
+ if(b.dataset.sys){const c=b.dataset.sys;if(c=="restart"&&!confirm("Restart (redeploy) the live service?"))return;const o=$("sysout");o.style.display="block";o.textContent="…";try{o.textContent=(await api("/bb/api/dev/sys",{cmd:c,confirm:true})).out}catch(x){o.textContent=x.message}return}
+ if(b.dataset.a){const a=b.dataset.a,body={};
+  if(a=="approve"&&!confirm("Merge to main and deploy live?"))return;
+  if(a=="rollback"&&!confirm("Roll back this change on the live app?"))return;
+  if(a=="confirm"){const p=prompt("This touches protected files. Type CONFIRM to allow.");if(p!=="CONFIRM")return;body.phrase=p}
+  b.disabled=1;try{await api(`/bb/api/dev/job/${b.dataset.j}/${a}`,body)}catch(x){alert(x.message)}await load()}});
+load();setInterval(()=>{if(!document.hidden)load()},8000);
+</script></body></html>
