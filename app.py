@@ -185,10 +185,12 @@ ADMIN_CSS="""<style>.abox{border:1px solid #f4b400 !important;box-shadow:0 0 0 1
 .abadge svg{width:22px;height:22px}.abox button[type=submit]{background:#f4b400 !important;color:#0b1a33 !important;font-weight:700}
 .abox input:focus{border-color:#f4b400 !important}.sep{display:flex;align-items:center;gap:10px;color:var(--mut);font-size:12px;margin:18px 0 8px}.sep:before,.sep:after{content:"";flex:1;height:1px;background:var(--bd)}</style>"""
 SHIELD='<svg viewBox="0 0 24 24" fill="none" stroke="#f4b400" stroke-width="2"><path d="M12 2l8 3v6c0 5-3.5 9.5-8 11-4.5-1.5-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg>'
+SAFE_NEXT=("/admin/login-requests","/admin/panel","/admin/dev")
 @app.get("/admin")
 @app.get("/admin/login")
-def admin_page(request:Request, e:str="", m:str="", lang:str=""):
-    if is_admin(request) and not e and not m: return RedirectResponse("/app",303)
+def admin_page(request:Request, e:str="", m:str="", lang:str="", next:str=""):
+    if next in SAFE_NEXT: request.session["next"]=next
+    if is_admin(request) and not e and not m: return RedirectResponse(request.session.pop("next",None) or "/app",303)
     L=lang if lang in LANG_NAMES else (request.cookies.get("bb_lang") if request.cookies.get("bb_lang") in LANG_NAMES else "en")
     T=lambda k: tr(L,k)
     import html as _h
@@ -224,7 +226,7 @@ def do_login(request:Request,username:str=Form(""),password:str=Form("")):
     if not ok: return RedirectResponse("/admin?e=1",303)
     AU.ensure_owner()
     request.session["u"]=CFG["BB_USER"]; request.session["role"]="owner"
-    return RedirectResponse("/app",303)
+    return RedirectResponse(request.session.pop("next",None) or "/app",303)
 
 @app.post("/auth/otp/request")
 async def otp_req(request:Request, email:str=Form(""), src:str=Form("")):
@@ -257,7 +259,7 @@ async def otp_ver(request:Request, email:str=Form(""), code:str=Form(""), src:st
     ok,uid=AU.verify_otp(email, code)
     if not ok: return RedirectResponse(f"{LP}?e=otp&email={quote(AU.normalize_email(email))}&m="+quote(str(uid)),303)
     if AU.normalize_email(email)==OWNER_EMAIL:
-        AU.ensure_owner(); request.session["u"]=CFG["BB_USER"]; request.session["role"]="owner"; audit(ev="owner_email_login")
+        AU.ensure_owner(); request.session["u"]=CFG["BB_USER"]; request.session["role"]="owner"; audit(ev="owner_email_login"); return RedirectResponse(request.session.pop("next",None) or "/app",303)
     else:
         request.session["u"]=uid; request.session["role"]="user"
     return RedirectResponse("/app",303)
@@ -772,20 +774,11 @@ async def webui(request:Request,path:str):
         b=r.body.decode().replace("<head>","<head><script>history.replaceState(null,'','/c/');</script>",1)
         return HTMLResponse(b,r.status_code)
     return r
-@app.api_route("/{path:path}",methods=["GET","POST","PUT","DELETE","PATCH"])
-async def fallback(request:Request,path:str):
-    p="/"+path
-    if p.startswith(WEBUI_PREFIXES):
-        if not is_admin(request): return JSONResponse({"error":"owner only"},403)
-        return await proxy(request,p)
-    return RedirectResponse("/",303)
-
-
 import secrets
 # ---- Owner approval for logins when email delivery fails ----
 @app.get("/admin/login-requests")
 def login_reqs(request:Request):
-    if not is_admin(request): return RedirectResponse("/admin",303)
+    if not is_admin(request): return RedirectResponse("/admin?next=/admin/login-requests",303)
     if not request.session.get("csrf"): request.session["csrf"]=secrets.token_urlsafe(24)
     with db() as c:
         c.execute("create table if not exists otp_pending(email text primary key,t real)")
@@ -812,3 +805,11 @@ async def otp_approve(request:Request):
         c.execute("delete from otp_pending where email=?",(email,))
     code=AU.create_otp(email); audit(ev="otp_owner_approved",email=email)
     return {"ok":True,"code":code}
+
+@app.api_route("/{path:path}",methods=["GET","POST","PUT","DELETE","PATCH"])
+async def fallback(request:Request,path:str):
+    p="/"+path
+    if p.startswith(WEBUI_PREFIXES):
+        if not is_admin(request): return JSONResponse({"error":"owner only"},403)
+        return await proxy(request,p)
+    return RedirectResponse("/",303)
