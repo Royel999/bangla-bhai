@@ -47,7 +47,7 @@ async function toggleMic(){if(REC){REC.stop();return}
   REC.onstop=async()=>{st.getTracks().forEach(t=>t.stop());REC=null;$('#micB').classList.remove('rec');live(false);toast(L('⏳ Listening...','⏳ শুনছি...'));
    const fd=new FormData();fd.append('file',new Blob(ch,{type:ch[0]?.type||'audio/webm'}),'voice.webm');const r=await fetch('/bb/api/stt',{method:'POST',body:fd}).then(r=>r.json());
    if(r.text){$('#inp').value+=(($('#inp').value?' ':'')+r.text);autoGrow();toast(L('✓ Transcribed','✓ লেখা হয়েছে'))}else toast('⚠️ '+(r.error||L('Couldn’t understand','বোঝা যায়নি')))};
-  REC.start();$('#micB').classList.add('rec');live(true,L('🎙️ Mic on — recording','🎙️ মাইক চালু — রেকর্ড হচ্ছে'),()=>REC&&REC.stop())}catch(e){toast(L('Microphone permission denied','মাইকের অনুমতি পাওয়া যায়নি'))}}
+  REC.start();setTimeout(()=>REC&&REC.state==="recording"&&REC.stop(),120000);$('#micB').classList.add('rec');live(true,L('🎙️ Mic on — recording','🎙️ মাইক চালু — রেকর্ড হচ্ছে'),()=>REC&&REC.stop())}catch(e){toast(L('Microphone permission denied','মাইকের অনুমতি পাওয়া যায়নি'))}}
 let AUD=null;async function speak(text,btn){if(AUD){AUD.pause();AUD=null;btn.textContent='🔊';return}btn.textContent='⏳';
  const r=await fetch('/bb/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
  if(!r.ok){btn.textContent='🔊';return toast(L('⚠️ Voice failed','⚠️ ভয়েস তৈরি হয়নি'))}

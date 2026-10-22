@@ -440,10 +440,19 @@ async def upload(request:Request,file:UploadFile=File(...)):
     text=""
     try:
         if name.lower().endswith(".pdf") or file.content_type=="application/pdf":
-            from pypdf import PdfReader; text="\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(data)).pages[:60])
+            import ocr as OC; text,how=await asyncio.to_thread(OC.pdf_text,data); audit(ev="ocr_pdf",how=how)
+            if not text.strip(): return JSONResponse({"error":"No text found in PDF / PDF-এ কোনো লেখা পাওয়া যায়নি"},400)
+            return {"name":name,"kind":"text","text":text[:60000],"chars":len(text),"note":"📄 PDF read ("+how+")"}
         elif (file.content_type or "").startswith("image/"):
-            m,desc=await AG.vision(data,file.content_type); audit(ev="vision",name=name,model=m)
-            return {"name":name,"kind":"text","text":f"[ছবি বিশ্লেষণ — {m}]\n{desc}","chars":len(desc),"note":"🖼️ ছবি পড়া হয়েছে ("+m+")"}
+            import ocr as OC
+            try: ot=await asyncio.to_thread(OC.image_text,data)
+            except Exception: ot=""
+            try: m,desc=await AG.vision(data,file.content_type)
+            except Exception: m,desc="",""
+            audit(ev="vision",name=name,model=m,ocr=len(ot))
+            if not (ot or desc): return JSONResponse({"error":"Could not read image / ছবি পড়া যায়নি"},400)
+            txt=(f"[Image description — {m}]\n{desc}\n\n" if desc else "")+(f"[OCR text (RapidOCR, local)]\n{ot}" if ot else "")
+            return {"name":name,"kind":"text","text":txt[:60000],"chars":len(txt),"note":"🖼️ Image read"+(" + OCR" if ot else "")}
         else: text=data.decode("utf-8","ignore")
     except Exception as e: audit(ev="upload_err",err=str(e)[:200]); return JSONResponse({"error":"ফাইল পড়া যায়নি — অন্য ফরম্যাটে চেষ্টা করুন। / Could not read this file."},400)
     audit(ev="upload",name=name,size=len(data))
@@ -666,12 +675,15 @@ def lk_file(fn:str):
     return FileResponse(BASE+"/link/"+fn,media_type="text/plain; charset=utf-8")
 @app.post("/bb/api/tts")
 async def tts(request:Request):
-    need(request); b=await request.json()
+    u=need(request); b=await request.json()
+    if not is_owner_uid(u) and not rate_ok("tts:"+u,80,86400): return JSONResponse({"error":"Daily voice limit reached"},429)
     try: return Response(await AG.tts(re.sub(r"[`*#>|_\[\]()]","",b.get("text",""))),media_type="audio/mpeg")
     except Exception as e: return JSONResponse({"error":str(e)[:200]},502)
 @app.post("/bb/api/stt")
 async def stt(request:Request,file:UploadFile=File(...)):
-    need(request); data=await file.read()
+    u=need(request); data=await file.read(25_000_001)
+    if len(data)>AG.STT_MAX_BYTES: return JSONResponse({"error":"Audio too large (max 10MB / 2 min)"},413)
+    if not is_owner_uid(u) and not rate_ok("stt:"+u,60,86400): return JSONResponse({"error":"Daily voice limit reached"},429)
     try: t,q=await AG.stt(data,file.content_type); audit(ev="stt",chars=len(t)); return {"text":t,"mode":q}
     except Exception as e: return JSONResponse({"error":str(e)[:200]},502)
 # ---- media studio + BYOK ----

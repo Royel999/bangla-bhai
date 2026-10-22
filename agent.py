@@ -8,7 +8,7 @@ def env(f):
     except Exception: pass
     return d
 K={}
-for f in ("groq","gemini","openrouter","deepgram","cartesia"): K.update(env(f"{S}/{f}.env"))
+for f in ("groq","gemini","openrouter","deepgram","cartesia","assemblyai"): K.update(env(f"{S}/{f}.env"))
 AUDIT=BASE+'/audit.jsonl'
 def audit(**k): open(AUDIT,'a').write(json.dumps({"t":time.time(),**k},ensure_ascii=False)+"\n")
 DB=BASE+'/data.db'
@@ -366,14 +366,42 @@ async def tts(text):
           json={"model_id":"sonic-3","transcript":text[:2500],"voice":{"mode":"id","id":VOICE},"language":"bn","output_format":{"container":"mp3","bit_rate":128000,"sample_rate":44100}})
     if r.status_code!=200: raise RuntimeError(f"Cartesia {r.status_code}: {r.text[:200]}")
     return r.content
+STT_MAX_BYTES=10_000_000; STT_MAX_SEC=120
 async def stt(data,ctype):
+    if not data: raise RuntimeError("Empty audio / অডিও খালি")
+    if len(data)>STT_MAX_BYTES: raise RuntimeError("Audio too large (max 10MB / 2 min) / অডিও খুব বড়")
+    ct=(ctype or "audio/webm").split(";")[0]
+    ext={"audio/webm":"webm","audio/ogg":"ogg","audio/mpeg":"mp3","audio/mp4":"m4a","audio/wav":"wav","audio/x-wav":"wav"}.get(ct,"webm")
     async with httpx.AsyncClient(timeout=60) as c:
-        for q in ("model=nova-3&language=bn","model=nova-2&detect_language=true","model=nova-3&language=multi"):
-            r=await c.post("https://api.deepgram.com/v1/listen?smart_format=true&"+q,headers={"Authorization":"Token "+K.get("DEEPGRAM_API_KEY",""),"Content-Type":ctype or "audio/webm"},content=data)
-            if r.status_code==200:
-                t=r.json()["results"]["channels"][0]["alternatives"][0]["transcript"]
-                if t: return t,q
-    raise RuntimeError(f"Deepgram: কিছু শোনা যায়নি ({r.status_code})")
+        if K.get("GROQ_API_KEY"):
+            try:
+                r=await c.post("https://api.groq.com/openai/v1/audio/transcriptions",headers={"Authorization":"Bearer "+K["GROQ_API_KEY"]},
+                    files={"file":("voice."+ext,data,ct)},data={"model":"whisper-large-v3-turbo","response_format":"verbose_json"})
+                if r.status_code==200:
+                    j=r.json()
+                    if float(j.get("duration") or 0)>STT_MAX_SEC+5: raise RuntimeError("Audio longer than 2 minutes / ২ মিনিটের বেশি")
+                    if (j.get("text") or "").strip(): return j["text"].strip(),"groq-whisper"
+            except RuntimeError: raise
+            except Exception: pass
+        if K.get("DEEPGRAM_API_KEY"):
+            for q in ("model=nova-3&language=bn","model=nova-2&detect_language=true"):
+                try:
+                    r=await c.post("https://api.deepgram.com/v1/listen?smart_format=true&"+q,headers={"Authorization":"Token "+K["DEEPGRAM_API_KEY"],"Content-Type":ct},content=data)
+                    if r.status_code==200:
+                        t=r.json()["results"]["channels"][0]["alternatives"][0]["transcript"]
+                        if t: return t,"deepgram"
+                except Exception: pass
+        if K.get("ASSEMBLYAI_API_KEY"):
+            try:
+                h={"authorization":K["ASSEMBLYAI_API_KEY"]}
+                up=(await c.post("https://api.assemblyai.com/v2/upload",headers=h,content=data)).json()["upload_url"]
+                tid=(await c.post("https://api.assemblyai.com/v2/transcript",headers=h,json={"audio_url":up,"language_detection":True})).json()["id"]
+                for _ in range(40):
+                    await asyncio.sleep(1.5); j=(await c.get("https://api.assemblyai.com/v2/transcript/"+tid,headers=h)).json()
+                    if j.get("status")=="completed" and j.get("text"): return j["text"],"assemblyai"
+                    if j.get("status")=="error": break
+            except Exception: pass
+    raise RuntimeError("Could not hear anything / কিছু শোনা যায়নি")
 async def vision(data,ctype,prompt="এই ছবিতে কী আছে বাংলায় বিস্তারিত বলো; কোনো লেখা থাকলে হুবহু তুলে দাও।"):
     url="data:"+(ctype or "image/png")+";base64,"+base64.b64encode(data).decode()
     msg=[{"role":"user","content":[{"type":"text","text":prompt},{"type":"image_url","image_url":{"url":url}}]}]
