@@ -197,5 +197,10 @@
 "🔑 My API keys": "🔑 Mes clés API",
 "🖼️ Create image": "🖼️ Créer une image",
 "Free videos today": "Vidéos gratuites aujourd'hui",
-"Free video: short ~3 second clip. Add a start image for best results.": "Vidéo gratuite : court clip d'environ 3 secondes. Ajoutez une image de départ pour un meilleur résultat."
+"Free video: short ~3 second clip. Add a start image for best results.": "Vidéo gratuite : court clip d'environ 3 secondes. Ajoutez une image de départ pour un meilleur résultat.",
+"Wan 2.2 (Hugging Face, free, ~3 s clip; falls back to LTX/CogVideoX, then a slideshow video)": "Wan 2.2 (Hugging Face, gratuit, clip ~3 s ; sinon LTX/CogVideoX, puis vidéo diaporama)",
+"Slideshow video (always free: 3 AI images with pan-zoom and crossfades, ~8 s)": "Vidéo diaporama (toujours gratuite : 3 images IA avec zoom et fondus, ~8 s)",
+"Free video: short ~3 second AI clip when free GPU is available, otherwise an ~8 second slideshow video. Failed tries do not use your quota.": "Vidéo gratuite : clip IA ~3 s si un GPU gratuit est dispo, sinon vidéo diaporama ~8 s. Les échecs ne consomment pas votre quota.",
+"Slideshow video (free AI images with pan-zoom). Real AI video was busy today.": "Vidéo diaporama (images IA gratuites avec zoom). La vraie vidéo IA était occupée aujourd'hui.",
+"This model could not create it right now. Your daily quota was not used. Try another model or try again later.": "Ce modèle n'a pas pu le créer pour le moment. Votre quota du jour n'a pas été utilisé. Essayez un autre modèle ou réessayez plus tard."
 }

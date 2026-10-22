@@ -38,7 +38,8 @@ FREE_IMAGE={
 PK_EDIT_ONLY={"pk:black-forest-labs/flux.1-kontext-pro"}
 PK_USER_DAY=int(os.environ.get("BB_PK_USER_DAY","5")); PK_GLOBAL_DAY=int(os.environ.get("BB_PK_GLOBAL_DAY","15"))
 POLL=_env(S+'/pollinations.env').get('POLLINATIONS_KEY',''); HFT=_env(S+'/huggingface.env').get('HF_TOKEN','')
-FREE_VIDEO={"hfs:wan2.2-i2v":"Wan 2.2 (Hugging Face, free, ~3 s clip; text → free image → video)"}
+FREE_VIDEO={"hfs:wan2.2-i2v":"Wan 2.2 (Hugging Face, free, ~3 s clip; falls back to LTX/CogVideoX, then a slideshow video)",
+ "local:slideshow":"Slideshow video (always free: 3 AI images with pan-zoom and crossfades, ~8 s)"}
 FREE_EDIT_SET={"hfs:flux-kontext-dev","pk:openai/gpt-image-1-mini","pk:black-forest-labs/flux.1-kontext-pro"}
 FREE_EDIT={"cf:black-forest-labs/flux-2-klein-4b","cf:black-forest-labs/flux-2-klein-9b","cf:black-forest-labs/flux-2-dev"}|FREE_EDIT_SET
 # ---------- BYOK providers ----------
@@ -165,11 +166,86 @@ async def _space_rest(host,api,image,args,timeout=420):
                     try: return await _get(o["url"],hd,300)
                     except httpx.HTTPStatusError: return await _get(o["url"],None,300)
     raise RuntimeError("space: no result")
-async def free_video(prompt,image=None):
-    if image is None: _,image=await image_with_fallback("cf:black-forest-labs/flux-1-schnell",prompt,None)
-    try: return await asyncio.to_thread(_space_call,"zerogpu-aoti/wan2-2-fp8da-aoti-faster","/generate_video",image,dict(prompt=prompt[:500],duration_seconds=3.0),420)
-    except Exception as e: H["audit"](ev="media_fallback",model="wan-client",err=str(e)[:160])
-    return await _space_rest("zerogpu-aoti-wan2-2-fp8da-aoti-faster.hf.space","generate_video",image,[prompt[:500],6,"",3.0,1,1,42,True])
+def _slideshow(imgs,label="Slideshow video"):
+    """Local always-free fallback: Ken Burns pan/zoom + crossfades with ffmpeg. Clearly labelled."""
+    import tempfile, subprocess
+    from PIL import Image; import io
+    D=3.2; X=0.8; W,Hh=768,768
+    with tempfile.TemporaryDirectory() as td:
+        ins=[]
+        for i,b in enumerate(imgs):
+            f=f"{td}/{i}.png"; Image.open(io.BytesIO(b)).convert("RGB").resize((W,Hh)).save(f); ins+=["-i",f]
+        n=len(imgs); fr=int(D*25); fc=[]
+        for i in range(n):
+            z="min(zoom+0.0015,1.25)" if i%2==0 else "if(eq(on,0),1.25,max(zoom-0.0015,1.0))"
+            fc.append(f"[{i}:v]scale={W*2}:{Hh*2},zoompan=z='{z}':x='iw/2-(iw/zoom/2)+0.6*on*(2*{i%2}-1)':y='ih/2-(ih/zoom/2)':d={fr}:s={W}x{Hh}:fps=25,setsar=1,format=yuv420p[v{i}]")
+        last="v0"
+        for i in range(1,n):
+            fc.append(f"[{last}][v{i}]xfade=transition=fade:duration={X}:offset={i*(D-X):.2f}[x{i}]"); last=f"x{i}"
+        font=BASE+"/fonts/Atma-Bold.ttf"
+        fc.append(f"[{last}]drawtext=fontfile='{font}':text='{label}':x=16:y=h-44:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.45:boxborderw=8[out]")
+        out=f"{td}/o.mp4"
+        r=subprocess.run(["ffmpeg","-y","-loglevel","error",*ins,"-filter_complex",";".join(fc),"-map","[out]","-c:v","libx264","-pix_fmt","yuv420p","-movflags","+faststart","-r","25",out],capture_output=True,timeout=180)
+        if r.returncode!=0: raise RuntimeError("ffmpeg: "+r.stderr.decode()[-1500:])
+        return open(out,"rb").read()
+async def _ss_img(prompt,seed):
+    try: return (await free_image("cf:black-forest-labs/flux-1-schnell",prompt))
+    except Exception as e: H["audit"](ev="media_fallback",model="slideshow-cf",err=str(e)[:120])
+    from urllib.parse import quote
+    try:
+        d=await _get(f"https://image.pollinations.ai/prompt/{quote(prompt)}?width=768&height=768&nologo=true&seed={seed}",timeout=60)
+        if _sniff(d)[0]: return d
+    except Exception as e: H["audit"](ev="media_fallback",model="slideshow-pollinations",err=str(e)[:120])
+    return None
+def _card(prompt,i):
+    """Last-resort local frame so the slideshow ALWAYS works (no network)."""
+    from PIL import Image, ImageDraw, ImageFont; import io, textwrap
+    cols=[((18,52,86),(32,140,140)),((80,30,90),(220,120,60)),((10,70,40),(200,180,60))][i%3]
+    im=Image.new("RGB",(768,768)); d=ImageDraw.Draw(im)
+    for y in range(768):
+        a=y/767; d.line([(0,y),(768,y)],fill=tuple(int(cols[0][k]*(1-a)+cols[1][k]*a) for k in range(3)))
+    try: f=ImageFont.truetype(BASE+"/fonts/Atma-Bold.ttf",40)
+    except Exception: f=ImageFont.load_default()
+    d.multiline_text((60,260),"\n".join(textwrap.wrap(prompt[:140],26)),font=f,fill="white",spacing=10)
+    b=io.BytesIO(); im.save(b,"PNG"); return b.getvalue()
+async def slideshow_video(prompt,image=None):
+    shots=["","cinematic close-up, ","wide establishing shot, "]
+    want=shots[1:] if image is not None else shots
+    got=await asyncio.gather(*[_ss_img(sfx+prompt,int(time.time())%100000+i) for i,sfx in enumerate(want)])
+    imgs=([image] if image is not None else [])+[g for g in got if g]
+    while len(imgs)<3: imgs.append(_card(prompt,len(imgs)))
+    return await asyncio.to_thread(_slideshow,imgs)
+async def free_video(prompt,image=None,model="hfs:wan2.2-i2v"):
+    """Returns (model_used, mp4). Order: Wan 2.2 (client, REST) -> LTX-Video distilled -> CogVideoX-5B -> local slideshow (always works)."""
+    if model=="local:slideshow": return "local:slideshow",await slideshow_video(prompt,image)
+    src=image
+    if src is None:
+        try: _,src=await image_with_fallback("cf:black-forest-labs/flux-1-schnell",prompt,None)
+        except Exception as e: H["audit"](ev="media_fallback",model="video-img",err=str(e)[:160])
+    if src is not None:
+        tries=[("hfs:wan2.2-i2v",lambda:asyncio.to_thread(_space_call,"zerogpu-aoti/wan2-2-fp8da-aoti-faster","/generate_video",src,dict(prompt=prompt[:500],duration_seconds=3.0),420)),
+               ("hfs:wan2.2-i2v",lambda:_space_rest("zerogpu-aoti-wan2-2-fp8da-aoti-faster.hf.space","generate_video",src,[prompt[:500],6,"",3.0,1,1,42,True])),
+               ("hfs:ltx-video",lambda:asyncio.to_thread(_space_any,"Lightricks/ltx-video-distilled","/image_to_video",src,"input_image_filepath",dict(prompt=prompt[:500],mode="image-to-video",duration_ui=2),300)),
+               ("hfs:cogvideox-5b",lambda:asyncio.to_thread(_space_any,"zai-org/CogVideoX-5B-Space","/generate",src,"image_input",dict(prompt=prompt[:500],video_input=None,video_strength=0.8,seed_value=-1,scale_status=False,rife_status=False),420))]
+        for m,f in tries:
+            try:
+                d=await f()
+                if _sniff(d)[1]=="mp4": return m,d
+                raise RuntimeError("not mp4")
+            except Exception as e: H["audit"](ev="media_fallback",model=m,err=str(e)[:160])
+    return "local:slideshow",await slideshow_video(prompt,src)
+def _space_any(space,api,image,img_param,kw,timeout):
+    import tempfile, shutil
+    from gradio_client import Client, handle_file
+    with tempfile.TemporaryDirectory() as td:
+        p=f"{td}/in.{_sniff(image)[1] or 'png'}"; open(p,"wb").write(image)
+        c=Client(space,token=HFT or None,verbose=False)
+        try: r=c.submit(api_name=api,**{img_param:handle_file(p)},**kw).result(timeout=timeout)
+        except BaseException as e: raise RuntimeError(f"space failed: {str(e)[:120]}")
+        o=r[0] if isinstance(r,(list,tuple)) else r
+        if isinstance(o,dict): o=o.get("video") or o.get("path")
+        data=open(o,"rb").read(); shutil.rmtree(os.path.dirname(o),ignore_errors=True)
+    return data
 def pk_allowed(u):
     import plans as _PL
     if H["is_owner"](u): return True,""
@@ -331,7 +407,12 @@ def media_models(request:Request):
         img+=[{"id":f"byok:{r['id']}:{m}","name":f"🔑 {lab} · {m}","edit":r["provider"]!="luma","free":False} for m in models_of(r,"image")]
         vid+=[{"id":f"byok:{r['id']}:{m}","name":f"🔑 {lab} · {m}","free":False} for m in models_of(r,"video")]
     return {"image":img,"video":vid,"chat":chat,"quota":{"image":quota_left(u,"image"),"video":quota_left(u,"video")},
-            "free_video_note":"Free video: short ~3 second clip. Add a start image for best results."}
+            "free_video_note":"Free video: short ~3 second AI clip when free GPU is available, otherwise an ~8 second slideshow video. Failed tries do not use your quota."}
+def refund(key):
+    """Give back one quota unit (newest ratelimit row for key) after a failed generation."""
+    try:
+        with H["db"]() as c: c.execute("delete from ratelimit where rowid=(select rowid from ratelimit where k=? order by t desc limit 1)",(key,))
+    except Exception: pass
 async def _run(request,kind,model,prompt,file):
     u=H["need"](request); prompt=(prompt or "").strip()[:2000]
     if not prompt: return JSONResponse({"error":"Prompt is empty"},400)
@@ -340,6 +421,7 @@ async def _run(request,kind,model,prompt,file):
     if file is not None:
         image=await file.read()
         if len(image)>10*1024*1024 or not _sniff(image)[0]: return JSONResponse({"error":"Upload a JPG/PNG/WEBP under 10 MB"},400)
+    charged=[]
     try:
         if model.startswith("byok:"):
             _,kid,m=model.split(":",2); r=key_row(u,kid)
@@ -349,8 +431,8 @@ async def _run(request,kind,model,prompt,file):
             if kind=="video":
                 if model not in FREE_VIDEO: return JSONResponse({"error":"Unknown model"},400)
                 if quota_left(u,"video")<=0: return JSONResponse({"error":"Daily plan video limit reached. Upgrade at /plans, add your own key, or try tomorrow."},429)
-                H["rate_ok"](f"qvideo:{u}",10**9,86400)
-                data=await free_video(prompt,image)
+                H["rate_ok"](f"qvideo:{u}",10**9,86400); charged.append(f"qvideo:{u}")
+                model,data=await free_video(prompt,image,model)
             else:
                 if model not in FREE_IMAGE: return JSONResponse({"error":"Unknown model"},400)
                 if image is not None and model not in FREE_EDIT: model="hfs:flux-kontext-dev"
@@ -359,20 +441,43 @@ async def _run(request,kind,model,prompt,file):
                     ok,msg=pk_allowed(u)
                     if not ok: return JSONResponse({"error":msg},403)
                 if quota_left(u,"image")<=0: return JSONResponse({"error":f"Daily plan image limit reached. Upgrade at /plans, add your own key, or try tomorrow."},429)
-                H["rate_ok"](f"qimage:{u}",10**9,86400)
-                if model.startswith("pk:"): H["rate_ok"](f"pk:{u}",10**9,86400)
+                H["rate_ok"](f"qimage:{u}",10**9,86400); charged.append(f"qimage:{u}")
+                if model.startswith("pk:"): H["rate_ok"](f"pk:{u}",10**9,86400); charged.append(f"pk:{u}")
                 model,data=await image_with_fallback(model,prompt,image)
         out=save(u,kind,model.split(":",2)[-1] if model.startswith("byok:") else model,prompt,data)
-        H.get("act") and H["act"](u,"media",f"{kind}:{model.split(':',2)[-1]}",prompt[:200],"created "+out["url"],True); return out
+        H.get("act") and H["act"](u,"media",f"{kind}:{model.split(':',2)[-1]}",prompt[:200],"created "+out["url"],True)
+        if out["model"]=="local:slideshow": out["note"]="Slideshow video (free AI images with pan-zoom). Real AI video was busy today."
+        return out
     except Exception as e:
-        H["audit"](ev="media_err",kind=kind,model=model,err=str(e)[:200]); H.get("act") and H["act"](u,"media",f"{kind}:{model.split(':',2)[-1]}",prompt[:200],"failed",False)
-        return JSONResponse({"error":"This model could not create it right now. Try another model or try again later."},422)
+        for k in charged: refund(k)
+        H["audit"](ev="media_err",kind=kind,model=model,err=str(e)[:200],refunded=bool(charged)); H.get("act") and H["act"](u,"media",f"{kind}:{model.split(':',2)[-1]}",prompt[:200],"failed",False)
+        return JSONResponse({"error":"This model could not create it right now. Your daily quota was not used. Try another model or try again later.","refunded":bool(charged)},422)
 @router.post("/bb/api/media/image")
 async def gen_image(request:Request,prompt:str=Form(""),model:str=Form("cf:black-forest-labs/flux-1-schnell"),file:UploadFile|None=File(None)):
     return await _run(request,"image",model,prompt,file)
+JOBS={}
+class _F:  # holds uploaded bytes so the background job can read them after the request ends
+    def __init__(s,b): s.b=b
+    async def read(s): return s.b
 @router.post("/bb/api/media/video")
 async def gen_video(request:Request,prompt:str=Form(""),model:str=Form(""),file:UploadFile|None=File(None)):
-    return await _run(request,"video",model,prompt,file)
+    """Video takes minutes (longer than Cloudflare's 100 s limit), so run it as a background job and let the page poll."""
+    u=H["need"](request); f=_F(await file.read()) if file is not None else None
+    if sum(1 for j in JOBS.values() if j["u"]==u and j["status"]=="running")>=2: return JSONResponse({"error":"Too many requests, wait a minute"},429)
+    jid=uuid.uuid4().hex; JOBS[jid]={"u":u,"status":"running","t":time.time()}
+    async def work():
+        try:
+            r=await _run(request,"video",model,prompt,f)
+            if isinstance(r,JSONResponse): JOBS[jid].update(status="error",result=json.loads(r.body),code=r.status_code)
+            else: JOBS[jid].update(status="done",result=r)
+        except Exception as e: JOBS[jid].update(status="error",result={"error":"Video failed. Try again later."}); H["audit"](ev="media_job_err",err=str(e)[:160])
+    for k in [k for k,j in JOBS.items() if time.time()-j["t"]>7200]: JOBS.pop(k,None)
+    asyncio.create_task(work()); return {"job":jid,"status":"running"}
+@router.get("/bb/api/media/job/{jid}")
+def video_job(request:Request,jid:str):
+    u=H["need"](request); j=JOBS.get(jid)
+    if not j or j["u"]!=u: return JSONResponse({"error":"Job not found"},404)
+    return {"status":j["status"],**(j.get("result") or {})}
 @router.get("/bb/api/media")
 def list_media(request:Request):
     u=H["need"](request)

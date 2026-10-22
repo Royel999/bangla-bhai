@@ -197,5 +197,10 @@
 "Back to chat": "Volver al chat",
 "Base URL (OpenAI-compatible, https)": "URL base (compatible con OpenAI, https)",
 "Free videos today": "Videos gratis hoy",
-"Free video: short ~3 second clip. Add a start image for best results.": "Video gratis: clip corto de ~3 segundos. Añade una imagen inicial para mejores resultados."
+"Free video: short ~3 second clip. Add a start image for best results.": "Video gratis: clip corto de ~3 segundos. Añade una imagen inicial para mejores resultados.",
+"Wan 2.2 (Hugging Face, free, ~3 s clip; falls back to LTX/CogVideoX, then a slideshow video)": "Wan 2.2 (Hugging Face, gratis, clip de ~3 s; si no, LTX/CogVideoX y luego video de diapositivas)",
+"Slideshow video (always free: 3 AI images with pan-zoom and crossfades, ~8 s)": "Video de diapositivas (siempre gratis: 3 imágenes IA con zoom y fundidos, ~8 s)",
+"Free video: short ~3 second AI clip when free GPU is available, otherwise an ~8 second slideshow video. Failed tries do not use your quota.": "Video gratis: clip IA de ~3 s si hay GPU gratis; si no, un video de diapositivas de ~8 s. Los intentos fallidos no gastan tu cuota.",
+"Slideshow video (free AI images with pan-zoom). Real AI video was busy today.": "Video de diapositivas (imágenes IA gratis con zoom). El video IA real estaba ocupado hoy.",
+"This model could not create it right now. Your daily quota was not used. Try another model or try again later.": "Este modelo no pudo crearlo ahora. No se usó tu cuota diaria. Prueba otro modelo o inténtalo más tarde."
 }

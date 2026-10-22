@@ -1,4 +1,4 @@
-const CACHE='bb-v70';
+const CACHE='bb-v71';
 // Only static assets are precached. Pages (/, /login, /app) are network-first so auth redirects never get cached.
 const ASSETS=['/bb/static/bb2.css','/bb/static/bb2.js','/bb/static/viz.css','/bb/static/viz.js','/bb/static/i18n.js','/bb/static/i18n/en.json','/bb/static/logo.png','/bb/static/wordmark.svg','/bb/static/icon-192.png'];
 const OFFLINE='<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><body style="margin:0;background:#0b1a33;color:#eef2f8;font-family:system-ui;display:grid;place-items:center;min-height:100vh;text-align:center"><div><img src="/bb/static/logo.png" width=96 style="border-radius:50%"><h2>Bangla Bhai is offline</h2><p style="color:#8b98b0">Check your connection. Retrying in 15s…</p><script>setTimeout(()=>location.reload(),15000)</script></div>';

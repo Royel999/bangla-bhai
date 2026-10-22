@@ -41,5 +41,10 @@
 "🔑 My API keys": "🔑 আমার API কী",
 "🖼️ Create image": "🖼️ ইমেজ তৈরি করুন",
 "Free videos today": "আজ ফ্রি ভিডিও",
-"Free video: short ~3 second clip. Add a start image for best results.": "ফ্রি ভিডিও: প্রায় ৩ সেকেন্ডের ছোট ক্লিপ। ভালো ফলের জন্য একটা শুরুর ছবি দিন।"
+"Free video: short ~3 second clip. Add a start image for best results.": "ফ্রি ভিডিও: প্রায় ৩ সেকেন্ডের ছোট ক্লিপ। ভালো ফলের জন্য একটা শুরুর ছবি দিন।",
+"Wan 2.2 (Hugging Face, free, ~3 s clip; falls back to LTX/CogVideoX, then a slideshow video)": "Wan 2.2 (Hugging Face, ফ্রি, ~৩ সেকেন্ডের ক্লিপ; না হলে LTX/CogVideoX, তারপর স্লাইডশো ভিডিও)",
+"Slideshow video (always free: 3 AI images with pan-zoom and crossfades, ~8 s)": "স্লাইডশো ভিডিও (সবসময় ফ্রি: ৩টা AI ছবি, জুম আর মিলিয়ে যাওয়া ইফেক্টসহ, ~৮ সেকেন্ড)",
+"Free video: short ~3 second AI clip when free GPU is available, otherwise an ~8 second slideshow video. Failed tries do not use your quota.": "ফ্রি ভিডিও: ফ্রি GPU থাকলে ~৩ সেকেন্ডের AI ক্লিপ, না থাকলে ~৮ সেকেন্ডের স্লাইডশো ভিডিও। ব্যর্থ হলে আপনার কোটা কাটা যায় না।",
+"Slideshow video (free AI images with pan-zoom). Real AI video was busy today.": "স্লাইডশো ভিডিও (ফ্রি AI ছবি দিয়ে জুম ইফেক্ট)। আজ আসল AI ভিডিও ব্যস্ত ছিল।",
+"This model could not create it right now. Your daily quota was not used. Try another model or try again later.": "এই মডেল এখন এটা বানাতে পারেনি। আপনার দৈনিক কোটা কাটা হয়নি। অন্য মডেল দিয়ে বা পরে আবার চেষ্টা করুন।"
 }

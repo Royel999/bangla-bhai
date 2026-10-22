@@ -197,5 +197,10 @@
 "🔑 My API keys": "🔑 मेरे API कुंजियाँ",
 "🖼️ Create image": "🖼️ छवि बनाएं",
 "Free videos today": "आज मुफ़्त वीडियो",
-"Free video: short ~3 second clip. Add a start image for best results.": "मुफ़्त वीडियो: लगभग 3 सेकंड की छोटी क्लिप। बेहतर नतीजे के लिए शुरुआती तस्वीर जोड़ें।"
+"Free video: short ~3 second clip. Add a start image for best results.": "मुफ़्त वीडियो: लगभग 3 सेकंड की छोटी क्लिप। बेहतर नतीजे के लिए शुरुआती तस्वीर जोड़ें।",
+"Wan 2.2 (Hugging Face, free, ~3 s clip; falls back to LTX/CogVideoX, then a slideshow video)": "Wan 2.2 (Hugging Face, मुफ़्त, ~3 सेकंड क्लिप; नहीं तो LTX/CogVideoX, फिर स्लाइडशो वीडियो)",
+"Slideshow video (always free: 3 AI images with pan-zoom and crossfades, ~8 s)": "स्लाइडशो वीडियो (हमेशा मुफ़्त: 3 AI तस्वीरें, ज़ूम और क्रॉसफ़ेड के साथ, ~8 सेकंड)",
+"Free video: short ~3 second AI clip when free GPU is available, otherwise an ~8 second slideshow video. Failed tries do not use your quota.": "मुफ़्त वीडियो: मुफ़्त GPU होने पर ~3 सेकंड की AI क्लिप, वरना ~8 सेकंड का स्लाइडशो वीडियो। असफल प्रयास आपका कोटा नहीं घटाते।",
+"Slideshow video (free AI images with pan-zoom). Real AI video was busy today.": "स्लाइडशो वीडियो (मुफ़्त AI तस्वीरें ज़ूम के साथ)। आज असली AI वीडियो व्यस्त था।",
+"This model could not create it right now. Your daily quota was not used. Try another model or try again later.": "यह मॉडल अभी इसे नहीं बना सका। आपका दैनिक कोटा इस्तेमाल नहीं हुआ। दूसरा मॉडल आज़माएँ या बाद में कोशिश करें।"
 }

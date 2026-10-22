@@ -197,5 +197,10 @@
 "🔑 My API keys": "🔑 我的 API 密钥",
 "🖼️ Create image": "🖼️ 创建图像",
 "Free videos today": "今日免费视频",
-"Free video: short ~3 second clip. Add a start image for best results.": "免费视频：约 3 秒的短片。添加起始图片效果更好。"
+"Free video: short ~3 second clip. Add a start image for best results.": "免费视频：约 3 秒的短片。添加起始图片效果更好。",
+"Wan 2.2 (Hugging Face, free, ~3 s clip; falls back to LTX/CogVideoX, then a slideshow video)": "Wan 2.2（Hugging Face，免费，约3秒片段；否则 LTX/CogVideoX，再否则幻灯片视频）",
+"Slideshow video (always free: 3 AI images with pan-zoom and crossfades, ~8 s)": "幻灯片视频（始终免费：3张AI图片，带缩放和淡入淡出，约8秒）",
+"Free video: short ~3 second AI clip when free GPU is available, otherwise an ~8 second slideshow video. Failed tries do not use your quota.": "免费视频：有免费GPU时生成约3秒AI片段，否则生成约8秒幻灯片视频。失败不扣配额。",
+"Slideshow video (free AI images with pan-zoom). Real AI video was busy today.": "幻灯片视频（免费AI图片加缩放效果）。今天真实AI视频繁忙。",
+"This model could not create it right now. Your daily quota was not used. Try another model or try again later.": "该模型暂时无法生成。未扣除您的每日配额。请换个模型或稍后再试。"
 }

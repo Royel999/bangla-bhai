@@ -197,5 +197,10 @@
 "🔑 My API keys": "🔑 مفاتيحي API",
 "🖼️ Create image": "🖼️ إنشاء صورة",
 "Free videos today": "فيديوهات مجانية اليوم",
-"Free video: short ~3 second clip. Add a start image for best results.": "فيديو مجاني: مقطع قصير مدته نحو 3 ثوانٍ. أضف صورة بداية للحصول على أفضل نتيجة."
+"Free video: short ~3 second clip. Add a start image for best results.": "فيديو مجاني: مقطع قصير مدته نحو 3 ثوانٍ. أضف صورة بداية للحصول على أفضل نتيجة.",
+"Wan 2.2 (Hugging Face, free, ~3 s clip; falls back to LTX/CogVideoX, then a slideshow video)": "Wan 2.2 (Hugging Face، مجاني، مقطع ~3 ثوانٍ؛ وإلا LTX/CogVideoX ثم فيديو عرض شرائح)",
+"Slideshow video (always free: 3 AI images with pan-zoom and crossfades, ~8 s)": "فيديو عرض شرائح (مجاني دائمًا: 3 صور ذكاء اصطناعي مع تكبير وتلاشٍ، ~8 ثوانٍ)",
+"Free video: short ~3 second AI clip when free GPU is available, otherwise an ~8 second slideshow video. Failed tries do not use your quota.": "فيديو مجاني: مقطع ذكاء اصطناعي ~3 ثوانٍ عند توفر GPU مجاني، وإلا فيديو عرض شرائح ~8 ثوانٍ. المحاولات الفاشلة لا تستهلك حصتك.",
+"Slideshow video (free AI images with pan-zoom). Real AI video was busy today.": "فيديو عرض شرائح (صور مجانية مع تكبير). كان فيديو الذكاء الاصطناعي الحقيقي مشغولًا اليوم.",
+"This model could not create it right now. Your daily quota was not used. Try another model or try again later.": "تعذّر على هذا النموذج إنشاؤه الآن. لم تُستهلك حصتك اليومية. جرّب نموذجًا آخر أو حاول لاحقًا."
 }
