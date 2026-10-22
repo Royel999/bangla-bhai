@@ -1,0 +1,10 @@
+venv
+__pycache__
+data.db*
+media_store
+audit.jsonl
+*.env
+.git
+windows
+archive
+static/shots

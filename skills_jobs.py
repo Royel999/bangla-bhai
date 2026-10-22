@@ -228,7 +228,9 @@ def setup(app,h):
     @app.exception_handler(Oops)
     async def _ve(request,exc): return JSONResponse({"error":str(exc)[:200]},400)
     @app.on_event("startup")
-    async def _sched(): asyncio.get_running_loop().create_task(scheduler())
+    async def _sched():
+        if os.environ.get('BB_ROLE')=='standby': return
+        asyncio.get_running_loop().create_task(scheduler())
     # skills
     @app.get("/bb/api/skills")
     def sk_list(request:Request):

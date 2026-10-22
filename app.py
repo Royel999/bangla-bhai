@@ -340,7 +340,7 @@ async def _pe(request,exc): return JSONResponse({"error":"login required"},401)
 async def _ao(request,exc): return JSONResponse({"error":"owner only"},403)
 # --- API ---
 @app.get("/bb/health")
-def health(): return {"ok":True}
+def health(): return {"ok":True,"node":os.environ.get("BB_NODE","box")}
 @app.get("/bb/api/models")
 def models(request:Request):
     u=need(request); return [{"id":"auto","name":"Auto (best + backup)"}]+[{"id":k,"name":v[0]} for k,v in MODELS.items()]+MD.byok_chat_list(u)
@@ -718,7 +718,9 @@ async def _tg_answer(u,text,ctx=""):
     except RT.ModelError: return RT.friendly(st.get("lang","en"))
 TG.H.update(answer=_tg_answer,stt=AG.stt,ocr_image=OC.image_text,ocr_pdf=lambda d:OC.pdf_text(d)[0],take=PL.take,quota_msg=PL.quota_msg,audit=audit,sub_info=PL.sub_info)
 @app.on_event("startup")
-async def _tg_start(): asyncio.get_running_loop().create_task(TG.run())
+async def _tg_start():
+    if os.environ.get('BB_ROLE')=='standby': return
+    asyncio.get_running_loop().create_task(TG.run())
 import connections as CN
 CN.setup(app,dict(need=need,user=user,is_owner=is_owner_uid,db=db,audit=audit,rate_ok=rate_ok))
 BZ.setup(app,dict(need=need,is_admin=is_admin,FT=FT,db=db,cip=cip,RT=RT,AdminOnly=AdminOnly,user=user,rate_ok=rate_ok,audit=audit,notify=SJ.notify,owner=CFG["BB_USER"]))
