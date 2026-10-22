@@ -105,7 +105,7 @@ def send_otp_email(email, code):
             msg=EmailMessage(); msg["Subject"]=subject; msg["From"]=f"বাংলা ভাই <{guser}>"; msg["To"]=email
             msg.set_content(body)
             ctx=ssl.create_default_context()
-            with smtplib.SMTP("smtp.gmail.com",587,timeout=8) as s:
+            with smtplib.SMTP("smtp.gmail.com",587,timeout=3) as s:
                 s.starttls(context=ctx); s.login(guser,gpw); s.send_message(msg)
             audit(ev="otp_sent",via="gmail_smtp",email=email); return True,"gmail","OK"
         except Exception as e:
