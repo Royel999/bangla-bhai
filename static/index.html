@@ -94,6 +94,8 @@ select{background:var(--panel2);color:var(--tx);border:1px solid var(--bd);borde
   <div class="sfoot">
    <button onclick="location.href='/studio'">🎨 <span>Studio</span></button>
    <button onclick="location.href='/studio#keys'">🔑 <span>My API keys</span></button>
+   <button onclick="location.href='/skills'">⭐ <span>Skills</span></button>
+   <button onclick="location.href='/schedules'">⏰ <span>Schedules</span><span id=nfBadge style="display:none;margin-left:6px;background:#f4b400;color:#0b1a33;border-radius:99px;padding:0 7px;font-size:11px"></span></button>
    <button onclick="location.href='/memory'">🧠 <span data-i18n="app.memory">Memory</span></button>
    <button onclick="location.href='/activity'">📋 <span data-i18n="app.activity">Activity</span></button>
    <button onclick="openSettings()">⚙️ <span data-i18n="app.settings">Settings</span></button>
@@ -192,8 +194,17 @@ function addMsg(m){const e=$('#empty');if(e)e.remove();const w=document.createEl
  $('#msgs').appendChild(w);return w}
 function setMeta(meta,model,adv){meta.innerHTML='';if(model){const s=document.createElement('span');s.className='chip';s.textContent='⚡ '+model;meta.appendChild(s)}
  if(adv&&adv.length){const s=document.createElement('span');s.className='chip';s.textContent=L('🧠 Council: ','🧠 কাউন্সিল: ')+adv.join(', ');meta.appendChild(s)}}
-function setActs(acts,m){acts.innerHTML='<button title="'+t('app.copy')+'">📋 '+t('app.copy')+'</button><button title="Regenerate">🔄</button><button title="Read aloud">🔊</button>';
+function setActs(acts,m){acts.innerHTML='<button title="'+t('app.copy')+'">📋 '+t('app.copy')+'</button><button title="Regenerate">🔄</button><button title="Read aloud">🔊</button>'+(m.id&&m.model!=='Scheduler'?'<button title="Save as skill">⭐ '+L('Save as skill','স্কিল হিসেবে সেভ')+'</button>':'');
+ if(acts.children[3])acts.children[3].onclick=e=>saveSkill(e.currentTarget);
  acts.children[0].onclick=()=>{navigator.clipboard.writeText(m.content);toast(t('app.copied'))};acts.children[1].onclick=()=>regen();acts.children[2].onclick=e=>speak(m.content,e.currentTarget)}
+async function saveSkill(btn){if(!CH)return;btn.disabled=true;btn.textContent='⏳';
+ try{const p=await api('/bb/api/skills/propose',{method:'POST',body:JSON.stringify({chat_id:CH.id})});toast(L('Skill “'+p.name+'” drafted — approve it on the Skills page','স্কিল “'+p.name+'” তৈরি — Skills পেজে অনুমোদন দিন'));setTimeout(()=>location.href='/skills',900)}
+ catch(e){toast(e.message);btn.disabled=false;btn.textContent='⭐'}}
+let NF_SEEN=+localStorage.getItem('bb_nf_seen')||Date.now()/1000;
+async function pollNf(){try{const r=await fetch('/bb/api/notifs?since='+NF_SEEN,{credentials:'same-origin'});if(!r.ok)return;const j=await r.json();const b=document.getElementById('nfBadge');
+ if(b){b.style.display=j.unread?'inline':'none';b.textContent=j.unread}
+ j.items.slice(0,3).reverse().forEach(n=>toast(n.title+': '+n.body.slice(0,90)));if(j.items.length){NF_SEEN=j.items[0].created;localStorage.setItem('bb_nf_seen',NF_SEEN)}}catch(e){}}
+setInterval(()=>{if(!document.hidden)pollNf()},30000);setTimeout(pollNf,2000);
 async function editMsg(m,w){if(ctrl)return;const t=await uiPrompt(L('Edit message','মেসেজ এডিট করুন'),m.content);if(!t||t===m.content)return;
  let n=w;while(n){const x=n.nextSibling;n.remove();n=x}run({content:t,edit_id:m.id})}
 async function regen(){if(ctrl||!CH)return;const bots=[...document.querySelectorAll('.msg.bot')];bots.at(-1)?.remove();run({regenerate:true})}
@@ -204,7 +215,7 @@ function sendOrStop(){if(ctrl){ctrl.abort();return}send()}
 async function send(){if(/^(এজেন্ট|Agent):/i.test($('#inp').value)&&!AGENT)setAgent(true);if(AGENT)return agentSend();
  const inp=$('#inp');let t=inp.value.trim();if(!t&&!FILES.length)return;
  // Intent router: action → agent loop in same chat (step log + Approve)
- if(t&&!FILES.length){try{const it=await api('/bb/api/intent',{method:'POST',body:JSON.stringify({text:t})});
+ if(t&&!FILES.length&&!/^\s*(\/skill|run skill|স্কিল)\b/i.test(t)&&!/(every\s+(day|morning|week|hour)|daily|remind me|reminder|schedule|in\s+\d+\s*min|প্রতিদিন|মনে\s*করি|রিমাইন্ড|শিডিউল|মিনিট\s*পর)/i.test(t)){try{const it=await api('/bb/api/intent',{method:'POST',body:JSON.stringify({text:t})});
   if(it&&it.action){toast(L('🤖 Action detected — I’ll run it with your permission','🤖 অ্যাকশন ধরা পড়েছে — অনুমতি নিয়ে চালাব'));return agentSend();}
  }catch(e){}}
  let full=t;if(FILES.length){full=(t||L('Summarize this file.','এই ফাইলের সারাংশ বাংলায় দাও।'))+FILES.map(f=>f.kind==='text'?`\n\n---\n📄 File: ${f.name}\n\`\`\`\n${f.text}\n\`\`\``:`\n\n[Image attached: ${f.name}]`).join('');}

@@ -237,6 +237,7 @@ def ev(t,**k):
     k.update(type=t,ts=time.time()); tid=t_id_ctx.get(); T=TASKS[tid]; T["events"].append(k)
     try: AL.task_save(tid,T.get("user"),T.get("goal"),T.get("sysx",""),T["status"],T["events"][-300:])
     except Exception: pass
+ON_DONE=[]
 import contextvars; t_id_ctx=contextvars.ContextVar("tid")
 def start_task(goal,sysx="",user=None,tid=None,resume=None):
     tid=tid or uuid.uuid4().hex[:10]
@@ -250,6 +251,10 @@ def start_task(goal,sysx="",user=None,tid=None,resume=None):
         except Exception as e:
             st="failed"; ev("error",text="এজেন্ট থেমে গেছে: "+friendly(e))
         TASKS[tid]["status"]=st; ev("end")
+        if st=="done":
+            for f in ON_DONE:
+                try: f(tid)
+                except Exception: pass
     asyncio.create_task(runner()); audit(ev="agent_task",task=tid,goal=goal[:200])
     AL.log(user,"agent","task",goal[:200],"resumed" if resume else "started",task=tid); return tid
 def resume_all():

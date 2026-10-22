@@ -463,6 +463,13 @@ async def stream(request:Request,cid:str):
         hist=[{"role":m["role"],"content":m["content"]} for m in c.execute("select role,content from messages where chat_id=? order by id",(cid,)).fetchall()][-24:]
         first=c.execute("select count(*) n from messages where chat_id=?",(cid,)).fetchone()["n"]<=1
     q=hist[-1]["content"] if hist else ""; sel=b.get("model") or "auto"
+    sched_reply=None
+    if b.get("content") and not b.get("regenerate"):
+        xs=SJ.chat_skill(u,q)
+        if xs: hist[-1]={"role":"user","content":xs}
+        else:
+            try: sched_reply=await SJ.chat_schedule(u,q,st.get("lang","en"))
+            except Exception: sched_reply=None
     mems=[]
     if st.get("memory",True):
         try: mems=await MEM.arecall(u,q)
@@ -478,6 +485,9 @@ async def stream(request:Request,cid:str):
     council=b.get("council") or (sel=="auto" and HARD.search(q) and len(q)>60)
     async def gen():
         advisors=[]; msgs2=msgs
+        if sched_reply:
+            yield "event: meta\ndata: "+json.dumps({"model":"Scheduler"})+"\n\n"; yield "data: "+json.dumps({"d":sched_reply})+"\n\n"
+            save(sched_reply,"Scheduler",[]); yield "event: done\ndata: "+json.dumps({"model":"Scheduler"})+"\n\n"; return
         if council:
             yield "event: status\ndata: "+json.dumps({"text":("কাউন্সিলের পরামর্শ নিচ্ছি..." if st.get("lang")=="bn" else "Consulting the council...")})+"\n\n"
             res=await asyncio.gather(*[call(a,msgs,1,35) for a in ADVISORS if a!=chain[0]])
@@ -670,6 +680,9 @@ MD.H.update(need=need,rate_ok=rate_ok,db=db,audit=audit,is_owner=is_owner_uid,ac
 import features as FT
 FT.setup(app,dict(need=need,need_admin=need_admin,get_settings=get_settings,db=db,audit=audit,page=page,is_owner=is_owner_uid,rate_ok=rate_ok,AG=AG))
 app.include_router(MD.router)
+import skills_jobs as SJ
+SJ.setup(app,dict(need=need,get_settings=get_settings,db=db,audit=audit,is_owner=is_owner_uid,rate_ok=rate_ok,AG=AG,sysx=lambda u:lang_rule(get_settings(u))+" "+addr_rule(u)+" Write the JSON 'thought' and 'final' fields in that language."))
+AG.ON_DONE.append(SJ.on_agent_done)
 # ---- Open WebUI proxy ----
 UP="http://127.0.0.1:8080"; WEBUI_PREFIXES=("/_app","/api/","/ws","/ollama","/openai","/manifest.json","/favicon","/auth","/c/","/workspace","/admin","/oauth","/assets","/static/","/notes","/channels","/playground","/home","/s/")
 client=httpx.AsyncClient(base_url=UP,timeout=120)

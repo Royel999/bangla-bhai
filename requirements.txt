@@ -12,3 +12,5 @@ uvicorn==0.54.0
 cryptography
 fastembed==0.9.0
 sqlite-vec==0.1.9
+croniter
+pywebpush

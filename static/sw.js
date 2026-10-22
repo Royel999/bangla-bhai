@@ -1,4 +1,4 @@
-const CACHE='bb-v66';
+const CACHE='bb-v67';
 // Only static assets are precached. Pages (/, /login, /app) are network-first so auth redirects never get cached.
 const ASSETS=['/bb/static/bb2.css','/bb/static/bb2.js','/bb/static/viz.css','/bb/static/viz.js','/bb/static/i18n.js','/bb/static/i18n/en.json','/bb/static/logo.png','/bb/static/wordmark.svg','/bb/static/icon-192.png'];
 const OFFLINE='<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><body style="margin:0;background:#0b1a33;color:#eef2f8;font-family:system-ui;display:grid;place-items:center;min-height:100vh;text-align:center"><div><img src="/bb/static/logo.png" width=96 style="border-radius:50%"><h2>Bangla Bhai is offline</h2><p style="color:#8b98b0">Check your connection. Retrying in 15s…</p><script>setTimeout(()=>location.reload(),15000)</script></div>';
@@ -15,3 +15,7 @@ self.addEventListener('fetch',e=>{
     return hit||net;
   }));
 });
+self.addEventListener('push',e=>{let d={};try{d=e.data.json()}catch(_){d={title:'Bangla Bhai',body:e.data?e.data.text():''}}
+  e.waitUntil(self.registration.showNotification(d.title||'Bangla Bhai',{body:d.body||'',icon:'/bb/static/icon-192.png',badge:'/bb/static/icon-192.png',data:{url:d.url||'/schedules'},tag:'bb-'+Date.now()}))});
+self.addEventListener('notificationclick',e=>{e.notification.close();const url=(e.notification.data&&e.notification.data.url)||'/schedules';
+  e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(cs=>{for(const c of cs){if(new URL(c.url).origin===location.origin){c.navigate(url);return c.focus()}}return clients.openWindow(url)}))});
