@@ -134,11 +134,10 @@ async def run_tool(name,a):
         return await CN.mcp_call((TASKS.get(t_id_ctx.get()) or {}).get("user"),a)
     if name=="list_devices": return json.dumps([{k:d[k] for k in ("id","name","kind","status","online")} for d in devices()],ensure_ascii=False)
     if name=="web_search":
-        async with httpx.AsyncClient(timeout=20,headers={"User-Agent":"Mozilla/5.0"}) as c:
-            r=await c.post("https://html.duckduckgo.com/html/",data={"q":a["query"]})
-        res=re.findall(r'class="result__a" href="([^"]+)"[^>]*>(.*?)</a>',r.text)[:6]
-        if not res: raise RuntimeError("কোনো ফলাফল পাওয়া যায়নি")
-        return "\n".join(f"- {re.sub('<.*?>','',t)} — {u}" for u,t in res)
+        import ground as GR
+        r=await GR.search(a["query"],6)
+        if not r: raise RuntimeError("কোনো ফলাফল পাওয়া যায়নি")
+        return r
     if name=="browse":
         if not _url_ok(a.get("url","")): raise RuntimeError("এই URL ব্লক করা (লোকাল/প্রাইভেট/file নিষিদ্ধ)")
         b=await _browser(); pg=await b.new_page(viewport={"width":1200,"height":800})

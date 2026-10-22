@@ -1,6 +1,7 @@
 #!/bin/bash
 # Persistent supervisor: bangla_bhai (:8090) + ngrok static free domain
 set -u
+exec 200>/tmp/bb_supervise.lock; flock -n 200 || exit 0  # singleton
 DOMAIN_HOST="pueblo-onshore-undesired.ngrok-free.dev"
 NGROK="$HOME/bin/ngrok"
 APPDIR="$HOME/bangla_bhai"

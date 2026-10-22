@@ -104,6 +104,10 @@ async def _sec(request,call_next):
     if not (_p.startswith("/webui") or _p.startswith(WEBUI_PREFIXES)) or _p.startswith("/admin/panel"):
         r.headers.setdefault("Content-Security-Policy","frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; worker-src 'self'")
     if request.url.path.startswith("/bb/static/shots/"): r.headers["Cache-Control"]="private, no-store"
+    elif _p.startswith("/bb/static/") and r.status_code==200 and "cache-control" not in r.headers:
+        if _p.endswith("/sw.js"): r.headers["Cache-Control"]="no-cache"
+        elif _p.rsplit(".",1)[-1].lower() in ("png","jpg","jpeg","webp","svg","ico","woff","woff2","ttf"): r.headers["Cache-Control"]="public, max-age=604800, stale-while-revalidate=86400"
+        else: r.headers["Cache-Control"]="public, max-age=600, stale-while-revalidate=86400"
     r.headers.setdefault("Strict-Transport-Security","max-age=31536000")
     r.headers.setdefault("X-Frame-Options","SAMEORIGIN"); r.headers.setdefault("X-Content-Type-Options","nosniff")
     r.headers.setdefault("Referrer-Policy","strict-origin-when-cross-origin")
@@ -480,7 +484,10 @@ async def stream(request:Request,cid:str):
     if st.get("memory",True):
         try: mems=await MEM.arecall(u,q)
         except Exception: mems=[]
-    msgs=[{"role":"system","content":persona(st,proj["instructions"] if proj else "",uid=u,mems=mems)}]+hist
+    try:
+        import ground as GR; gctx=await GR.context(q if b.get("content") is not None or b.get("regenerate") else "")
+    except Exception: gctx=""
+    msgs=[{"role":"system","content":persona(st,proj["instructions"] if proj else "",uid=u,mems=mems)+("\n\n"+gctx if gctx else "")}]+hist
     if sel.startswith("byok:"):
         res=MD.resolve_chat(u,sel)
         if res: _BYOK_CTX[sel]=res
@@ -534,7 +541,10 @@ async def chat(request:Request):
     u=need(request); b=await request.json(); hist=b.get("messages",[])[-20:]; st=get_settings(u)
     ok,lim=PL.take(u,"chat")
     if not ok: return JSONResponse({"error":PL.quota_msg("chat",lim,st.get("lang"))},429)
-    msgs=[{"role":"system","content":persona(st,uid=u)}]+hist; advisors=[]
+    try:
+        import ground as GR; gctx=await GR.context(hist[-1]["content"] if hist and isinstance(hist[-1].get("content"),str) else "")
+    except Exception: gctx=""
+    msgs=[{"role":"system","content":persona(st,uid=u)+("\n\n"+gctx if gctx else "")}]+hist; advisors=[]
     if b.get("council"):
         notes=[r for r in await asyncio.gather(*[call(a,msgs) for a in ADVISORS]) if r]; advisors=[n for n,_ in notes]
         if notes: msgs+= [{"role":"system","content":"কাউন্সিলের মতামত:\n"+"\n---\n".join(t[:2500] for _,t in notes)}]
