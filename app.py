@@ -215,7 +215,7 @@ def admin_page(request:Request, e:str="", m:str="", lang:str="", next:str=""):
   <input name=code inputmode=numeric pattern="[0-9]{{6}}" maxlength=6 placeholder="123456" autocomplete=one-time-code>
   <button type=submit data-i18n="login.login">{T("login.login")}</button></form>
 <button type=button data-install-btn style="display:none;align-items:center;justify-content:center;gap:8px;width:100%;margin:14px 0 4px;padding:12px;border-radius:10px;border:1px solid #f4b400;background:transparent;color:#f4b400;font-weight:700;font-size:15px;cursor:pointer">📲 <span data-i18n="app.install_btn">Install App</span></button>
-<div class=foot><a href=/login data-i18n="admin.back">{T("admin.back")}</a> · ♛ © 2026 Royal Universe</div>
+<div class=foot><a href=/login data-i18n="admin.back">{T("admin.back")}</a> · ♛ Royal Universe</div>
 </div>""",L)
 
 @app.post("/login")
