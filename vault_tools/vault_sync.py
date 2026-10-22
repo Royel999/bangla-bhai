@@ -24,6 +24,7 @@ META = {
  'vapid.env': ('Web Push VAPID public', 'Bangla Bhai', '', 'Private key in vapid_private.pem'),
  'vapid_private.pem': ('Web Push VAPID private key', 'Bangla Bhai', '', ''),
  'ntfy_topic': ('ntfy alert topic', 'Bangla Bhai', 'https://ntfy.sh', ''),
+ 'apk_signing.env': ('Android APK signing key (KEEP — needed for every app update)', 'Hosting & Domain', 'https://github.com/Royel999/bangla-bhai/releases', 'Keystore file: ~/.secrets/bangla-bhai-release.keystore (alias banglabhai, package org.dpdns.banglabhai). Back it up: if lost, the Android app cannot be updated. APK: https://banglabhai.dpdns.org/download/bangla-bhai.apk . TWA project: ~/bb_apk'),
  'render.env': ('Render API key', 'Hosting & Domain', 'https://dashboard.render.com', 'Service: https://bangla-bhai-q0x5.onrender.com (login with GitHub Royel999)'),
  'ngrok.env': ('ngrok', 'Hosting & Domain', 'https://dashboard.ngrok.com', 'Tunnel: pueblo-onshore-undesired.ngrok-free.dev (box fallback)'),
  'google_oauth_client.json': ('Google OAuth client (Gmail/Drive/Calendar)', 'Hosting & Domain', 'https://console.cloud.google.com/apis/credentials?project=bangla-bhai', 'Google Cloud project: bangla-bhai'),
