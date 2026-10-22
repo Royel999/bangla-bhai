@@ -1,0 +1,9 @@
+# Copy to %USERPROFILE%\.cloudflared\config.yml and replace <TUNNEL-ID> and <USER>
+tunnel: <TUNNEL-ID>
+credentials-file: C:\Users\<USER>\.cloudflared\<TUNNEL-ID>.json
+ingress:
+  - hostname: banglabhai.dpdns.org
+    service: http://127.0.0.1:8090
+  - hostname: www.banglabhai.dpdns.org
+    service: http://127.0.0.1:8090
+  - service: http_status:404

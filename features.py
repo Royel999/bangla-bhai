@@ -93,14 +93,13 @@ textarea,input,select{width:100%;background:#0b1a33;color:var(--tx);border:1px s
 .sw{position:relative;width:46px;height:26px;background:var(--bd);border-radius:99px;cursor:pointer;border:0}.sw.on{background:var(--acc)}.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}.sw.on::after{left:23px}
 .appr{border-color:var(--gold)}pre{white-space:pre-wrap;word-break:break-word;margin:6px 0;font-size:12.5px;color:#c9d4e6}.empty{color:var(--mut);text-align:center;padding:30px}
 .err{color:#ff9a9e}.okc{color:var(--ok)}</style></head><body>
-<header><img src=/bb/static/logo.png alt=""><h1 id=ttl></h1><button class=lang onclick="setL(L=='en'?'bn':'en')" id=lb></button><a href=/skills id=nsk></a><a href=/schedules id=nsc></a><a href=/memory id=nm></a><a href=/activity id=na></a><a href=/account id=nac></a><a href=/app id=nb></a></header>
-<main id=m></main><script>
-let L=localStorage.getItem('bb_lang')||'en';if(L!=='bn')L='en';
-const T=(en,bn)=>L==='bn'?bn:en;function setL(x){L=x;localStorage.setItem('bb_lang',x);hdr();render()}
-function hdr(){document.documentElement.lang=L;ttl.textContent=T('{{T_EN}}','{{T_BN}}');lb.textContent=L==='bn'?'English':'বাংলা';nm.textContent=T('Memory','মেমরি');na.textContent=T('Activity','কার্যকলাপ');nb.textContent=T('← App','← অ্যাপ');nsk.textContent=T('Skills','স্কিল');nsc.textContent=T('Schedules','শিডিউল');nac.textContent=T('Account','অ্যাকাউন্ট')}
+<header><img src=/bb/static/logo.png alt=""><h1 id=ttl></h1><span id=lb></span><a href=/skills id=nsk></a><a href=/schedules id=nsc></a><a href=/memory id=nm></a><a href=/activity id=na></a><a href=/team id=ntm></a><a href=/account id=nac></a><a href=/app id=nb></a></header>
+<main id=m></main><script src=/bb/static/px.js></script><script>
+const L=PXL;const T=TX;function setL(x){pxSetLang(x)}
+function hdr(){document.documentElement.lang=L;ttl.textContent=T('{{T_EN}}','{{T_BN}}');lb.innerHTML=pxSelect();document.title=T('{{T_EN}}','{{T_BN}}')+' · Bangla Bhai';ntm.textContent=T('Team','টিম');nm.textContent=T('Memory','মেমরি');na.textContent=T('Activity','কার্যকলাপ');nb.textContent=T('← App','← অ্যাপ');nsk.textContent=T('Skills','স্কিল');nsc.textContent=T('Schedules','শিডিউল');nac.textContent=T('Account','অ্যাকাউন্ট')}
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function api(u,o={}){const r=await fetch(u,{credentials:'same-origin',headers:{'Content-Type':'application/json'},...o});let j={};try{j=await r.json()}catch(e){};if(!r.ok)throw new Error(j.error||T('Something went wrong','কিছু ভুল হয়েছে'));return j}
-const when=t=>new Date(t*1000).toLocaleString(L==='bn'?'bn-BD':'en-GB',{dateStyle:'medium',timeStyle:'short'});
+const when=t=>new Date(t*1000).toLocaleString({bn:'bn-BD',hi:'hi-IN',ar:'ar',ur:'ur-PK',es:'es',fr:'fr',zh:'zh-CN'}[L]||'en-GB',{dateStyle:'medium',timeStyle:'short'});
 {{JS}}
 hdr();render();</script></body></html>"""
 MEM_JS="""

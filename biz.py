@@ -45,6 +45,26 @@ def setup(app,H):
         return {"code":TG.new_code(u),"bot":TG.STATE.get("bot"),"expires_in":600}
     @app.post("/bb/api/tg/unlink")
     def tg_unlink(request:Request): u=need(request); TG.unlink(u); return {"ok":True}
+    # ---------- business team seats ----------
+    @app.get("/team")
+    def team_page(request:Request):
+        if not H["user"](request): return RedirectResponse("/login",303)
+        return page("Team","টিম",TEAM_JS)
+    @app.get("/bb/api/team")
+    def team(request:Request):
+        u=need(request); to=PL.team_owner_of(u)
+        return {"plan":PL.plan_of(u),"member_of":bool(to),"can_manage":(not to and PL._own_plan(u)=="business"),"max":PL.TEAM_MAX,
+                "members":([] if to else PL.team_list(u)),"usage":PL.usage_summary(u)}
+    @app.post("/bb/api/team/invite")
+    async def team_invite(request:Request):
+        u=need(request); b=await request.json()
+        if not H["rate_ok"]("team:"+u,30,86400): return JSONResponse({"error":"Too many invites today"},429)
+        PL.team_invite(u,b.get("email")); H["audit"](ev="team_invite"); return {"ok":True}
+    @app.post("/bb/api/team/remove")
+    async def team_remove(request:Request):
+        u=need(request); b=await request.json(); PL.team_remove(u,b.get("email")); H["audit"](ev="team_remove"); return {"ok":True}
+    @app.post("/bb/api/team/leave")
+    def team_leave(request:Request): u=need(request); PL.team_leave(u); return {"ok":True}
     # ---------- admin ----------
     @app.get("/admin/panel")
     def admin_panel(request:Request):
@@ -104,6 +124,17 @@ def setup(app,H):
             except Exception as e: out[k]={"ok":False,"err":type(e).__name__}
         await asyncio.gather(*[one(k) for k in RT.CHAIN]); PL.admin_log(need(request),"probe_models",{k:v["ok"] for k,v in out.items()},cip(request)); return out
 
+TEAM_JS=r"""
+let D;async function render(){try{D=await api('/bb/api/team')}catch(e){m.innerHTML='<div class="card err">'+esc(e.message)+'</div>';return}
+if(D.member_of){m.innerHTML=`<div class=card><b>${T('You are a member of a Business team','আপনি একটি Business টিমের সদস্য')}</b><div class=mut>${T('You share the team daily quotas. Your memory, chats and API keys stay private to you.','আপনি টিমের দৈনিক কোটা ভাগ করে ব্যবহার করেন। আপনার মেমরি, চ্যাট আর API কী শুধু আপনার কাছেই গোপন থাকে।')}</div><button class="b r" style="margin-top:10px" onclick=leave()>${T('Leave team','টিম ছাড়ুন')}</button></div>`;return}
+if(!D.can_manage){m.innerHTML=`<div class=card><b>${T('Team seats are part of the Business plan','টিম সিট Business প্ল্যানের অংশ')}</b><div class=mut>${T('Upgrade to Business to invite up to 5 members who share your quotas.','Business-এ আপগ্রেড করলে ৫ জন পর্যন্ত সদস্য যোগ করতে পারবেন, যারা আপনার কোটা ভাগ করবে।')}</div><a href=/account style="color:var(--acc)">${T('See plans','প্ল্যান দেখুন')}</a></div>`;return}
+m.innerHTML=`<div class=card><b>${T('Invite a member','সদস্য যোগ করুন')}</b> <span class=mut>(${D.members.length} / ${D.max})</span><div class=mut>${T('They join automatically the next time they log in with an email code. Members share your daily quotas; their memory, chats and API keys stay private.','তারা পরের বার ইমেইল কোড দিয়ে লগইন করলেই নিজে থেকে যুক্ত হবে। সদস্যরা আপনার দৈনিক কোটা ভাগ করবে; তাদের মেমরি, চ্যাট আর API কী গোপন থাকবে।')}</div>
+<div class=row style="margin-top:8px"><input id=em type=email class=grow placeholder="${T('Member email','সদস্যের ইমেইল')}"><button class=b onclick=inv() ${D.members.length>=D.max?'disabled':''}>${T('Invite','আমন্ত্রণ')}</button></div><div id=msg class=mut></div></div>`+
+(D.members.map(x=>`<div class=card><div class=row><div class=grow><b>${esc(x.email)}</b><div class=mut>${x.status=='active'?T('Active','সক্রিয়')+' · '+when(x.joined):T('Invited, waiting for first login','আমন্ত্রিত, প্রথম লগইনের অপেক্ষায়')}</div></div><button class="b r" onclick="rm('${esc(x.email)}')">${T('Remove','সরান')}</button></div></div>`).join('')||`<div class=empty>${T('No members yet.','এখনো কোনো সদস্য নেই।')}</div>`)}
+async function inv(){try{await api('/bb/api/team/invite',{method:'POST',body:JSON.stringify({email:em.value})});render()}catch(e){msg.textContent=e.message;msg.className='err'}}
+async function rm(e){if(!confirm(T('Remove this member?','এই সদস্যকে সরাবেন?')))return;await api('/bb/api/team/remove',{method:'POST',body:JSON.stringify({email:e})});render()}
+async function leave(){if(!confirm(T('Leave this team?','এই টিম ছাড়বেন?')))return;await api('/bb/api/team/leave',{method:'POST'});render()}
+"""
 ACCOUNT_JS=r"""
 let D;async function render(){try{D=await api('/bb/api/account')}catch(e){m.innerHTML='<div class="card err">'+esc(e.message)+'</div>';return}
 const s=D.sub,u=D.usage,P=D.plans;const lim=x=>x==null?'∞':x;
@@ -112,7 +143,7 @@ const plan=k=>`<div class=card style="flex:1;min-width:180px;${s.plan==k?'border
 <div class=mut>${P[k].chat} ${T('messages/day','মেসেজ/দিন')}<br>${P[k].images} ${T('images/day','ছবি/দিন')}<br>${P[k].voice} ${T('voice/day','ভয়েস/দিন')}<br>${P[k].memory} ${T('memories','স্মৃতি')}<br>${P[k].jobs} ${T('schedules','শিডিউল')} · ${P[k].skills} ${T('skills','স্কিল')}</div></div>`;
 const pays=D.payments.map(p=>`<div class="row mut"><span class=grow>${when(p.created)} · ${esc(p.method)} · ${esc(p.trxid)} · ৳${p.amount}</span><span class="tag ${p.status=='rejected'?'high':p.status=='pending'?'medium':''}">${esc(p.status)}</span></div>${p.note?'<div class=mut>'+esc(p.note)+'</div>':''}`).join('');
 const num=D.pay.bkash||D.pay.nagad;const tgl=D.telegram.linked;
-m.innerHTML=`<div class=card><div class=row><div class=grow><b>${T('Your plan','আপনার প্ল্যান')}: ${esc(s.name)}</b>${s.owner?' <span class=tag>ADMIN</span>':''}<div class=mut>${s.expires?T('Valid until ','মেয়াদ: ')+when(s.expires):''}</div></div></div>
+m.innerHTML=`<div class=card><div class=row><div class=grow><b>${T('Your plan','আপনার প্ল্যান')}: ${esc(s.name)}</b>${s.owner?' <span class=tag>ADMIN</span>':''}${s.team_member?' <span class=tag>'+T('Team member','টিম সদস্য')+'</span>':''} ${s.plan=='business'?'<a href=/team style="color:var(--acc);font-size:13px">'+T('Manage team','টিম পরিচালনা')+'</a>':''}<div class=mut>${s.expires?T('Valid until ','মেয়াদ: ')+when(s.expires):''}</div></div></div>
 ${bar('chat',T('Messages today','আজকের মেসেজ'))}${bar('images',T('Images today','আজকের ছবি'))}${bar('voice',T('Voice today','আজকের ভয়েস'))}</div>
 <div class=row style="flex-wrap:wrap;align-items:stretch">${plan('free')}${plan('pro')}${plan('business')}</div>
 <div class=card><b>${T('Upgrade with bKash / Nagad','বিকাশ / নগদ দিয়ে আপগ্রেড')}</b>

@@ -22,7 +22,8 @@ with db() as c:
     create table if not exists payments(id text primary key,user text,plan text,method text,trxid text unique,sender text,amount real,status text default 'pending',note text,created real,decided real,months int default 1);
     create table if not exists app_settings(k text primary key,v text);
     create table if not exists usage(user text,day text,kind text,n int default 0,primary key(user,day,kind));
-    create table if not exists admin_audit(id integer primary key autoincrement,t real,actor text,action text,detail text,ip text);""")
+    create table if not exists admin_audit(id integer primary key autoincrement,t real,actor text,action text,detail text,ip text);
+    create table if not exists team_members(owner text,email text,user text,status text default 'invited',created real,joined real,primary key(owner,email));""")
 def today(): return DT.datetime.now(DT.timezone(DT.timedelta(hours=6))).strftime("%Y-%m-%d")
 def is_owner(u): return bool(u) and str(u)==str(OWNER)
 # ---- settings ----
@@ -38,21 +39,65 @@ def price(plan):
     try: return int(s.get("price_"+plan) or PLANS[plan]["price"])
     except Exception: return PLANS.get(plan,{}).get("price",0)
 # ---- plan ----
+TEAM_MAX=5
+def _email_of(u):
+    with db() as c: r=c.execute("select email from users where id=?",(u,)).fetchone()
+    return (r["email"] or "").lower() if r else ""
+def _own_plan(u):
+    if is_owner(u): return "business"
+    with db() as c: r=c.execute("select plan,expires from subs where user=?",(u,)).fetchone()
+    if r and r["plan"] in PLANS and (not r["expires"] or r["expires"]>time.time()): return r["plan"]
+    return "free"
+def team_owner_of(u):
+    """Business owner whose seat this user occupies (joins lazily on next login), else None."""
+    if not u or is_owner(u): return None
+    e=_email_of(u)
+    with db() as c:
+        r=c.execute("select owner,status from team_members where user=? or (email=? and email!='') order by status='active' desc limit 1",(u,e)).fetchone()
+        if not r or r["owner"]==u: return None
+        if r["status"]!="active": c.execute("update team_members set user=?,status='active',joined=? where owner=? and email=?",(u,time.time(),r["owner"],e))
+    return r["owner"] if _own_plan(r["owner"])=="business" else None
+def quota_user(u): return team_owner_of(u) or u
+def team_list(owner):
+    with db() as c: return [dict(r) for r in c.execute("select email,status,created,joined from team_members where owner=? order by created",(owner,))]
+def team_invite(owner,email):
+    email=(email or "").strip().lower()
+    if not re.fullmatch(r"[^@\s]{1,64}@[^@\s]{1,190}\.[a-z]{2,}",email): raise ValueError("Enter a valid email")
+    if _own_plan(owner)!="business": raise ValueError("Team seats need the Business plan")
+    if team_owner_of(owner): raise ValueError("Team members cannot invite others")
+    if email==_email_of(owner): raise ValueError("You cannot invite yourself")
+    with db() as c:
+        tgt=c.execute("select id from users where email=?",(email,)).fetchone()
+        if tgt and is_owner(tgt["id"]): raise ValueError("This account cannot be invited")
+        if c.execute("select 1 from team_members where email=?",(email,)).fetchone(): raise ValueError("This email is already in a team")
+        if c.execute("select count(*) n from team_members where owner=?",(owner,)).fetchone()["n"]>=TEAM_MAX: raise ValueError(f"Team is full (max {TEAM_MAX} members)")
+        c.execute("insert into team_members(owner,email,status,created) values(?,?,'invited',?)",(owner,email,time.time()))
+def team_remove(owner,email):
+    with db() as c: n=c.execute("delete from team_members where owner=? and email=?",(owner,(email or "").strip().lower())).rowcount
+    if not n: raise ValueError("not found")
+def team_leave(u):
+    e=_email_of(u)
+    with db() as c: c.execute("delete from team_members where user=? or (email=? and email!='')",(u,e))
 def plan_of(u):
     if is_owner(u): return "business"
+    if team_owner_of(u): return "business"
     with db() as c: r=c.execute("select plan,expires from subs where user=?",(u,)).fetchone()
     if r and r["plan"] in PLANS and (not r["expires"] or r["expires"]>time.time()): return r["plan"]
     return "free"
 def sub_info(u):
     with db() as c: r=c.execute("select plan,expires from subs where user=?",(u,)).fetchone()
-    p=plan_of(u); return {"plan":p,"name":PLANS[p]["name"],"expires":(r["expires"] if r and p!="free" else None),"owner":is_owner(u)}
+    p=plan_of(u); to=team_owner_of(u)
+    return {"plan":p,"name":PLANS[p]["name"],"expires":(r["expires"] if r and p!="free" and not to else None),"owner":is_owner(u),"team_member":bool(to)}
 def limit(u,kind):
+    u=quota_user(u)
     if is_owner(u): return None
     return PLANS[plan_of(u)].get(kind)
 def used(u,kind,day=None):
+    u=quota_user(u)
     with db() as c: r=c.execute("select n from usage where user=? and day=? and kind=?",(u,day or today(),kind)).fetchone()
     return r["n"] if r else 0
 def bump(u,kind,n=1):
+    u=quota_user(u)
     with db() as c: c.execute("insert into usage(user,day,kind,n) values(?,?,?,?) on conflict(user,day,kind) do update set n=n+?",(u,today(),kind,n,n))
 def take(u,kind):
     """Daily quota check-and-consume. Returns (ok, limit)."""

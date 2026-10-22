@@ -26,3 +26,5 @@ app_v2.py
 agent_bak_*.py
 media_store/
 .emb_cache/
+backups/
+logs/
