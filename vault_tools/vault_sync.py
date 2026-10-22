@@ -149,14 +149,22 @@ def cmd_stats():
 # ---------------- Owner Notebook (/notebook) ----------------
 def L(name, url, notes='', fields=(), group='', pend=False):
     return dict(name=name, url=url, notes=notes, group=group, pend=pend, fields=[dict(k=k, v=v, s=s) for k, v, s in fields])
+def nb_url():
+    try:
+        import notebook as NBK; u = NBK.current_url()
+    except Exception: u = None
+    if u:
+        fd = os.open(SEC+'/notebook_url.txt', os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, 'w') as f: f.write(u + '\n')
+    return u
 def nb_pages():
     E = build(); by = {e['id']: e for e in E}
     owner = [f for f in by.get('srv:bangla_bhai.env', {}).get('fields', []) if f['k'] in ('BB_USER', 'BB_PASSWORD', 'BB_OWNER_EMAIL')]
     admin = [
+     L('Admin username & password / অ্যাডমিন ইউজারনেম ও পাসওয়ার্ড', DOM+'/admin', 'Open /admin, type these two, press Login. (file ~/.secrets/bb_admin_login.env)', [('Username', next((f['v'] for f in owner if f['k']=='BB_USER'), ''), False), ('Password', next((f['v'] for f in owner if f['k']=='BB_PASSWORD'), ''), True)], group='Admin'),
      L('Admin panel / অ্যাডমিন প্যানেল', DOM+'/admin/panel', 'Payments, users, plans, settings (bKash/Nagad number).', group='Admin'),
-     L('Admin login / অ্যাডমিন লগইন', DOM+'/admin', 'Username + password login for the owner.', [(f['k'], f['v'], f['s']) for f in owner], group='Admin'),
      L('Email-code login / ইমেইল কোড লগইন', DOM+'/login', 'Sign in with the owner email; a code arrives in Gmail.', [('Owner email', 'skbadol3210@gmail.com', False)], group='Admin'),
-     L('Owner Notebook (this page)', DOM+'/notebook', 'Add to Home Screen from Chrome menu.', group='Owner tools'),
+     L('Royal Notebook (this app)', nb_url() or DOM+'/notebook/', 'No-login link. Add to Home Screen. Rotate from Admin panel if leaked.', group='Owner tools'),
      L('Connections (owner setup)', DOM+'/connections', 'Telegram token, Google, GitHub, Notion, API keys.', group='Owner tools'),
      L('Activity log', DOM+'/activity', '', group='Owner tools'),
      L('Royal Vault (old, optional)', DOM+'/vault/', 'Older encrypted vault — not needed any more.', group='Owner tools'),

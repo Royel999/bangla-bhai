@@ -18,6 +18,6 @@ else if(b.dataset.c)copy(VALS[+b.dataset.c]);
 else if(b.dataset.r){const v=document.querySelector(`.v[data-i="${b.dataset.r}"]`),hid=v.dataset.m==='1';v.textContent=hid?VALS[+b.dataset.r]:'•'.repeat(12);v.dataset.m=hid?'0':'1';b.textContent=hid?'🙈':'👁'}});
 $('#search').addEventListener('input',filter);
 $('#tabs').innerHTML=TABS.map(t=>`<button data-t="${t[0]}">${t[1]} · ${t[2]}</button>`).join('');
-fetch('/notebook/api/data',{headers:{'X-BB-NB':'1'},credentials:'same-origin',cache:'no-store'}).then(async r=>{if(r.status===401){location.href='/admin?next=/notebook';return}
+fetch('data',{headers:{'X-BB-NB':'1'},credentials:'same-origin',cache:'no-store'}).then(async r=>{if(r.status===401){location.href='/admin';return}
 if(!r.ok)throw new Error((await r.json()).error||r.status);D=await r.json();$('#foot').textContent='Updated / আপডেট: '+new Date(D.ts*1000).toLocaleString('en-GB',{timeZone:'Asia/Dhaka'})+' (Dhaka) · v'+D.v;render()})
 .catch(e=>$('#main').innerHTML='<div class="card">Error: '+E(e.message)+'</div>')})();
