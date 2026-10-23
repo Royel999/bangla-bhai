@@ -297,9 +297,22 @@ def assetlinks():
     try: return JSONResponse(json.load(open(BASE+"/deploy/assetlinks.json")),headers={"Cache-Control":"public, max-age=3600"})
     except Exception: return JSONResponse([])
 APK_URL="https://github.com/Royel999/bangla-bhai/releases/latest/download/bangla-bhai.apk"
-@app.get("/download/bangla-bhai.apk")
-@app.get("/download/android")
-def apk_dl(): return RedirectResponse(APK_URL,302)
+_APK_CACHE="/tmp/bangla-bhai.apk"
+async def _apk_file():
+    if os.path.exists(_APK_CACHE) and os.path.getsize(_APK_CACHE)>100000 and time.time()-os.path.getmtime(_APK_CACHE)<3600: return _APK_CACHE
+    try:
+        async with httpx.AsyncClient(follow_redirects=True,timeout=60) as c:
+            r=await c.get(APK_URL)
+        if r.status_code==200 and r.content[:2]==b"PK":
+            tmp=_APK_CACHE+".part"; open(tmp,"wb").write(r.content); os.replace(tmp,_APK_CACHE)
+    except Exception: pass
+    return _APK_CACHE if os.path.exists(_APK_CACHE) else None
+@app.api_route("/download/bangla-bhai.apk",methods=["GET","HEAD"])
+@app.api_route("/download/android",methods=["GET","HEAD"])
+async def apk_dl():
+    p=await _apk_file()
+    if not p: return RedirectResponse(APK_URL,302)
+    return FileResponse(p,media_type="application/vnd.android.package-archive",filename="bangla-bhai.apk",headers={"Cache-Control":"public, max-age=600"})
 @app.get("/sw.js")
 def sw():
     return FileResponse(BASE+"/static/sw.js",media_type="application/javascript",headers={"Cache-Control":"no-cache","Service-Worker-Allowed":"/"})
