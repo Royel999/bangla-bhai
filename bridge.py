@@ -308,12 +308,15 @@ def setup(app, HH):
         return f
     def login_redirect(): return RedirectResponse("/admin?next=/admin/bridge", 303)
     # ----- public (token) API for outside AIs -----
-    @app.get("/ai/{sec}/{tok}")
+    @app.get("/robots.txt")
+    def robots():
+        return PlainTextResponse("User-agent: *\nAllow: /ai/\nAllow: /$\nDisallow: /admin\nDisallow: /bb/api/\n", headers={"Cache-Control": "public, max-age=3600"})
+    @app.api_route("/ai/{sec}/{tok}", methods=["GET", "HEAD"])
     def ai_brief(sec: str, tok: str):
         if tok == "index.json" and tok_ok("index", sec): return JSONResponse({k: {"title": v[0], "about": v[1], "files": v[2], "brief": link(k)} for k, v in SECTIONS.items()})
         if sec not in SECTIONS or not tok_ok(sec, tok): return PlainTextResponse("not found", 404)
         return PlainTextResponse(brief(sec), headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
-    @app.get("/ai/{tok}")
+    @app.api_route("/ai/{tok}", methods=["GET", "HEAD"])
     def ai_master(tok: str):
         if not tok_ok("index", tok): return PlainTextResponse("not found", 404)
         return PlainTextResponse(master(), headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
@@ -334,17 +337,21 @@ def setup(app, HH):
         except PermissionError: return login_redirect()
         c = csrf(request)
         opts = "<option value=auto selected>🔎 নিজে বুঝে নিক (অটো)</option>" + "".join(f"<option value={k}>{v[0]}</option>" for k, v in SECTIONS.items())
-        links = "".join(f"<div class=c><div class=row><b>{v[0]}</b><span class=m>{k}</span></div><div class=m>{html.escape(', '.join(v[2]))}</div><button class=gold onclick=\"cp('{link(k)}',this)\">📋 লিংক কপি</button><a class='btn gray' href=/admin/bridge?sec={k}#paste>উত্তর পেস্ট</a></div>" for k, v in SECTIONS.items())
+        links = "".join(f"<div class=c><div class=row><b>{v[0]}</b><span class=m>{k}</span></div><div class=m>{html.escape(', '.join(v[2]))}</div><button class=gold onclick=\"cpAll('{k}',this)\">📄 সব কপি করুন</button><a class='btn gray' href=/admin/bridge/brief/{k}.txt?dl=1>⬇️ .txt</a><button class=gray onclick=\"cp('{link(k)}',this)\">🔗 লিংক কপি</button><a class='btn gray' href=/admin/bridge?sec={k}#paste>উত্তর পেস্ট</a></div>" for k, v in SECTIONS.items())
         rows = "".join(f"<div class=c><div class=row><a href=/admin/bridge/p/{p['id']}><b>{SECTIONS.get(p['sec'],('?',))[0]}</b></a><span class='tag {p['status']}'>{ST.get(p['status'],p['status'])}</span></div><div class=m>{time.strftime('%d %b %H:%M', time.localtime(p['created']))} · {html.escape((p['data'].get('note') or '')[:90])}</div></div>" for p in plist())
         body = f"""<div class=row><h2>🤖 AI ব্রিজ</h2><a href=/admin/bridge/guide class='btn gold'>📖 গাইড</a></div>
 <p class=m>বাইরের AI (ChatGPT, Claude, Gemini, Grok, Meta AI) দিয়ে অ্যাপের যেকোনো অংশ বদলান। আপনার Approve ছাড়া কিছুই লাইভ হয় না।</p>
-<div class=c><b>⭐ মাস্টার লিংক (একটাই লিংক — যেকোনো AI-কে দিন)</b><br><button class=gold onclick="cp('{master_link()}',this)">📋 মাস্টার লিংক কপি</button></div>
+<div class=c><b>⭐ মাস্টার লিংক (একটাই লিংক — যেকোনো AI-কে দিন)</b><br><button class=gold onclick="cp('{master_link()}',this)">📋 মাস্টার লিংক কপি</button><button class=gray onclick="cpAll('master',this)">📄 সব কপি করুন</button><br><span class=m>Gemini বা যে AI লিংক খুলতে পারে না: নিচে যে অংশ বদলাতে চান তার "📄 সব কপি করুন" চাপুন, AI-তে পেস্ট করে নির্দেশ দিন।</span></div>
 <h3 id=paste>② AI-এর উত্তর এখানে পেস্ট করুন</h3><form class=c method=post action=/admin/bridge/submit><input type=hidden name=csrf value={c}>
 <select name=sec>{opts}</select><p></p><textarea name=answer placeholder="AI-এর উত্তর বা যেকোনো কোড — যেমন আছে তেমন পেস্ট করুন। এজেন্ট নিজেই বুঝে ঠিক জায়গায় বসাবে।"></textarea><button class=gold>👀 প্রিভিউ দেখুন</button></form>
 <h3>③ প্রস্তাব ও ইতিহাস</h3>{rows or '<p class=m>এখনো কিছু নেই</p>'}
 <h3>① সেকশন লিংক (AI-কে দেওয়ার জন্য)</h3><p class=m>লিংকগুলো গোপন — শুধু AI-কে দেবেন, অন্য কাউকে না।</p>{links}
 <p><a href=/admin/panel>← অ্যাডমিন প্যানেল</a></p>
-<script>function cp(t,b){{(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>{{b.textContent='✅ কপি হয়েছে'}}).catch(()=>{{prompt('কপি করুন:',t)}})}}</script>"""
+<div id=fb style=display:none class=c><b>নিচের লেখা সব সিলেক্ট করে কপি করুন:</b><textarea id=fbt readonly></textarea></div>
+<script>function cpAll(k,b){{const u='/admin/bridge/brief/'+k+'.txt';const p=fetch(u,{{credentials:'same-origin'}}).then(r=>{{if(!r.ok)throw 0;return r.text()}});
+const ok=()=>{{b.textContent='✅ কপি হয়েছে — এখন AI-তে পেস্ট করুন'}};const fail=()=>p.then(t=>{{const f=document.getElementById('fb'),x=document.getElementById('fbt');f.style.display='block';x.value=t;x.focus();x.select();f.scrollIntoView()}});
+try{{if(window.ClipboardItem&&navigator.clipboard.write){{navigator.clipboard.write([new ClipboardItem({{'text/plain':p.then(t=>new Blob([t],{{type:'text/plain'}}))}})]).then(ok).catch(()=>p.then(t=>navigator.clipboard.writeText(t)).then(ok).catch(fail))}}else{{p.then(t=>navigator.clipboard.writeText(t)).then(ok).catch(fail)}}}}catch(e){{fail()}}}}
+function cp(t,b){{(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>{{b.textContent='✅ কপি হয়েছে'}}).catch(()=>{{prompt('কপি করুন:',t)}})}}</script>"""
         return page(body)
     @app.post("/admin/bridge/submit")
     async def submit(request: Request):
@@ -414,6 +421,15 @@ def setup(app, HH):
         except Exception as e: m = "⚠️ " + str(e)[:300]
         from urllib.parse import quote
         return RedirectResponse(f"/admin/bridge/p/{pid}?m=" + quote(m), 303)
+    @app.get("/admin/bridge/brief/{sec}.txt")
+    def brief_txt(request: Request, sec: str, dl: int = 0):
+        try: adm(request)
+        except PermissionError: return PlainTextResponse("login", 403)
+        if sec not in SECTIONS and sec != "master": return PlainTextResponse("nf", 404)
+        t = master() if sec == "master" else brief(sec)
+        hd = {"Cache-Control": "no-store"}
+        if dl: hd["Content-Disposition"] = f'attachment; filename="bangla-bhai-{sec}.txt"'
+        return PlainTextResponse(t, headers=hd)
     @app.get("/admin/bridge/guide")
     def guide(request: Request):
         try: adm(request)
