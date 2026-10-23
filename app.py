@@ -771,7 +771,10 @@ async def proxy(request:Request,path:str):
 @app.api_route("/webui{path:path}",methods=["GET","POST","PUT","DELETE","PATCH"])
 async def webui(request:Request,path:str):
     if not is_admin(request): return RedirectResponse("/login",303)
-    r=await proxy(request,path or "/")
+    try: r=await proxy(request,path or "/")
+    except Exception: r=None
+    if r is None or r.status_code>=500:
+        return HTMLResponse(CSS+"<div style='padding:24px'><h2>Open WebUI is offline</h2><p>Advanced WebUI runs only on the box server and isn't available on the 24/7 server right now. Use the main app instead.</p><a href=/app>← Back to app</a> · <a href=/admin/panel>Admin panel</a></div>",503)
     if (path in("","/")) and r.headers.get("content-type","").startswith("text/html"):
         b=r.body.decode().replace("<head>","<head><script>history.replaceState(null,'','/c/');</script>",1)
         return HTMLResponse(b,r.status_code)
