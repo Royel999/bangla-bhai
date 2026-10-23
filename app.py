@@ -68,6 +68,7 @@ def persona(st,proj_instr="",uid=None,mems=None):
     p=("You are 'Bangla Bhai', the real AI agent of Royal Universe — not just a chatbot. "+lang_rule(st)+" "+addr_rule(uid)+" "
        "You have real tools (shell, browse, web_search, screenshot, camera, mic) and paired devices: "+dlist+". "
        "Never claim you cannot run commands on devices or have no tools — when an action is needed the system routes it to the agent loop. "
+       "You CAN generate and edit images: when the user attaches a photo and asks to edit it (or asks for a new picture), the system runs a free image model (FLUX Kontext / FLUX.2 / Pollinations) and shows the result. Never say you cannot edit or create images; if an edit failed, ask them to resend the photo with the instruction. When editing a person's photo always keep their face and identity unchanged. "
        "Be concise and honest; use Markdown. Never send, pay or delete without permission.")
     if st.get("instructions"): p+="\n\nOwner's custom instructions:\n"+st["instructions"]
     if st.get("memory") and st.get("memory_notes"): p+="\n\nThings to remember about the user:\n"+st["memory_notes"]
@@ -454,6 +455,25 @@ def clear_all(request:Request):
         for (cid,) in c.execute("select id from chats where user=?",(u,)).fetchall(): c.execute("delete from messages where chat_id=?",(cid,))
         c.execute("delete from chats where user=?",(u,)); c.execute("delete from projects where user=?",(u,))
     audit(ev="data_cleared"); return {"ok":True}
+UPL_DIR=os.path.join(BASE,"media_store","uploads"); os.makedirs(UPL_DIR,exist_ok=True)
+def _keep_upload(request,data):
+    try:
+        iid=uuid.uuid4().hex; open(os.path.join(UPL_DIR,f"{need(request)}_{iid}"),"wb").write(data); return iid
+    except Exception: return None
+def _load_upload(u,iid):
+    if not iid or not re.fullmatch(r"[0-9a-f]{32}",str(iid)): return None
+    f=os.path.join(UPL_DIR,f"{u}_{iid}")
+    return open(f,"rb").read() if os.path.exists(f) else None
+IMG_EDIT=re.compile(r"(edit|change|remove|replace|background|make (it|me|this)|turn (it|this|me)|convert|add .* to|enhance|retouch|cartoon|anime|style|colou?r|এডিট|সম্পাদনা|বদল|পরিবর্তন|পাল্টা|মুছ|সরিয়ে|সরাও|ব্যাকগ্রাউন্ড|বানাও|বানিয়ে|যোগ কর|লাগাও|কার্টুন|সুন্দর কর|ঠিক কর|রঙ)",re.I)
+IMG_GEN=re.compile(r"((generate|create|draw|make|design)\s+(an?\s+)?(image|picture|photo|logo|poster)|(ছবি|ইমেজ|লোগো|পোস্টার)\s*(আঁক|বানা|তৈরি|জেনারেট))",re.I)
+FACE_RULE=" Keep the person's face, facial features and identity exactly the same as in the original photo; only change what is asked."
+async def _chat_image(u,instr,img,lang):
+    import media as MD
+    prompt=(instr or "Enhance this photo").strip()[:1500]
+    if img is not None: prompt+=FACE_RULE
+    m,data=await asyncio.wait_for(MD.image_with_fallback(MD.FALLBACK_EDIT[0] if img is not None else MD.FALLBACK_GEN[0],prompt,img),420)
+    r=MD.save(u,"image",m,prompt,data); bn=lang=="bn"
+    return (("✅ ছবিটা এডিট করে দিলাম (মুখ একই রাখা হয়েছে)" if bn else "✅ Here is your edited photo (face kept the same)") if img is not None else ("✅ ছবি তৈরি হয়েছে" if bn else "✅ Image created"))+f"\n\n![image]({r['url']})\n\n[⬇️ Download]({r['url']}) · _{m}_",m
 @app.post("/bb/api/upload")
 async def upload(request:Request,file:UploadFile=File(...)):
     need(request); data=await file.read(); name=file.filename or "file"
@@ -478,7 +498,8 @@ async def upload(request:Request,file:UploadFile=File(...)):
             audit(ev="vision",name=name,model=m,ocr=len(ot))
             if not (ot or desc): return JSONResponse({"error":"Could not read image / ছবি পড়া যায়নি"},400)
             txt=(f"[Image description — {m}]\n{desc}\n\n" if desc else "")+(f"[OCR text ({'cloud' if OC.LOW_MEM else 'RapidOCR, local'})]\n{ot}" if ot else "")
-            return {"name":name,"kind":"text","text":txt[:60000],"chars":len(txt),"note":"🖼️ Image read"+(" + OCR" if ot else "")}
+            iid=_keep_upload(request,data)
+            return {"name":name,"kind":"text","text":txt[:60000],"chars":len(txt),"img_id":iid,"note":"🖼️ Image read"+(" + OCR" if ot else "")}
         else: text=data.decode("utf-8","ignore")
     except Exception as e: audit(ev="upload_err",err=str(e)[:200]); return JSONResponse({"error":"ফাইল পড়া যায়নি — অন্য ফরম্যাটে চেষ্টা করুন। / Could not read this file."},400)
     audit(ev="upload",name=name,size=len(data))
@@ -493,8 +514,8 @@ async def stream(request:Request,cid:str):
         if b.get("edit_id"):  # edit a user message: replace it and drop everything after
             c.execute("delete from messages where chat_id=? and id>=?",(cid,int(b["edit_id"]) if str(b["edit_id"]).isdigit() else 10**12))
         if b.get("regenerate"):
-            last=c.execute("select id from messages where chat_id=? and role='assistant' order by id desc limit 1",(cid,)).fetchone()
-            if last: c.execute("delete from messages where id=?",(last["id"],))
+            last=c.execute("select id,role from messages where chat_id=? order by id desc limit 1",(cid,)).fetchone()
+            if last and last["role"]=="assistant": c.execute("delete from messages where id=?",(last["id"],))
         elif b.get("content") is not None:
             c.execute("insert into messages(chat_id,role,content,created) values(?,?,?,?)",(cid,"user",b["content"],time.time()))
         hist=[{"role":m["role"],"content":m["content"]} for m in c.execute("select role,content from messages where chat_id=? order by id",(cid,)).fetchall()][-24:]
@@ -516,6 +537,28 @@ async def stream(request:Request,cid:str):
         try:
             import ground as GR; return await GR.context(q if b.get("content") is not None or b.get("regenerate") else "")
         except Exception: return ""
+    imgs=[x for x in (b.get("images") or []) if x][:1]
+    instr=re.split(r"\n\n---\n📄 File:",q)[0] if isinstance(q,str) else ""
+    img_data=_load_upload(u,imgs[0]) if imgs else None
+    if (b.get("content") is not None or b.get("regenerate")) and ((img_data is not None and (IMG_EDIT.search(instr) or not instr.strip())) or (img_data is None and IMG_GEN.search(instr) and len(instr)<400)):
+        lang=st.get("lang","en")
+        async def igen():
+            yield "event: meta\ndata: "+json.dumps({"model":"Image studio"})+"\n\n"
+            yield "event: status\ndata: "+json.dumps({"text":"ছবি তৈরি হচ্ছে, ১-২ মিনিট লাগতে পারে..." if lang=="bn" else "Working on the image, may take 1-2 min..."})+"\n\n"
+            t=asyncio.create_task(_chat_image(u,instr,img_data,lang))
+            while not t.done():
+                await asyncio.sleep(10)
+                if not t.done(): yield ": keepalive\n\n"
+            try: full,m=t.result()
+            except Exception as e:
+                audit(ev="chat_image_err",err=str(e)[:200]); m="Image studio"
+                full=("⚠️ এখন সব ফ্রি ছবি-মডেল ব্যস্ত, ছবিটা এডিট করা গেল না। একটু পরে আবার পাঠান, বা 🎨 Studio থেকে চেষ্টা করুন।" if lang=="bn" else "⚠️ All free image models are busy right now. Please try again shortly or use 🎨 Studio.")
+            with db() as c:
+                c.execute("insert into messages(chat_id,role,content,model,advisors,created) values(?,?,?,?,?,?)",(cid,"assistant",full,m,"[]",time.time()))
+                c.execute("update chats set updated=? where id=?",(time.time(),cid))
+            audit(ev="chat_image",chat=cid,model=m)
+            yield "data: "+json.dumps({"d":full})+"\n\n"; yield "event: done\ndata: "+json.dumps({"model":m})+"\n\n"
+        return StreamingResponse(igen(),media_type="text/event-stream",headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"})
     sched_reply,mems,gctx=await asyncio.gather(_sched(),_mem(),_gr())
     msgs=[{"role":"system","content":persona(st,proj["instructions"] if proj else "",uid=u,mems=mems)+("\n\n"+gctx if gctx else "")}]+hist
     if sel.startswith("byok:"):

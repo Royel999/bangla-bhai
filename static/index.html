@@ -222,10 +222,10 @@ async function send(){if(/^(এজেন্ট|Agent):/i.test($('#inp').value)&&
   if(it&&it.action){toast(L('🤖 Action detected — I’ll run it with your permission','🤖 অ্যাকশন ধরা পড়েছে — অনুমতি নিয়ে চালাব'));return agentSend();}
  }catch(e){}}
  let full=t;if(FILES.length){full=(t||L('Summarize this file.','এই ফাইলের সারাংশ বাংলায় দাও।'))+FILES.map(f=>f.kind==='text'?`\n\n---\n📄 File: ${f.name}\n\`\`\`\n${f.text}\n\`\`\``:`\n\n[Image attached: ${f.name}]`).join('');}
- inp.value='';autoGrow();FILES=[];renderAtt();
+ const IMGS=FILES.map(f=>f.img_id).filter(Boolean);inp.value='';autoGrow();FILES=[];renderAtt();
  if(!CH){const r=await api('/bb/api/chats',{method:'POST',body:JSON.stringify({project:curProject})});CH={id:r.id,title:L('New chat','নতুন চ্যাট'),messages:[]}}
- run({content:full})}
-async function run(body){const isNew=body.content!=null&&!body.edit_id||body.edit_id;
+ run({content:full,images:IMGS})}
+async function run(body,_try=0){const isNew=body.content!=null&&!body.edit_id||body.edit_id;
  if(body.content!=null)addMsg({role:'user',content:body.content.length>1500?body.content.slice(0,1500)+L('\n…(file text attached)','\n…(ফাইলের লেখা সংযুক্ত)'):body.content});
  const w=addMsg({role:'assistant'});const c=w.querySelector('.content'),meta=w.querySelector('.meta'),acts=w.querySelector('.acts');
  c.innerHTML=(window.bbThinkHTML?bbThinkHTML(t('app.thinking')):'<div class=status><span class=dots><span></span><span></span><span></span></span><span>'+t('app.thinking')+'</span></div>');scrollEnd(true);
@@ -242,7 +242,7 @@ async function run(body){const isNew=body.content!=null&&!body.edit_id||body.edi
     if(ev==='status'){if(!txt){const lab=c.querySelector('.think-lab')||c.querySelector('.status span:last-child');if(lab)lab.textContent=j.text}}
     else if(ev==='advisors'){adv=j;setMeta(meta,model,adv)}else if(ev==='meta'){model=j.model;setMeta(meta,model,adv)}
     else if(ev==='done'){model=j.model}else if(j.d){txt+=j.d;if(!raf)raf=requestAnimationFrame(paint)}}}
- }catch(e){if(e&&e.name==='AbortError'){txt+=txt?L('\n\n_(stopped)_','\n\n_(থামানো হয়েছে)_'):L('_(stopped)_','_(থামানো হয়েছে)_')}else if(e){txt+=L('\n\n⚠️ Connection problem.','\n\n⚠️ সংযোগে সমস্যা হয়েছে।')}}
+ }catch(e){if(e&&e.name==='AbortError'){txt+=txt?L('\n\n_(stopped)_','\n\n_(থামানো হয়েছে)_'):L('_(stopped)_','_(থামানো হয়েছে)_')}else if(e){if(!txt&&_try<2){ctrl=null;w.remove();await new Promise(z=>setTimeout(z,1500*(_try+1)));try{const ch=await api('/bb/api/chats/'+CH.id);const la=ch.messages.at(-1);if(la&&la.role==='assistant'){CH=ch;addMsg(la);$('#send').classList.remove('stop');$('#send').textContent='➤';return}}catch(_){}return run({regenerate:true,images:body.images},_try+1)}txt+=L('\n\n⚠️ Connection dropped and retries failed. Check your internet and tap 🔄 to try again.','\n\n⚠️ নেট সংযোগ কেটে গেছে, দুবার আবার চেষ্টা করেও হয়নি। ইন্টারনেট দেখে 🔄 চাপুন, আবার চেষ্টা করব।')}}
  ctrl=null;$('#send').classList.remove('stop');$('#send').textContent='➤';c.replaceChildren(md(txt));setMeta(meta,model,adv);
  const ch=await api('/bb/api/chats/'+CH.id);CH=ch;$('#ttl').textContent=ch.title;const last=ch.messages.at(-1);
  if(last&&last.role==='assistant')setActs(acts,last);
