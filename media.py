@@ -429,11 +429,13 @@ async def _run(request,kind,model,prompt,file):
             data=await (byok_image(r,m,prompt,image) if kind=="image" else byok_video(r,m,prompt,image))
         else:
             if kind=="video":
+                if not model: model=next(iter(FREE_VIDEO))
                 if model not in FREE_VIDEO: return JSONResponse({"error":"Unknown model"},400)
                 if quota_left(u,"video")<=0: return JSONResponse({"error":"Daily plan video limit reached. Upgrade at /plans, add your own key, or try tomorrow."},429)
                 H["rate_ok"](f"qvideo:{u}",10**9,86400); charged.append(f"qvideo:{u}")
                 model,data=await free_video(prompt,image,model)
             else:
+                if not model: model=next(iter(FREE_IMAGE))
                 if model not in FREE_IMAGE: return JSONResponse({"error":"Unknown model"},400)
                 if image is not None and model not in FREE_EDIT: model="hfs:flux-kontext-dev"
                 if image is None and (model in PK_EDIT_ONLY or model.startswith("hfs:")): model="cf:black-forest-labs/flux-1-schnell"
