@@ -169,6 +169,62 @@ def propose(sec, text, src):
         if st == "pending": H["notify"](H["owner"], "🤖 নতুন AI প্রস্তাব", f"{SECTIONS[sec][0]} — দেখে Approve করুন", "/admin/bridge")
     except Exception: pass
     return pid, st, errs
+# ---------- integration agent (free models via Dev Agent's LLM chain) ----------
+AGSYS = """You are the Integration Agent for the Bangla Bhai web app (FastAPI + HTML/CSS/JS). The owner pastes code or an AI answer that may be messy, partial, or in any format.
+Your job: understand what change it intends and MERGE it into the CURRENT files with minimal exact search/replace edits (never blind overwrite, never delete unrelated code). Fix obvious syntax errors. Keep logo, navy/royal-blue/gold style, Bengali UI, face-preserve rule for photo edits. Never touch secrets, auth security, payments, system commands or add external tracking.
+If the paste is unsafe, meaningless, or cannot be merged safely, return edits:[] and explain why in simple Bengali."""
+async def agent_section(text):
+    lst = "\n".join(f"{k}: {v[0]} | files: {', '.join(v[2])} | {v[1]}" for k, v in SECTIONS.items())
+    _, j = await DA.llm(H["owner"], "auto", [{"role": "system", "content": AGSYS}, {"role": "user", "content": f"Sections:\n{lst}\n\nPasted text (start):\n{text[:6000]}\n\nReturn JSON {{\"section\":\"<one section key>\"}}"}])
+    k = (j.get("section") or "").strip()
+    return k if k in SECTIONS else None
+async def agent_merge(sec, text, prev_errs=None):
+    files = {p: cur(p) for p in SECTIONS[sec][2]}
+    if sec == "login": files["app.py"] = excerpt_login(files["app.py"])
+    budget = 70000 // max(1, len(files))
+    ctx = "\n\n".join(f"=== CURRENT {p} ===\n{t[:budget]}" for p, t in files.items())
+    fb = ("\n\nYour previous attempt failed checks: " + "; ".join(prev_errs)[:1500] + "\nFix it.") if prev_errs else ""
+    _, j = await DA.llm(H["owner"], "auto", [{"role": "system", "content": AGSYS}, {"role": "user", "content": f"{ctx}\n\n=== PASTED BY OWNER ===\n{text[:40000]}{fb}\n\nReturn JSON {{\"summary_bn\":\"2-4 short Bengali lines: what will change, or why it cannot be applied\",\"safe\":true,\"edits\":[{{\"path\":\"file\",\"search\":\"exact existing text (unique)\",\"replace\":\"new text\"}}]}}"}])
+    new, errs = {}, []
+    if j.get("safe") is False: return j.get("summary_bn", ""), {}, ["AI এজেন্ট বলছে এটা নিরাপদ না: " + (j.get("summary_bn") or "")[:300]]
+    for e in j.get("edits") or []:
+        p, a, b = (e.get("path") or "").lstrip("./"), e.get("search") or "", e.get("replace") or ""
+        if p not in files: errs.append(f"{p}: এই সেকশনের ফাইল না"); continue
+        src = new.get(p, cur(p))
+        if src.count(a) != 1: errs.append(f"{p}: মেলানো যায়নি ({src.count(a)} বার পাওয়া গেছে)"); continue
+        new[p] = src.replace(a, b, 1)
+    return (j.get("summary_bn") or "")[:1500], {p: v for p, v in new.items() if v != cur(p)}, errs
+BLOCKING = ("আটকানো", "ভুল", "অসম্পূর্ণ", "নিরাপদ না")
+async def smart(pid, sec, text):
+    """Run in background: strict parse first, else integration agent (2 attempts)."""
+    pr = pget(pid); d = pr["data"]
+    try:
+        if sec in ("", "auto"):
+            sec = detect(text) or await agent_section(text) or "design"
+        note, new, errs = parse(text, sec); errs += check(new)
+        if new and not errs: st = "pending"; how = "সরাসরি"
+        else:
+            how = "AI এজেন্ট"; errs2 = None
+            for _ in range(2):
+                note, new, e2 = await agent_merge(sec, text, errs2)
+                e2 += check(new)
+                if new and not any(x in y for y in e2 for x in BLOCKING) and not e2: break
+                errs2 = e2 or ["no edits"]
+            errs = e2
+            if not new and not errs: errs = ["কোনো পরিবর্তন বের করা যায়নি।"]
+            st = "pending" if new and not any(x in y for y in errs for x in BLOCKING) else "invalid"
+        d.update(note=note, files=new, errors=errs, how=how)
+        pput(pid, sec, pr["src"], st, d, pr["created"])
+        if st == "pending":
+            try: H["notify"](H["owner"], "🤖 নতুন AI প্রস্তাব", f"{SECTIONS[sec][0]} — দেখে Approve করুন", "/admin/bridge")
+            except Exception: pass
+    except Exception as e:
+        d.update(errors=["এজেন্ট কাজ করতে পারেনি: " + str(e)[:200]]); pput(pid, sec if sec in SECTIONS else "design", pr["src"], "invalid", d, pr["created"])
+def start_smart(sec, text, src):
+    import asyncio
+    pid = time.strftime("%m%d%H%M") + "-" + secrets.token_hex(3)
+    pput(pid, sec if sec in SECTIONS else "design", src, "working", {"note": "", "files": {}, "errors": [], "raw": text[:200000]})
+    asyncio.get_running_loop().create_task(smart(pid, sec, text)); return pid
 def diff_html(new):
     out = []
     for p, t in new.items():
@@ -224,7 +280,7 @@ textarea{min-height:220px}.m{color:var(--m);font-size:14px}.row{display:flex;jus
 .diff .a{background:#0f3d24;color:#9dffbf}.diff .d{background:#4a1520;color:#ffb3bd}.diff .h{color:var(--g)}
 .err{color:#ff8a98}.tag{font-size:12px;padding:3px 8px;border-radius:20px;background:#33476b}.live{background:#1d6b3a}.pending{background:#8a6a00}
 a{color:#8fb0ff}</style>"""
-ST = {"pending": "অপেক্ষায়", "live": "লাইভ", "rejected": "বাতিল", "rolled_back": "ফেরত নেওয়া", "invalid": "ভুল উত্তর"}
+ST = {"working": "⏳ এজেন্ট কাজ করছে", "pending": "অপেক্ষায়", "live": "লাইভ", "rejected": "বাতিল", "rolled_back": "ফেরত নেওয়া", "invalid": "ভুল উত্তর"}
 def page(body, title="AI ব্রিজ"):
     return HTMLResponse(f"<!doctype html><html lang=bn><head><meta charset=utf-8><title>{title}</title>{CSS}</head><body><div class=w>{body}</div></body></html>", headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex", "Referrer-Policy": "no-referrer"})
 def md_to_html(t):
@@ -269,8 +325,8 @@ def setup(app, HH):
         if request.headers.get("content-type", "").startswith("application/json"):
             try: b = json.loads(b).get("answer", "")
             except Exception: pass
-        pid, st, errs = propose(sec, b, "api")
-        return {"proposal": pid, "status": st, "errors": errs, "note": "Owner must approve in the app (/admin/bridge). Nothing is live yet."}
+        pid = start_smart(sec, b, "api")
+        return {"proposal": pid, "status": "working", "note": "Owner must approve in the app (/admin/bridge). Nothing is live yet."}
     # ----- owner pages -----
     @app.get("/admin/bridge")
     def home(request: Request, sec: str = ""):
@@ -284,7 +340,7 @@ def setup(app, HH):
 <p class=m>বাইরের AI (ChatGPT, Claude, Gemini, Grok, Meta AI) দিয়ে অ্যাপের যেকোনো অংশ বদলান। আপনার Approve ছাড়া কিছুই লাইভ হয় না।</p>
 <div class=c><b>⭐ মাস্টার লিংক (একটাই লিংক — যেকোনো AI-কে দিন)</b><br><button class=gold onclick="cp('{master_link()}',this)">📋 মাস্টার লিংক কপি</button></div>
 <h3 id=paste>② AI-এর উত্তর এখানে পেস্ট করুন</h3><form class=c method=post action=/admin/bridge/submit><input type=hidden name=csrf value={c}>
-<select name=sec>{opts}</select><p></p><textarea name=answer placeholder="AI যা উত্তর দিয়েছে পুরোটা কপি করে এখানে পেস্ট করুন"></textarea><button class=gold>👀 প্রিভিউ দেখুন</button></form>
+<select name=sec>{opts}</select><p></p><textarea name=answer placeholder="AI-এর উত্তর বা যেকোনো কোড — যেমন আছে তেমন পেস্ট করুন। এজেন্ট নিজেই বুঝে ঠিক জায়গায় বসাবে।"></textarea><button class=gold>👀 প্রিভিউ দেখুন</button></form>
 <h3>③ প্রস্তাব ও ইতিহাস</h3>{rows or '<p class=m>এখনো কিছু নেই</p>'}
 <h3>① সেকশন লিংক (AI-কে দেওয়ার জন্য)</h3><p class=m>লিংকগুলো গোপন — শুধু AI-কে দেবেন, অন্য কাউকে না।</p>{links}
 <p><a href=/admin/panel>← অ্যাডমিন প্যানেল</a></p>
@@ -296,7 +352,7 @@ def setup(app, HH):
         except PermissionError: return login_redirect()
         sec = f.get("sec", "")
         if sec not in SECTIONS and sec != "auto": return RedirectResponse("/admin/bridge", 303)
-        pid, st, errs = propose(sec, f.get("answer", ""), "paste")
+        pid = start_smart(sec, f.get("answer", ""), "paste")
         return RedirectResponse(f"/admin/bridge/p/{pid}", 303)
     @app.get("/admin/bridge/p/{pid}")
     def view(request: Request, pid: str):
@@ -314,9 +370,10 @@ def setup(app, HH):
         elif s == "live": acts = btn("rollback", "↩️ আগের অবস্থায় ফেরত নিন", "red", "আগের অবস্থায় ফেরত নেবেন") + f"<div class=m>কমিট {d.get('sha','')[:7]} · লাইভ হতে ২-৪ মিনিট লাগে</div>"
         elif s == "rolled_back": acts = f"<div class=m>ফেরত নেওয়া হয়েছে (কমিট {d.get('rollback_sha','')[:7]})</div>"
         msg = html.escape(request.query_params.get("m", ""))
+        if s == "working": return page(f"<meta http-equiv=refresh content=4><a href=/admin/bridge>← AI ব্রিজ</a><h2>⏳ এজেন্ট কাজ করছে…</h2><p class=m>আপনার পেস্ট করা কোড বুঝে ঠিক জায়গায় বসানো হচ্ছে আর পরীক্ষা করা হচ্ছে। ১৫-৯০ সেকেন্ড লাগতে পারে। পেজ নিজে থেকেই রিফ্রেশ হবে।</p>")
         body = f"""<a href=/admin/bridge>← AI ব্রিজ</a><h2>{SECTIONS.get(pr['sec'],('?',))[0]}</h2>
 <div class=row><span class='tag {s}'>{ST.get(s,s)}</span><span class=m>{pid} · {'API' if pr['src']=='api' else 'পেস্ট'}</span></div>
-{f'<div class=c>{msg}</div>' if msg else ''}<div class=c><b>AI যা বলেছে:</b><div>{html.escape(d.get('note') or '—').replace(chr(10),'<br>')}</div></div>{errs}
+{f'<div class=c>{msg}</div>' if msg else ''}<div class=c><b>সারসংক্ষেপ ({html.escape(d.get('how','সরাসরি'))}):</b><div>{html.escape(d.get('note') or '—').replace(chr(10),'<br>')}</div></div>{errs}
 <div class=c>{acts}<a class='btn gray' href=/admin/bridge>পরে দেখব</a></div>
 <h3>কী কী বদলাবে (সবুজ = নতুন, লাল = বাদ)</h3>{diff_html(d.get('files', {})) if s in ('pending','invalid') else '<p class=m>'+', '.join(d.get('files', {}))+'</p>'}"""
         return page(body)
