@@ -313,6 +313,8 @@ def home(request:Request):
 def pricing(): return FileResponse(BASE+"/static/pricing.html",headers={"Cache-Control":"no-cache"})
 @app.get("/privacy")
 def privacy(): return FileResponse(BASE+"/static/privacy.html",headers={"Cache-Control":"no-cache"})
+@app.get("/terms")
+def terms(): return FileResponse(BASE+"/static/terms.html",headers={"Cache-Control":"no-cache"})
 @app.get("/docs/api")
 def api_docs(): return FileResponse(BASE+"/static/api.html",headers={"Cache-Control":"no-cache"})
 @app.get("/bb/api/me")
