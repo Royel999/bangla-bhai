@@ -71,11 +71,14 @@ async def commit_files(branch_from_sha, branch, files, msg):
     await gh("POST", "/git/refs", json={"ref": "refs/heads/" + branch, "sha": c["sha"]})
     return c["sha"]
 async def ci(sha):
-    j = await gh("GET", f"/commits/{sha}/check-runs")
-    runs = j.get("check_runs", [])
-    if not runs: return "pending"
-    if any(r["status"] != "completed" for r in runs): return "running"
-    return "green" if all(r["conclusion"] in ("success", "skipped", "neutral") for r in runs) else "red"
+    # Actions runs + commit statuses (fine-grained token has no Checks permission)
+    j = await gh("GET", f"/actions/runs?head_sha={sha}&per_page=50")
+    runs = [r for r in j.get("workflow_runs", []) if "keepalive" not in (r.get("path") or "")]
+    st = (await gh("GET", f"/commits/{sha}/status")).get("statuses", [])
+    if not runs and not st: return "pending"
+    if any(r["status"] != "completed" for r in runs) or any(x["state"] == "pending" for x in st): return "running"
+    ok = all(r["conclusion"] in ("success", "skipped", "neutral") for r in runs) and all(x["state"] == "success" for x in st)
+    return "green" if ok else "red"
 # ---------- Render ----------
 async def render(method, path, **kw):
     t = rd_tok()
