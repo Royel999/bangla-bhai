@@ -52,7 +52,7 @@ def setup(app,H):
     @app.get("/bb/api/router")
     def rt_status(request:Request):
         need_admin(request); now=time.time()
-        return {"chain":[{"id":k,"name":v[0],"configured":bool(v[2]),"cooldown":max(0,int(RT.COOL.get(k,0)-now))} for k,v in RT.CHAIN.items()],"stats":RT.STATS}
+        return {"chain":[{"id":k,"name":v[0],"configured":bool(v[2]),"cooldown":max(0,int(RT.COOL.get(k,0)-now)),"tier":"user" if k in RT.DEFAULT else "dev","flag_on":RT.allowed(k)} for k,v in RT.CHAIN.items()],"stats":RT.STATS}
     @app.post("/bb/api/router/selftest")
     async def rt_test(request:Request):
         """owner-only: simulate failures on chosen providers, run one real call, return the trace."""

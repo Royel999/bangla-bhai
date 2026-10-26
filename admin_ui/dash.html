@@ -103,7 +103,7 @@ async function ov(){sk();let D;try{D=await api('/bb/admin/api/dash/overview')}ca
   <div><div class="row sm"><span class=grow>আকার (২৫MB সীমা)</span><span>${gz?bn((gz/1024).toFixed(0))+' KB':'—'}</span></div><div class=bar style="margin-top:5px"><i style="width:${Math.max(1,pct)}%"></i></div></div>
   ${b.refused_at&&b.refused_at>(b.last_push||0)?`<div class=err>⛔ আপলোড আটকানো হয়েছে ${dt(b.refused_at)}: ${esc(b.refused_reason)}</div>`:''}${b.size_warn?'<div class=err>⚠️ আকার ২৫MB সীমার কাছে</div>':''}
   ${sb?`<div class=row><span class=grow>স্ট্যান্ডবাই সিঙ্ক</span><span>${ago(sb.last_sync)}</span>${sb.note?`<span class="tag wa">${esc(sb.note)}</span>`:''}</div>`:''}</div></div></div>
- <div class=card><h2>🤖 মডেল চেইন <span class=r>কল ${bn(D.stats.calls)} · বদল ${bn(D.stats.failovers)}</span></h2><div class=list>${D.models.map((x,i)=>`<div class=row><span class=mu style="width:18px">${bn(i+1)}</span><span class=grow>${esc(x.label)}</span><span class="tag ${!x.configured?'bad':x.cooldown?'wa':'ok'}">${!x.configured?'কী নেই':x.cooldown?'বিরতি '+bn(x.cooldown)+'s':'চালু'}</span></div>`).join('')}</div>
+ <div class=card><h2>🤖 মডেল চেইন <span class=r>কল ${bn(D.stats.calls)} · বদল ${bn(D.stats.failovers)}</span></h2><div class=list>${D.models.map((x,i)=>`<div class=row><span class=mu style="width:18px">${bn(i+1)}</span><span class=grow>${esc(x.label)}</span>${mst(x)}</div>`).join('')}</div><div class=mu style="margin-top:6px"><a href=#f>প্রোভাইডার, ডেভ মডেল ও টেস্ট →</a></div>
  <div style="margin-top:10px" class="row w"><span class=mu>কাউন্সিল:</span><span class="tag ${D.council_on?'ok':'bad'}">${D.council_on?'চালু':'বন্ধ'}</span>${D.advisors.map(a=>`<span class=tag>${esc(a.split(':').slice(-1)[0])}</span>`).join('')}</div></div>
  <div class=card><h2>🎚️ ফিচার সংক্ষেপ <a class=r href=#f>বদলান →</a></h2><div class="row w">${D.flags.map(f=>`<span class="tag ${f.on?'ok':'bad'}">${f.on?'●':'○'} ${esc(f.bn)}</span>`).join('')}</div></div>
  <div class="row w mu sm" style="justify-content:center;gap:14px;padding:6px 0 16px"><a href=/admin/login-requests>লগইন অনুরোধ</a><a href=/admin/dev>ডেভ এজেন্ট</a><a href=/change-password>পাসওয়ার্ড</a><a href=/bb/health target=_blank>health</a></div>`}
@@ -145,11 +145,24 @@ async function pv(){sk();let D;const qs=new URLSearchParams({kind:PK,...PF});try
  <input id=pq style="margin-top:8px" placeholder="🔍 টুল/কারণ খুঁজুন" value="${esc(PF.q)}" onchange="PF.q=this.value;pv()"><div class="mu sm" style="margin-top:6px">${bn(D.rows.length)} টি রেকর্ড</div></div>${body}`}
 async function revokeAll(){if(!confirm('সব ডিভাইসের সব অনুমতি বাতিল করবেন?'))return;try{await post('/bb/admin/api/dash/revoke-all');toast('সব অনুমতি বাতিল হয়েছে');pv()}catch(e){alert(e.message)}}
 /* ---------- flags ---------- */
-async function fv(){sk();let D;try{D=await api('/bb/admin/api/dash/flags')}catch(e){return fail(e)}
- const ag=D.flags.find(f=>f.key=='feat_agent');
- m.innerHTML=`<div class=card><h2>🎚️ ফিচার চালু/বন্ধ <span class=r>সঙ্গে সঙ্গে কার্যকর</span></h2>${D.flags.map(f=>`<div class=fl><div class=grow><b>${esc(f.bn)}</b> <span class="mu sm">${esc(f.en)}</span><div class="mu sm">${esc(f.desc)}</div>${f.raw_on&&!f.on?'<div class="sm" style="color:var(--wa)">এজেন্ট টুলস বন্ধ থাকায় এটিও বন্ধ</div>':''}</div>
- <label class=sw><input type=checkbox ${f.raw_on?'checked':''} onchange="flip('${f.key}',this)"><span></span></label></div>`).join('')}</div>
+async function fv(){sk();let D,M;try{[D,M]=await Promise.all([api('/bb/admin/api/dash/flags'),api('/bb/admin/api/dash/models')])}catch(e){return fail(e)}
+ const fr=f=>`<div class=fl><div class=grow><b>${esc(f.bn)}</b> <span class="mu sm">${esc(f.en)}</span><div class="mu sm">${esc(f.desc)}</div>${f.raw_on&&!f.on?'<div class="sm" style="color:var(--wa)">এজেন্ট টুলস বন্ধ থাকায় এটিও বন্ধ</div>':''}</div>
+ <label class=sw><input type=checkbox ${f.raw_on?'checked':''} onchange="flip('${f.key}',this)"><span></span></label></div>`;
+ const feats=D.flags.filter(f=>!f.key.startsWith('prov_')),provs=D.flags.filter(f=>f.key.startsWith('prov_'));
+ m.innerHTML=`<div class=card><h2>🎚️ ফিচার চালু/বন্ধ <span class=r>সঙ্গে সঙ্গে কার্যকর</span></h2>${feats.map(fr).join('')}</div>
+ <div class=card><h2>🧠 AI প্রোভাইডার <span class=r>বন্ধ = ঐ প্রোভাইডারের সব মডেল বাদ</span></h2>${provs.map(fr).join('')}</div>
+ ${mv(M)}
  <div class=card><h2>🧾 বদলের ইতিহাস</h2><div class="list sm">${D.history.map(h=>{let d={};try{d=JSON.parse(h.data)}catch(e){}return `<div class=row><span class=grow>${esc((D.flags.find(f=>f.key==d.key)||{}).bn||d.key)}</span>${stTag(d.to=='1'?'on':'off')}<span class=mu>${dt(h.t)}</span></div>`}).join('')||'<div class=empty>এখনো কোনো বদল নেই</div>'}</div></div>`}
+function mst(x){return !x.configured?'<span class="tag bad">কী নেই</span>':!x.flag_on?'<span class="tag bad">প্রোভাইডার বন্ধ</span>':x.cooldown?`<span class="tag wa">বিরতি ${bn(x.cooldown)}s</span>`:x.last_ok===false?`<span class="tag wa" title="${esc(x.last_err||'')}">শেষবার ব্যর্থ</span>`:x.last_ok?`<span class="tag ok">চালু · ${bn(x.last_ms)}ms</span>`:'<span class="tag ok">প্রস্তুত</span>'}
+function mv(M){const row=(x,i)=>`<div class=row><span class=mu style="width:18px">${bn(i+1)}</span><span class=grow>${esc(x.label)}<div class="mu sm">${esc(x.provider)}${x.last_t?' · '+dt(x.last_t):''}</div></span>${mst(x)}<button class="btn gh" style="padding:5px 9px;font-size:13px" onclick="probe('${esc(x.id)}',this)">টেস্ট</button></div>`;
+ const u=M.models.filter(x=>x.tier=='user'),d=M.dev_chain.map(id=>M.models.find(x=>x.id==id)).filter(Boolean),o=M.models.filter(x=>x.tier=='dev'&&!M.dev_chain.includes(x.id));
+ return `<div class=card><h2>🛠️ ডেভ টিয়ার মডেল <span class=r>সবচেয়ে শক্তিশালী ফ্রি · শুধু মালিক</span></h2>
+ <label class="mu sm">ডেভ মডেল (ডেভ এজেন্ট ও চ্যাটের "Dev" অপশন)</label><select onchange="setDev(this.value)"><option value=auto ${M.dev_model=='auto'?'selected':''}>Auto — নিচের ক্রমে, ব্যর্থ হলে পরেরটা</option>${M.models.map(x=>`<option value="${esc(x.id)}" ${M.dev_model==x.id?'selected':''}>${esc(x.label)}</option>`).join('')}</select>
+ <div class=list style="margin-top:8px">${d.map(row).join('')}</div>${o.length?`<div class="mu sm" style="margin-top:8px">আরও বাছাইযোগ্য</div><div class=list>${o.map(row).join('')}</div>`:''}</div>
+ <div class=card><h2>👥 ইউজার মডেল চেইন <span class=r>Auto: উপর থেকে নিচে ব্যাকআপ</span></h2><div class=list>${u.map(row).join('')}</div>
+ <div class="mu sm" style="margin-top:8px">${Object.entries(M.providers).map(([k,v])=>`<div><b>${esc(k)}</b>: ${esc(v)}</div>`).join('')}</div></div>`}
+async function setDev(v){try{await post('/bb/admin/api/dash/devmodel',{model:v});toast('ডেভ মডেল সেট হয়েছে');fv()}catch(e){alert(e.message)}}
+async function probe(id,el){el.disabled=true;el.textContent='…';try{const r=await post('/bb/admin/api/dash/models/probe',{id});toast(r.ok?('✅ '+bn(r.ms)+'ms'):('❌ '+(r.err||'ব্যর্থ')));fv()}catch(e){alert(e.message);el.disabled=false;el.textContent='টেস্ট'}}
 async function flip(k,el){const on=el.checked;if(!confirm((on?'চালু':'বন্ধ')+' করবেন?')){el.checked=!on;return}try{await post('/bb/admin/api/dash/flags',{key:k,on});toast(on?'চালু হয়েছে':'বন্ধ হয়েছে');fv()}catch(e){el.checked=!on;alert(e.message)}}
 /* ---------- nudge ---------- */
 let ND=14;const DEF_S='{name}, আপনাকে মিস করছি! 👋',DEF_B='আসসালামু আলাইকুম {name},\nঅনেকদিন বাংলা ভাইয়ের সাথে কথা হয়নি। নতুন কী আছে দেখে যান — প্রশ্ন করুন, ছবি বানান, কাজ সহজ করুন।\nhttps://banglabhai.dpdns.org/app\n\n— বাংলা ভাই';

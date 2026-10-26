@@ -2,7 +2,7 @@
 feature flags, inactive-user nudges (queued → owner Approve & Send), audit log viewer.
 Every route is owner-only: page → 303 /admin, API → 403. Writes need X-CSRF."""
 import os, time, json, csv, io, hmac, hashlib, secrets, threading, sqlite3, datetime as DT
-from fastapi import Request
+from fastapi import Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 import flags as FL, plans as PL
 BASE=os.path.expanduser('~/bangla_bhai')
@@ -103,7 +103,7 @@ def setup(app,H):
         backup={"last_push":st.get("last_push"),"last_check":st.get("last_check"),"restored":st.get("restored"),"daily_last":st.get("daily_last"),
                 "daily_kept":st.get("daily_count"),"size_gz":st.get("last_push_gz"),"size_warn":bool(st.get("size_warn")),
                 "refused_at":st.get("last_refused"),"refused_reason":st.get("refused_reason"),"limit_mb":25}
-        models=[{"id":k,"label":v[0],"configured":bool(v[2]),"cooldown":max(0,int(RT.COOL.get(k,0)-now))} for k,v in RT.CHAIN.items()]
+        models=[m for m in model_rows() if m["tier"]=="user"]
         return {"now":now,"node":os.environ.get("BB_NODE","box"),"health":H["health"](),"backup":backup,"standby":standby_state(),
                 "kpi":k,"usage":use,"messages":msgs,"signups":sign,"models":models,"stats":RT.STATS,
                 "advisors":H.get("advisors",[]),"council_on":FL.on("feat_council"),"flags":FL.all_flags()}
@@ -228,6 +228,39 @@ def setup(app,H):
     @app.post("/bb/admin/api/dash/revoke-all")
     def revoke_all(request:Request):
         a=adm(request,True); H["revoke_all"](); audit(ev="admin_revoke_all",by=a); PL.admin_log(a,"revoke_all","",H["cip"](request)); return {"ok":True}
+
+    # ---------- models (provider flags + dev tier) ----------
+    def model_rows():
+        now=time.time(); dev=RT.dev_chain(); out=[]
+        for k in list(RT.DEFAULT)+[m for m in RT.CHAIN if m not in RT.DEFAULT]:
+            v=RT.CHAIN[k]; p=k.split(":")[0]; f=RT.PROV_FLAG.get(p); l=RT.LAST.get(k) or {}
+            out.append({"id":k,"label":v[0],"provider":p,"tier":"user" if k in RT.DEFAULT else "dev","in_dev":k in dev,
+                        "flag":f,"flag_on":RT.allowed(k),"configured":bool(v[2]),"cooldown":max(0,int(RT.COOL.get(k,0)-now)),
+                        "last_ok":l.get("ok"),"last_t":l.get("t"),"last_ms":l.get("ms"),"last_err":l.get("err")})
+        return out
+    @app.get("/bb/admin/api/dash/models")
+    def models_get(request:Request):
+        adm(request)
+        return {"models":model_rows(),"dev_model":RT.dev_model(),"dev_chain":RT.dev_chain(),"providers":RT.PROVIDERS,"stats":RT.STATS}
+    @app.post("/bb/admin/api/dash/devmodel")
+    async def devmodel_set(request:Request):
+        a=adm(request,True); b=await request.json(); m=str(b.get("model","auto"))
+        if m!="auto" and m not in RT.CHAIN: raise HTTPException(400,"unknown model")
+        prev=FL.set_val("dev_model",m)
+        audit(ev="settings_changed",key="dev_model",frm=str(prev or "auto"),to=m,by=a,ip=H["cip"](request))
+        PL.admin_log(a,"dev_model",{"model":m},H["cip"](request))
+        return {"ok":True,"dev_model":RT.dev_model(),"dev_chain":RT.dev_chain()}
+    @app.post("/bb/admin/api/dash/models/probe")
+    async def models_probe(request:Request):
+        a=adm(request,True); b=await request.json(); m=str(b.get("id",""))
+        if m not in RT.CHAIN: raise HTTPException(400,"unknown model")
+        t0=time.time()
+        try:
+            _n,t,_tr=await RT.complete([{"role":"user","content":"Reply with only the word OK"}],chain=["__none__"],extra=[(m,RT.CHAIN[m])],timeout=60,tries=1)
+            ok=bool(t and t.strip()); out=(t or "")[:40]; err=None
+        except Exception as e: ok=False; out=""; err=str(e)[:80]
+        audit(ev="model_probe",key=m,ok=ok,by=a)
+        return {"ok":ok,"reply":out,"err":err,"ms":int((time.time()-t0)*1000)}
 
     # ---------- flags ----------
     @app.get("/bb/admin/api/dash/flags")

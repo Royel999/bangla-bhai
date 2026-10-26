@@ -92,7 +92,7 @@ def setup(app,H):
         em={u["id"]:u["email"] for u in users}
         for p in pend+recent: p["email"]=em.get(p["user"],p["user"])
         counts={k:sum(1 for u in users if u["plan"]==k) for k in PL.PLANS}
-        health=[{"id":k,"label":v[0],"configured":bool(v[2]),"cooldown":max(0,int(RT.COOL.get(k,0)-now))} for k,v in RT.CHAIN.items()]
+        health=[{"id":k,"label":v[0],"configured":bool(v[2]),"cooldown":max(0,int(RT.COOL.get(k,0)-now)),"tier":"user" if k in RT.DEFAULT else "dev","flag_on":RT.allowed(k)} for k,v in RT.CHAIN.items()]
         return {"users":users,"counts":counts,"pending":pend,"recent":recent,"usage":use,"revenue":dict(sorted(rev.items())[-12:]),
                 "health":health,"stats":RT.STATS,"settings":PL.settings(),"audit":aud,"telegram":{k:TG.STATE.get(k) for k in("running","bot","error")},"plans":PL.PLANS}
     @app.post("/bb/admin/api/payments/{pid}")

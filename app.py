@@ -84,7 +84,7 @@ def _spec(mid):
     return (mid,(r[0],r[1],r[2],r[3],"oa")) if r else None
 async def call(mid,msgs,tries=1,timeout=45):
     sp=_spec(mid)
-    if not sp: return None
+    if not sp or not RT.allowed(mid): return None
     try: n,t,_=await RT.complete(msgs,chain=[],extra=[sp],timeout=timeout,tries=max(1,tries)); return n,t
     except RT.ModelError: return None
 HARD=re.compile(r"(পরিকল্পনা|plan|কোড|code|বিশ্লেষণ|analy|তুলনা|compare|সিদ্ধান্ত|decide|strategy|কৌশল)",re.I)
@@ -400,7 +400,13 @@ def health():
     return out
 @app.get("/bb/api/models")
 def models(request:Request):
-    u=need(request); return [{"id":"auto","name":"Auto (best + backup)"}]+[{"id":k,"name":v[0]} for k,v in MODELS.items()]+MD.byok_chat_list(u)
+    u=need(request)
+    out=[{"id":"auto","name":"Auto (best + backup)"}]+[{"id":k,"name":v[0]} for k,v in MODELS.items() if RT.allowed(k)]
+    seen={x["id"] for x in out}
+    out+=[{"id":k,"name":RT.CHAIN[k][0]} for k in RT.DEFAULT if k not in seen and RT.CHAIN[k][2] and RT.allowed(k)]
+    if is_admin(request):   # dev tier: most powerful free models, owner only (small daily quotas)
+        out+=[{"id":"dev","name":"🛠 Dev — সবচেয়ে শক্তিশালী ফ্রি (মালিক)"}]+[{"id":k,"name":"🛠 "+RT.CHAIN[k][0]} for k in RT.DEV if k in RT.DEV_ONLY and RT.CHAIN[k][2] and RT.allowed(k)]
+    return out+MD.byok_chat_list(u)
 @app.get("/bb/api/settings")
 def gs(request:Request): return get_settings(need(request))
 @app.put("/bb/api/settings")
@@ -599,8 +605,10 @@ async def stream(request:Request,cid:str):
         res=MD.resolve_chat(u,sel)
         if res: _BYOK_CTX[sel]=res
         else: sel="auto"
-    extra=[_spec(sel)] if sel!="auto" and _spec(sel) and sel not in RT.CHAIN else []
-    rchain=[sel]+[m for m in RT.DEFAULT if m!=sel] if sel in RT.CHAIN else RT.DEFAULT
+    if (sel=="dev" or sel in RT.DEV_ONLY) and not is_admin(request): sel="auto"   # dev tier is owner-only
+    if not sel.startswith("byok:") and sel not in ("auto","dev") and not RT.allowed(sel): sel="auto"
+    extra=[_spec(sel)] if sel not in ("auto","dev") and _spec(sel) and sel not in RT.CHAIN else []
+    rchain=RT.dev_chain() if sel=="dev" else ([sel]+[m for m in (RT.dev_chain() if sel in RT.DEV_ONLY else RT.DEFAULT) if m!=sel] if sel in RT.CHAIN else RT.DEFAULT)
     chain=[sel] if extra else rchain
     council=(b.get("council") or (sel=="auto" and HARD.search(q) and len(q)>60)) and FL.on("feat_council")
     async def gen():

@@ -112,7 +112,7 @@ FREE = [("da:gemini-3.8-flash", ("Gemini 3.8 Flash", RT.GEM, GEMK, "gemini-3.8-f
         ("da:gemini-2.5-flash", ("Gemini 2.5 Flash", RT.GEM, GEMK, "gemini-2.5-flash", "oa")),
         ("da:or-free", ("OpenRouter Free", RT.OR, ORK, "openrouter/free", "oa"))]
 def models(u):
-    out = [{"id": "auto", "name": "Auto (free: Gemini 3.8 Flash → Groq GPT-OSS → …)"}]
+    out = [{"id": "auto", "name": "Auto (dev tier: GPT-5.3 Codex → Kimi K3 → Nemotron Ultra → … free)"}]
     try: out += H["MD"].byok_chat_list(u)
     except Exception: pass
     return out
@@ -121,7 +121,9 @@ def specs(u, sel):
     if sel and sel.startswith("byok:"):
         r = H["MD"].resolve_chat(u, sel)
         if r: ex.append((sel, (r[0], r[1], r[2], r[3], "anthropic" if "anthropic.com" in r[1] else "oa")))
-    return ex + [s for s in FREE if s[1][2]]
+    dev = [(m, RT.CHAIN[m]) for m in RT.dev_chain() if m in RT.CHAIN and RT.CHAIN[m][2] and RT.allowed(m)]   # admin-selected dev tier first
+    have = {x[1][3] for x in dev}
+    return ex + dev + [s for s in FREE if s[1][2] and s[1][3] not in have and RT.allowed({RT.GEM: "gemini:", RT.GROQ: "groq:", RT.OR: "openrouter:"}.get(s[1][1], ""))]
 def _json(t):
     t = re.sub(r"^```(?:json)?|```$", "", t.strip(), flags=re.M).strip()
     m = re.search(r"\{.*\}", t, re.S)

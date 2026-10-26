@@ -11,6 +11,14 @@ FLAGS={
  "feat_devices":     ("1","ডিভাইস অ্যাকশন","Device actions","যুক্ত ফোন/ল্যাপটপে কাজ চালানো ও নতুন ডিভাইস পেয়ার"),
  "feat_council":     ("1","কাউন্সিল","Council","একাধিক মডেলের পরামর্শ (কাউন্সিল)"),
  "feat_pwa_install": ("1","অ্যাপ ইনস্টল (PWA)","PWA install","ইনস্টল বোতাম ও ইনস্টল প্রম্পট"),
+ # AI providers (router.PROV_FLAG). Off = that provider's models are skipped in every chain.
+ "prov_groq":        ("1","Groq","AI provider","GPT-OSS 120B — মূল ইউজার মডেল (ফ্রি, ~১০০০/দিন)"),
+ "prov_gemini":      ("1","Google Gemini","AI provider","Gemini Flash-Lite (ইউজার) ও 3.6 Flash (ডেভ) — ফ্রি টিয়ার"),
+ "prov_zai":         ("1","Z.ai GLM","AI provider","GLM-4.7 Flash — অফিসিয়াল ফ্রি মডেল (ইউজার ব্যাকআপ)"),
+ "prov_cloudflare":  ("1","Cloudflare Workers AI","AI provider","GPT-OSS 120B ও Llama 3.3 70B — দিনে ১০k নিউরন ফ্রি"),
+ "prov_mistral":     ("1","Mistral","AI provider","Ministral 14B (ইউজার) ও Codestral (ডেভ) — ফ্রি কী"),
+ "prov_openrouter":  ("1","OpenRouter (ফ্রি)","AI provider","Auto Free + Nemotron Ultra / Laguna (ডেভ) — মোট ৫০/দিন"),
+ "prov_pollinations":("1","Pollinations (ডেভ)","AI provider","GPT-5.3 Codex, GPT-6 Sol, Kimi K3, GLM-5.3 — দৈনিক ফ্রি Pollen; শুধু মালিক/ডেভ"),
 }
 _C={"t":0,"v":{}}
 def _load():
@@ -38,6 +46,21 @@ def set_flag(name,value):
     finally: c.close()
     _C["t"]=0
     return (prev[0] if prev else FLAGS[name][0])
+def get_val(k,default=None):
+    try:
+        c=sqlite3.connect(DBF,timeout=5)
+        try: r=c.execute("select v from app_settings where k=?",(k,)).fetchone()
+        finally: c.close()
+        return r[0] if r else default
+    except Exception: return default
+def set_val(k,v):
+    if k in FLAGS: raise ValueError("use set_flag")
+    c=sqlite3.connect(DBF,timeout=10)
+    try:
+        prev=c.execute("select v from app_settings where k=?",(k,)).fetchone()
+        c.execute("insert or replace into app_settings(k,v) values(?,?)",(k,str(v))); c.commit()
+    finally: c.close()
+    return prev[0] if prev else None
 class Off(Exception): pass
 OFF_MSG={"feat_agent":"এজেন্ট টুলস এখন বন্ধ (অ্যাডমিন)","feat_browse":"ব্রাউজ টুল এখন বন্ধ (অ্যাডমিন)","feat_shell":"শেল টুল এখন বন্ধ (অ্যাডমিন)",
          "feat_devices":"ডিভাইস অ্যাকশন এখন বন্ধ (অ্যাডমিন)","signups_open":"নতুন সাইনআপ এখন বন্ধ — পরে চেষ্টা করুন। / New signups are closed right now."}
