@@ -94,7 +94,10 @@ def setup(app,H):
         u=H["user"](request)
         if not u: return RedirectResponse("/login",303)
         if not is_owner(u) and not FL.on("feat_ui_v3"): return RedirectResponse("/app",303)
-        return FileResponse(STATIC+"/index.html",headers={"Cache-Control":"no-cache"})
+        r=FileResponse(STATIC+"/index.html",headers={"Cache-Control":"no-cache"})
+        if request.cookies.get("bb_classic"): r.delete_cookie("bb_classic")
+        r.set_cookie("bb_v3","1",max_age=365*86400,samesite="lax")   # lets the classic UI show a "✨ নতুন UI" link
+        return r
     for p in ("/v3","/v3/skills","/v3/agents","/v3/agents/{aid}","/v3/activity"):
         app.add_api_route(p,page,methods=["GET"])
     # ---- skills (user) ----

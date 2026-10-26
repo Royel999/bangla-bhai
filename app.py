@@ -329,6 +329,13 @@ def landing(request:Request):
 @app.get("/app")
 def home(request:Request):
     if not user(request): return RedirectResponse("/login",303)
+    # Phase 7: v3 is the default UI when feat_ui_v3 is on; /app?classic=1 keeps the classic UI (remembered in a cookie, /v3 clears it)
+    cl=request.query_params.get("classic")
+    if cl=="1" or (cl is None and request.cookies.get("bb_classic")=="1"):
+        r=FileResponse(BASE+"/static/index.html",headers={"Cache-Control":"no-cache"})
+        if cl=="1": r.set_cookie("bb_classic","1",max_age=30*86400,samesite="lax",httponly=True)
+        return r
+    if FL.on("feat_ui_v3"): return RedirectResponse("/v3",303)
     return FileResponse(BASE+"/static/index.html",headers={"Cache-Control":"no-cache"})
 @app.get("/pricing")
 def pricing(): return FileResponse(BASE+"/static/pricing.html",headers={"Cache-Control":"no-cache"})
@@ -385,6 +392,8 @@ async def _ao(request,exc): return JSONResponse({"error":"owner only"},403)
 @app.get("/bb/health")
 def health():
     out={"ok":True,"node":os.environ.get("BB_NODE","box")}
+    try: out["ui"]="v3" if FL.on("feat_ui_v3") else "classic"
+    except Exception: pass
     try:
         c=sqlite3.connect(DB,timeout=3)
         try: c.execute("select count(*) from users").fetchone(); out["db"]="ok"

@@ -111,7 +111,7 @@ async function run(body,sk){if(body.content)addMsg({role:'user',content:body.con
 let SKF={q:'',cat:'সব'};
 function pgSkills(){const on=ST.skills.filter(s=>s.enabled&&s.available).length;
  $('#view').innerHTML=topbar('<h1>স্কিল</h1>','<span style="width:8px"></span>',themeBtn())+`<div class=page><div class=wrap>
- <div class=hero><b style="font-size:16px">বাংলা ভাইয়ের দক্ষতা</b><div class="small mut">যেটা দরকার চালু রাখুন। চালু স্কিল চ্যাটের নিচে শর্টকাট হিসেবে আসবে, এজেন্টকেও দিতে পারবেন।</div>
+ ${ST.skillsOff?`<div class=card role=status style="margin-bottom:12px">⏸️ ${esc(ST.skillsOff)}</div>`:''}<div class=hero><b style="font-size:16px">বাংলা ভাইয়ের দক্ষতা</b><div class="small mut">যেটা দরকার চালু রাখুন। চালু স্কিল চ্যাটের নিচে শর্টকাট হিসেবে আসবে, এজেন্টকেও দিতে পারবেন।</div>
  <div class=stats><div><b>${bnNum(on)}</b><span>চালু</span></div><div><b>${bnNum(ST.skills.length)}</b><span>মোট</span></div><div><b>${bnNum(ST.skills.filter(s=>s.perms?.length).length)}</b><span>অনুমতি লাগে</span></div></div></div>
  <div class=search>${svg('search')}<input class=fld id=skq placeholder="স্কিল খুঁজুন…" value="${esc(SKF.q)}"></div>
  <div class=chips id=skc></div><div class=sgrid id=skg></div></div></div>`;
@@ -130,12 +130,12 @@ async function togSkill(id){const s=ST.skills.find(x=>x.id===id);const on=!s.ena
 function confirmSheet(title,body,ok){return new Promise(res=>{openSheet(`<h3>${esc(title)}</h3><p class=sub>${esc(body)}</p><div class=row><button class="btn grow" id=cno>বাতিল</button><button class="btn pri grow" id=cyes>${esc(ok)}</button></div>`,
  sh=>{$('#cno',sh).onclick=()=>{closeSheet();res(false)};$('#cyes',sh).onclick=()=>{closeSheet();res(true)}})})}
 /* =============== AGENTS =============== */
-async function loadAgents(){const j=await api('/bb/api/v3/agents');ST.agents=j.agents;ST.tiers=j.tiers;ST.perms=j.perm_levels;ST.canTools=j.can_tools;ST.safeTools=j.safe_tools}
+async function loadAgents(){const j=await api('/bb/api/v3/agents');ST.agents=j.agents;ST.tiers=j.tiers;ST.perms=j.perm_levels;ST.canTools=j.can_tools;ST.safeTools=j.safe_tools;ST.agentsOff=j.off||''}
 async function pgAgents(){$('#view').innerHTML=topbar('<h1>এজেন্ট</h1>','<span style="width:8px"></span>',themeBtn())+'<div class=page><div class=wrap id=agw><div class=empty>লোড হচ্ছে…</div></div></div>';
  try{await loadAgents()}catch(e){$('#agw').innerHTML=`<div class=empty>${esc(e.message)}</div>`;return}
  const sk=id=>ST.skills.find(s=>s.id===id);
  $('#agw').innerHTML=`<p class=sub>নিজের মতো সহকারী বানান: নাম, স্বভাব, কোন মডেল আর কোন স্কিল ব্যবহার করবে। বড় কাজ ধাপে ধাপে করবে, ঝুঁকির কাজে আগে অনুমতি চাইবে।</p>
- <button class=newag onclick="editAgent()"><span class=ava>${svg('plus')}</span><span style="text-align:left"><b style="color:var(--tx)">নতুন এজেন্ট বানান</b><div class=small>১ মিনিটেই তৈরি</div></span></button>`+
+ ${ST.agentsOff?`<div class=card role=status style="margin:10px 0">⏸️ ${esc(ST.agentsOff)}</div>`:''}<button class=newag ${ST.agentsOff?'hidden':''} onclick="editAgent()"><span class=ava>${svg('plus')}</span><span style="text-align:left"><b style="color:var(--tx)">নতুন এজেন্ট বানান</b><div class=small>১ মিনিটেই তৈরি</div></span></button>`+
  (ST.agents.map(a=>`<div class=ag><div class=head><div class=ava>${esc(a.icon)}</div><div class=grow><h4>${esc(a.name)}</h4><div class=row style="gap:6px;margin-top:3px;flex-wrap:wrap">
   <span class="tag royal">${esc({fast:'⚡ দ্রুত',auto:'✨ অটো',deep:'🧠 গভীর'}[a.model_tier])}</span><span class="tag ${a.perm_level==='ask'?'gold':a.perm_level==='chat_only'?'':'ok'}">🔐 ${esc({ask:'সব জিজ্ঞেস',safe_auto:'নিরাপদগুলো নিজে',chat_only:'শুধু চ্যাট'}[a.perm_level])}</span></div></div></div>
   <div class=persona>${esc(a.persona||'কোনো বিশেষ নির্দেশনা নেই')}</div><div class=sk-ics>${a.skills.map(i=>sk(i)?`<span title="${esc(sk(i).name_bn)}">${sk(i).icon}</span>`:'').join('')}</div>
@@ -228,5 +228,5 @@ async function saveSet(p){try{ST.set=await api('/bb/api/settings',{method:'PUT',
 /* ---------- boot ---------- */
 (async()=>{$('#nav').innerHTML=navHTML();$('#rail').insertAdjacentHTML('beforeend',navHTML());
  try{ST.me=await api('/bb/api/me')}catch(e){}try{ST.set=await api('/bb/api/settings')}catch(e){}
- try{const j=await api('/bb/api/v3/skills');ST.skills=j.skills;ST.cats=j.categories}catch(e){}
+ try{const j=await api('/bb/api/v3/skills');ST.skills=j.skills;ST.cats=j.categories;ST.skillsOff=j.off||''}catch(e){}
  route();try{const D=await api('/bb/api/activity');const b=$('#nav .badge');if(b&&D.approvals?.length){b.hidden=false;b.textContent=bnNum(D.approvals.length)}}catch(e){}})();
