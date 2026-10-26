@@ -426,7 +426,7 @@ async def vision(data,ctype,prompt="এই ছবিতে কী আছে ব�
             if not t or len(t)<20: raise RuntimeError("empty")
             return m,t
         # race two Gemini vision models in parallel (both free); first good answer wins
-        tasks=[asyncio.create_task(one(G,K.get("GEMINI_API_KEY"),m)) for m in ("gemini-3.1-flash-lite","gemini-3.8-flash") if K.get("GEMINI_API_KEY")]
+        tasks=[asyncio.create_task(one(G,K.get("GEMINI_API_KEY"),m)) for m in ("gemini-3.1-flash-lite","gemini-3.6-flash") if K.get("GEMINI_API_KEY")]
         try:
             for f in asyncio.as_completed(tasks):
                 try:

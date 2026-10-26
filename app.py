@@ -33,11 +33,10 @@ MODELS={
  "groq:openai/gpt-oss-120b":("Groq · GPT-OSS 120B",GROQ,K.get("GROQ_API_KEY"),"openai/gpt-oss-120b"),
  "groq:openai/gpt-oss-20b":("Groq · GPT-OSS 20B (দ্রুত)",GROQ,K.get("GROQ_API_KEY"),"openai/gpt-oss-20b"),
  "groq:qwen/qwen3.8-27b":("Groq · Qwen 3.8 27B",GROQ,K.get("GROQ_API_KEY"),"qwen/qwen3.8-27b"),
- "gemini:gemini-3.8-flash":("Google · Gemini 3.8 Flash",GEM,K.get("GEMINI_API_KEY"),"gemini-3.8-flash"),
  "gemini:gemini-3.1-flash-lite":("Google · Gemini 3.1 Flash Lite",GEM,K.get("GEMINI_API_KEY"),"gemini-3.1-flash-lite"),
  "openrouter:openrouter/free":("OpenRouter · Auto Free",OR,K.get("OPENROUTER_API_KEY"),"openrouter/free"),
 }
-AUTO=["groq:openai/gpt-oss-120b","gemini:gemini-3.8-flash","gemini:gemini-3.1-flash-lite","openrouter:openrouter/free","groq:openai/gpt-oss-20b"]
+AUTO=["groq:openai/gpt-oss-120b","gemini:gemini-3.1-flash-lite","openrouter:openrouter/free","groq:openai/gpt-oss-20b"]
 ADVISORS=["gemini:gemini-3.1-flash-lite","openrouter:openrouter/free","groq:qwen/qwen3.8-27b"]
 LANG_NAMES={"en":"English","bn":"Bangla (Bengali)","hi":"Hindi","ar":"Arabic","ur":"Urdu","es":"Spanish","fr":"French","zh":"Chinese (Simplified)"}
 _I18N={}

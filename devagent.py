@@ -106,11 +106,12 @@ async def system(cmd):
     raise ValueError("unknown system command")
 # ---------- LLM ----------
 GEMK = RT.K.get("GEMINI_API_KEY"); ORK = RT.K.get("OPENROUTER_API_KEY"); GQK = RT.K.get("GROQ_API_KEY")
-FREE = [("da:gemini-3.8-flash", ("Gemini 3.8 Flash", RT.GEM, GEMK, "gemini-3.8-flash", "oa")),
+FREE = [("da:gemini-3.6-flash", ("Gemini 3.6 Flash", RT.GEM, GEMK, "gemini-3.6-flash", "oa")),
         ("da:groq-gptoss", ("Groq GPT-OSS 120B", RT.GROQ, GQK, "openai/gpt-oss-120b", "oa")),
         ("da:gemini-3.5-flash", ("Gemini 3.5 Flash", RT.GEM, GEMK, "gemini-3.5-flash", "oa")),
         ("da:gemini-2.5-flash", ("Gemini 2.5 Flash", RT.GEM, GEMK, "gemini-2.5-flash", "oa")),
-        ("da:or-free", ("OpenRouter Free", RT.OR, ORK, "openrouter/free", "oa"))]
+        ("da:or-free", ("OpenRouter Free", RT.OR, ORK, "openrouter/free", "oa")),
+        ("da:gemini-3.8-flash", ("Gemini 3.8 Flash (slow, last resort)", RT.GEM, GEMK, "gemini-3.8-flash", "oa"))]  # 3.8 times out (~90s): keep last
 def models(u):
     out = [{"id": "auto", "name": "Auto (dev tier: GPT-5.3 Codex → Kimi K3 → Nemotron Ultra → … free)"}]
     try: out += H["MD"].byok_chat_list(u)
