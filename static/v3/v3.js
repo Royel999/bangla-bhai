@@ -25,7 +25,7 @@ function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clea
 function md(t){const h=window.marked&&window.DOMPurify?DOMPurify.sanitize(marked.parse(t||'')):esc(t).replace(/\n/g,'<br>');const d=document.createElement('div');d.innerHTML=h;d.querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});return d}
 const ago=ts=>{const s=Date.now()/1000-ts;if(s<60)return 'এইমাত্র';if(s<3600)return bnNum(Math.floor(s/60))+' মিনিট আগে';if(s<86400)return bnNum(Math.floor(s/3600))+' ঘণ্টা আগে';return bnNum(Math.floor(s/86400))+' দিন আগে'};
 /* ---------- state ---------- */
-const ST={me:{},skills:[],cats:[],agents:[],tiers:{},perms:{},canTools:false,chat:null,activeSkill:null,ctrl:null};
+const ST={activeAgent:null,me:{},skills:[],cats:[],agents:[],tiers:{},perms:{},canTools:false,chat:null,activeSkill:null,ctrl:null};
 const TABS=[['chat','/v3','চ্যাট'],['spark','/v3/skills','স্কিল'],['bot','/v3/agents','এজেন্ট'],['list','/v3/activity','কার্যকলাপ'],['user','#me','আমি']];
 function navHTML(cls){return TABS.map(([i,h,l])=>`<a href="${h}" data-nav="${h}">${svg(i)}<span>${l}</span>${h==='/v3/activity'?'<i class="badge" hidden></i>':''}</a>`).join('')}
 function paintNav(){const p=location.pathname.replace(/\/$/,'')||'/v3';$$('[data-nav]').forEach(a=>{const h=a.dataset.nav;a.classList.toggle('on',h===p||(h!=='/v3'&&h!=='#me'&&p.startsWith(h)))})}
@@ -67,7 +67,8 @@ function hello(){const nm=ST.me.role==='owner'?'রয়েল':(ST.me.name||''
  $('#msgs').innerHTML=`<div class=hello><div class=orb><img src="/bb/static/logo.png" alt=""></div><h2>${nm?'আসসালামু আলাইকুম, '+esc(nm)+'!':'আসসালামু আলাইকুম!'}</h2><p>আজ কী করতে চান? লিখুন, বলুন, বা একটা স্কিল বেছে নিন।</p>
  <div class=qgrid>${en.map(s=>`<button class=q onclick="useSkill('${s.id}')"><span class=ic>${s.icon}</span><b>${esc(s.name_bn)}</b><span>${esc(s.desc_bn)}</span></button>`).join('')}</div></div>`}
 function paintCtx(){const c=$('#ctx');if(!c)return;const en=ST.skills.filter(s=>s.enabled&&s.available);c.innerHTML=en.slice(0,8).map(s=>`<button onclick="useSkill('${s.id}')">${s.icon} ${esc(s.name_bn)}</button>`).join('')}
-function paintPill(){const s=ST.activeSkill;$('#pillSlot').innerHTML=s?`<span class=skillpill>${s.icon} ${esc(s.name_bn)}<button aria-label="স্কিল সরান" onclick="ST.activeSkill=null;paintPill()">✕</button></span>`:''}
+function paintPill(){const s=ST.activeSkill,g=ST.activeAgent;$('#pillSlot').innerHTML=(g?`<span class=skillpill>${esc(g.icon)} ${esc(g.name)}<button aria-label="এজেন্ট সরান" onclick="ST.activeAgent=null;paintPill()">✕</button></span>`:'')+(s?`<span class=skillpill>${s.icon} ${esc(s.name_bn)}<button aria-label="স্কিল সরান" onclick="ST.activeSkill=null;paintPill()">✕</button></span>`:'')}
+function chatAgent(id){const a=ST.agents.find(x=>x.id===id);if(!a)return;ST.chat=null;ST.activeAgent=a;go('/v3');setTimeout(()=>{paintPill();toast(a.name+' এর সাথে চ্যাট')},50)}
 function useSkill(id){const s=ST.skills.find(x=>x.id===id);if(!s)return;if(location.pathname!=='/v3')go('/v3');ST.activeSkill=s;
  if(s.mode==='agent'){toast('এটা এজেন্ট স্কিল: এজেন্ট পেজ থেকে চালান');go('/v3/agents');return}
  if(s.mode==='media'){location.href='/studio';return}paintPill();$('#inp').focus()}
@@ -81,7 +82,7 @@ async function openChats(){let L=[];try{L=await api('/bb/api/chats')}catch(e){}
 function filterChats(q){const el=$('#chl');if(!el)return;const L=(window._CH||[]).filter(c=>!q||c.title.toLowerCase().includes(q.toLowerCase())).slice(0,60);
  el.innerHTML=L.map(c=>`<button class=list-row style="width:100%;text-align:left" onclick="openChat('${c.id}')"><span class=ki>${c.pinned?'📌':'💬'}</span><span class=grow style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(c.title)}</span><span class="small mut">${ago(c.updated)}</span></button>`).join('')||'<div class=empty>কোনো চ্যাট নেই</div>'}
 async function openChat(id){closeSheet();ST.chat=await api('/bb/api/chats/'+id);if(location.pathname!=='/v3')go('/v3');else pgChat()}
-function newChat(){ST.chat=null;ST.activeSkill=null;pgChat()}
+function newChat(){ST.chat=null;ST.activeSkill=null;ST.activeAgent=null;pgChat()}
 function scrollEnd(){const p=$('#chatPage');if(p)p.scrollTop=p.scrollHeight}
 function addMsg(m){$('.hello')?.remove();const w=document.createElement('div');
  if(m.role==='user'){w.className='msg u';w.innerHTML='<div class=bub></div>';w.firstChild.textContent=m.content}
@@ -93,7 +94,7 @@ function acts(w,m){const a=$('.acts',w);a.innerHTML=`<button>${svg('copy')}ক�
  a.children[0].onclick=()=>{navigator.clipboard?.writeText(m.content);toast('কপি হয়েছে')};a.children[1].onclick=()=>run({regenerate:true});a.children[2].onclick=()=>toast('আসল বিল্ডে /bb/api/tts')}
 async function send(){const inp=$('#inp');const t=inp.value.trim();if(!t)return;inp.value='';inp.style.height='auto';
  if(!ST.chat){const r=await api('/bb/api/chats',{method:'POST',body:'{}'});ST.chat={id:r.id,messages:[]}}
- const sk=ST.activeSkill;run({content:t,skill_id:sk?.id},sk)}
+ const sk=ST.activeSkill;run({content:t,skill_id:sk?.id,agent_id:ST.activeAgent?.id},sk)}
 async function run(body,sk){if(body.content)addMsg({role:'user',content:body.content});
  const w=addMsg({role:'assistant'});const c=$('.content',w);c.innerHTML='<span class=typing><span></span><span></span><span></span></span>';scrollEnd();
  ST.ctrl=new AbortController();const sb=$('#send');sb.disabled=false;sb.classList.add('stop');sb.innerHTML=svg('stop');let txt='',model='';
@@ -162,7 +163,7 @@ async function pgAgent(id){if(!ST.agents.length)try{await loadAgents()}catch(e){
  $('#view').innerHTML=topbar(`<div class=brandmark><div class=ava style="width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,var(--royal),#0b1f55)">${esc(a.icon)}</div><div><b>${esc(a.name)}</b><small>${esc({ask:'প্রতিটা অ্যাকশনে অনুমতি',safe_auto:'নিরাপদ কাজ নিজে',chat_only:'শুধু চ্যাট'}[a.perm_level])}</small></div></div>`,
   `<button class=ib aria-label="ফিরে যান" onclick="go('/v3/agents')">${svg('back')}</button>`,`<button class=ib aria-label="এডিট" onclick="editAgent('${a.id}')">${svg('edit')}</button>`)+
  `<div class=page><div class=wrap><div class=card><label class=l for=goal style="margin-top:0">কী করতে হবে?</label><textarea class=fld id=goal rows=3 placeholder="যেমন: ঢাকার আজকের আবহাওয়া খুঁজে ৩ লাইনে বলো"></textarea>
- <div class=row style="margin-top:10px"><button class="btn pri grow" id=runb>${svg('play')} শুরু করুন</button><button class="btn" id=demob title="মডেল ছাড়া UI দেখার জন্য">ডেমো</button></div>
+ <div class=row style="margin-top:10px"><button class="btn pri grow" id=runb>${svg('play')} শুরু করুন</button><button class="btn" id=demob title="মডেল ছাড়া UI দেখার জন্য">ডেমো</button></div><button class="btn" style="width:100%;margin-top:8px" onclick="chatAgent('${a.id}')">💬 এই এজেন্টের সাথে চ্যাট</button>
  ${ST.canTools?'':'<div class="small mut" style="margin-top:8px">ℹ️ টুলসহ এজেন্ট এখন শুধু মালিকের জন্য চালু।</div>'}</div>
  <div id=runv></div><h3 style="margin:18px 0 4px;font-size:15px">আগের কাজ</h3><div id=hist>${a.runs.map(r=>`<div class=hist><span class="tag ${r.status==='done'?'ok':r.status==='failed'?'red':'gold'}">${esc({done:'সম্পন্ন',failed:'ব্যর্থ',running:'চলছে'}[r.status]||r.status||'—')}</span><span class=grow style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(r.goal)}</span><button class="btn sm" onclick="watch('${r.task_id}')">দেখুন</button></div>`).join('')||'<div class="small mut">এখনো কোনো কাজ দেননি।</div>'}</div></div></div>`;
  $('#runb').onclick=async()=>{const g=$('#goal').value.trim();if(!g)return toast('কাজটা লিখুন');try{const r=await api(`/bb/api/v3/agents/${id}/run`,{method:'POST',body:JSON.stringify({goal:g})});watch(r.task,g)}catch(e){toast(e.message)}};

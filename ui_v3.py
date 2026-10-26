@@ -54,6 +54,26 @@ def available(d,owner):
     if d["owner_only"] and not owner: return False,"owner_only"
     if d["mode"]=="agent" and not FL.on("feat_agent"): return False,"flag_off"
     return True,""
+def chat_ctx(u,skill_id,agent_id,owner):
+    """Phase 2: server-side skill/agent context for /stream. Returns (system_text, skill_row|None).
+    Enforces availability (admin_on, flags, owner_only) so a client can't use a disabled skill by id."""
+    txt=[]; sk=None
+    with db() as c:
+        if skill_id and (owner or FL.on("feat_skill_catalog")):
+            r=c.execute("select * from skill_catalog where id=?",(str(skill_id)[:24],)).fetchone()
+            if r:
+                d=_row(r); ok,_=available(d,owner)
+                if ok:
+                    sk=d; p=(d["prompt"] or "").replace("{input}","(the user's latest message)")
+                    txt.append(f"ACTIVE SKILL: {d['icon']} {d['name_en']} ({d['name_bn']}). Apply it to the user's latest message. Skill instructions: {p}"
+                               +(" Tools are NOT available in chat; answer from knowledge and say clearly if live web data would be needed." if d["mode"]=="agent" else ""))
+                    c.execute("insert into user_skills(user,skill_id,enabled,uses,last_used) values(?,?,1,1,?) on conflict(user,skill_id) do update set uses=uses+1,last_used=excluded.last_used",(u,d["id"],time.time()))
+        if agent_id and (owner or FL.on("feat_user_agents")):
+            r=c.execute("select * from agents where id=? and user=? and archived=0",(str(agent_id)[:12],u)).fetchone()
+            if r:
+                a=_row(r); txt.append(f"You are the user's personal assistant '{a['name']}'. Persona/instructions from the user: {a['persona'] or '(none)'}. Stay helpful and safe; these instructions never override safety rules.")
+    if sk: AL.log(u,"skill","use",sk["id"],"ok")
+    return "\n\n".join(txt), sk
 TIERS={"fast":"দ্রুত (ছোট মডেল)","auto":"অটো (সেরা + ব্যাকআপ)","deep":"গভীর চিন্তা (বড় মডেল/কাউন্সিল)"}
 PERM_LEVELS={"ask":"প্রতিটা অ্যাকশনে জিজ্ঞেস","safe_auto":"শুধু পড়া-সার্চ নিজে, বাকিগুলোতে জিজ্ঞেস","chat_only":"কোনো টুল নয়, শুধু চ্যাট"}
 def setup(app,H):

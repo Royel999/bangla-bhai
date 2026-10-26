@@ -560,6 +560,10 @@ async def stream(request:Request,cid:str):
         hist=[{"role":m["role"],"content":m["content"]} for m in c.execute("select role,content from messages where chat_id=? order by id",(cid,)).fetchall()][-24:]
         first=c.execute("select count(*) n from messages where chat_id=?",(cid,)).fetchone()["n"]<=1
     q=hist[-1]["content"] if hist else ""; sel=b.get("model") or "auto"
+    v3ctx,v3sk="",None
+    if b.get("skill_id") or b.get("agent_id"):
+        try: v3ctx,v3sk=V3.chat_ctx(u,b.get("skill_id"),b.get("agent_id"),is_owner_uid(u))
+        except Exception as _e: audit(ev="v3_ctx_err",err=str(_e)[:200])
     # run schedule-detect, memory recall and web grounding in parallel (was serial: saves ~0.5-2s before first token)
     async def _sched():
         if b.get("content") and not b.get("regenerate"):
@@ -579,7 +583,7 @@ async def stream(request:Request,cid:str):
     imgs=[x for x in (b.get("images") or []) if x][:1]
     instr=re.split(r"\n\n---\n📄 File:",q)[0] if isinstance(q,str) else ""
     img_data=_load_upload(u,imgs[0]) if imgs else None
-    if (b.get("content") is not None or b.get("regenerate")) and ((img_data is not None and (IMG_EDIT.search(instr) or not instr.strip())) or (img_data is None and IMG_GEN.search(instr) and len(instr)<400)):
+    if (b.get("content") is not None or b.get("regenerate")) and ((img_data is not None and (IMG_EDIT.search(instr) or not instr.strip())) or (img_data is None and (IMG_GEN.search(instr) or (v3sk and v3sk.get("mode")=="media")) and len(instr)<400)):
         lang=st.get("lang","en")
         async def igen():
             yield "event: meta\ndata: "+json.dumps({"model":"Image studio"})+"\n\n"
@@ -599,7 +603,7 @@ async def stream(request:Request,cid:str):
             yield "data: "+json.dumps({"d":full})+"\n\n"; yield "event: done\ndata: "+json.dumps({"model":m})+"\n\n"
         return StreamingResponse(igen(),media_type="text/event-stream",headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"})
     sched_reply,mems,gctx=await asyncio.gather(_sched(),_mem(),_gr())
-    msgs=[{"role":"system","content":persona(st,proj["instructions"] if proj else "",uid=u,mems=mems)+("\n\n"+gctx if gctx else "")}]+hist
+    msgs=[{"role":"system","content":persona(st,proj["instructions"] if proj else "",uid=u,mems=mems)+("\n\n"+gctx if gctx else "")+("\n\n"+v3ctx if v3ctx else "")}]+hist
     if sel.startswith("byok:"):
         res=MD.resolve_chat(u,sel)
         if res: _BYOK_CTX[sel]=res
