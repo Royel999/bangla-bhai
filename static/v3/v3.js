@@ -130,7 +130,7 @@ async function togSkill(id){const s=ST.skills.find(x=>x.id===id);const on=!s.ena
 function confirmSheet(title,body,ok){return new Promise(res=>{openSheet(`<h3>${esc(title)}</h3><p class=sub>${esc(body)}</p><div class=row><button class="btn grow" id=cno>বাতিল</button><button class="btn pri grow" id=cyes>${esc(ok)}</button></div>`,
  sh=>{$('#cno',sh).onclick=()=>{closeSheet();res(false)};$('#cyes',sh).onclick=()=>{closeSheet();res(true)}})})}
 /* =============== AGENTS =============== */
-async function loadAgents(){const j=await api('/bb/api/v3/agents');ST.agents=j.agents;ST.tiers=j.tiers;ST.perms=j.perm_levels;ST.canTools=j.can_tools}
+async function loadAgents(){const j=await api('/bb/api/v3/agents');ST.agents=j.agents;ST.tiers=j.tiers;ST.perms=j.perm_levels;ST.canTools=j.can_tools;ST.safeTools=j.safe_tools}
 async function pgAgents(){$('#view').innerHTML=topbar('<h1>এজেন্ট</h1>','<span style="width:8px"></span>',themeBtn())+'<div class=page><div class=wrap id=agw><div class=empty>লোড হচ্ছে…</div></div></div>';
  try{await loadAgents()}catch(e){$('#agw').innerHTML=`<div class=empty>${esc(e.message)}</div>`;return}
  const sk=id=>ST.skills.find(s=>s.id===id);
@@ -164,7 +164,7 @@ async function pgAgent(id){if(!ST.agents.length)try{await loadAgents()}catch(e){
   `<button class=ib aria-label="ফিরে যান" onclick="go('/v3/agents')">${svg('back')}</button>`,`<button class=ib aria-label="এডিট" onclick="editAgent('${a.id}')">${svg('edit')}</button>`)+
  `<div class=page><div class=wrap><div class=card><label class=l for=goal style="margin-top:0">কী করতে হবে?</label><textarea class=fld id=goal rows=3 placeholder="যেমন: ঢাকার আজকের আবহাওয়া খুঁজে ৩ লাইনে বলো"></textarea>
  <div class=row style="margin-top:10px"><button class="btn pri grow" id=runb>${svg('play')} শুরু করুন</button><button class="btn" id=demob title="মডেল ছাড়া UI দেখার জন্য">ডেমো</button></div><button class="btn" style="width:100%;margin-top:8px" onclick="chatAgent('${a.id}')">💬 এই এজেন্টের সাথে চ্যাট</button>
- ${ST.canTools?'':'<div class="small mut" style="margin-top:8px">ℹ️ টুলসহ এজেন্ট এখন শুধু মালিকের জন্য চালু।</div>'}</div>
+ ${!ST.canTools?'<div class="small mut" style="margin-top:8px">ℹ️ টুলসহ এজেন্ট এখন চালু নেই — চ্যাটে কথা বলুন।</div>':ST.safeTools?'<div class="small mut" style="margin-top:8px">🛡️ এই এজেন্ট শুধু ওয়েব সার্চ ও ওয়েবপেজ পড়তে পারে। পেজ খোলার আগে আপনার অনুমতি চাইবে; কিছু পাঠানো/কেনা/ডিলিট করতে পারে না।</div>':''}</div>
  <div id=runv></div><h3 style="margin:18px 0 4px;font-size:15px">আগের কাজ</h3><div id=hist>${a.runs.map(r=>`<div class=hist><span class="tag ${r.status==='done'?'ok':r.status==='failed'?'red':'gold'}">${esc({done:'সম্পন্ন',failed:'ব্যর্থ',running:'চলছে'}[r.status]||r.status||'—')}</span><span class=grow style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(r.goal)}</span><button class="btn sm" onclick="watch('${r.task_id}')">দেখুন</button></div>`).join('')||'<div class="small mut">এখনো কোনো কাজ দেননি।</div>'}</div></div></div>`;
  $('#runb').onclick=async()=>{const g=$('#goal').value.trim();if(!g)return toast('কাজটা লিখুন');try{const r=await api(`/bb/api/v3/agents/${id}/run`,{method:'POST',body:JSON.stringify({goal:g})});watch(r.task,g)}catch(e){toast(e.message)}};
  $('#demob').onclick=()=>demoRun($('#goal').value.trim()||'ঢাকার আজকের আবহাওয়া খুঁজে ৩ লাইনে বলো')}
@@ -178,13 +178,13 @@ function stepEl(box,e,tid,demo){   // FIX of live bug: old bb2.js shadowed L() w
  if(e.type==='approval'){d.innerHTML=`<div class=lab>${lab}</div><div class=appr data-aid="${esc(e.id)}"><div class=t>${svg('shield')} অনুমতি দেবেন?</div>
   <div class="small mut" style="margin-top:4px">${esc(e.capname||'')} · টুল <code>${esc(e.tool)}</code> · ঝুঁকি <span class="tag ${e.risk==='high'?'red':'gold'}">${esc({high:'বেশি',medium:'মাঝারি',low:'কম'}[e.risk]||e.risk||'—')}</span></div>
   <pre>${esc(JSON.stringify(e.args,null,1))}</pre><div class=small>কেন: ${esc(e.why||'')}</div><div class=btns><button class="btn" data-ok=0>🚫 না</button><button class="btn pri" data-ok=1>✅ অনুমতি দিন</button></div></div>`;
-  $$('[data-ok]',d).forEach(b=>b.onclick=async()=>{const ok=b.dataset.ok==='1';if(demo)return demo(ok,e.id);try{await api(`/bb/api/agent/${tid}/decide`,{method:'POST',body:JSON.stringify({id:e.id,ok})})}catch(x){toast(x.message)}})}
+  $$('[data-ok]',d).forEach(b=>b.onclick=async()=>{const ok=b.dataset.ok==='1';if(demo)return demo(ok,e.id);try{await api('/bb/api/approvals/'+e.id,{method:'POST',body:JSON.stringify({ok})})}catch(x){toast(x.message)}})}
  else{d.innerHTML=`<div class=lab>${lab}${e.step?' · ধাপ '+bnNum(e.step):''}</div><div class=body></div>`;const b=$('.body',d);
   if(e.type==='run')b.innerHTML=`<code>${esc(e.tool)}</code>`;else if(e.type==='result'||e.type==='error'){b.innerHTML='<pre></pre>';$('pre',b).textContent=e.text||''}
   else if(e.type==='final')b.replaceChildren(md(e.text));else b.textContent=e.text||''}
  box.appendChild(d);d.scrollIntoView({block:'nearest',behavior:'smooth'})}
 async function watch(tid,goal){const v=$('#runv');v.innerHTML=`<div class=card style="margin-top:12px"><div class=row><b class=grow>${esc(goal||'কাজ')}</b><span class="tag gold" id=rst>চলছে</span></div><div class=tl id=tl></div></div>`;
- let n=0;for(;;){let j;try{j=await api(`/bb/api/agent/${tid}?since=${n}`)}catch(e){$('#rst').textContent=e.status===403?'শুধু মালিক':'ত্রুটি';break}
+ let n=0;for(;;){let j;try{j=await api(`/bb/api/v3/runs/${tid}?since=${n}`)}catch(e){$('#rst').textContent=e.status===404?'পাওয়া যায়নি':'ত্রুটি';break}
   n=typeof j.n==='number'?j.n:n+j.events.length;j.events.forEach(e=>stepEl($('#tl'),e,tid));if(j.status!=='running'){$('#rst').textContent=j.status==='done'?'সম্পন্ন':'থেমেছে';$('#rst').className='tag '+(j.status==='done'?'ok':'red');break}
   await new Promise(r=>setTimeout(r,900));if(!$('#tl'))break}}
 async function demoRun(goal){const v=$('#runv');v.innerHTML=`<div class=card style="margin-top:12px"><div class=row><b class=grow>${esc(goal)}</b><span class="tag gold" id=rst>ডেমো · চলছে</span></div><div class=tl id=tl></div></div>`;

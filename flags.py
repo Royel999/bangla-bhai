@@ -15,7 +15,7 @@ FLAGS={
  "feat_ui_v3":       ("0","নতুন UI (v3) সবার জন্য","New UI v3 for all","চালু = সব ইউজার নতুন চ্যাট/স্কিল/এজেন্ট UI পাবে; বন্ধ = শুধু মালিক (/v3), বাকিরা পুরনো /app"),
  "feat_skill_catalog":("1","স্কিল ক্যাটালগ","Skill catalog","বিল্ট-ইন স্কিল তালিকা ও চ্যাটে স্কিল ব্যবহার (মালিক সবসময় পারবে)"),
  "feat_user_agents": ("1","ইউজারের নিজস্ব এজেন্ট","Personal agents","ইউজাররা নিজের এজেন্ট বানাতে/এডিট করতে পারবে (সর্বোচ্চ ৫টা)"),
- "feat_user_agent_tools":("0","ইউজার এজেন্টের নিরাপদ টুল","User agent safe tools","ইউজারের এজেন্ট শুধু web_search/browse চালাতে পারবে, প্রতিটা ঝুঁকির কাজে অনুমতি কার্ড; বন্ধ = টুল শুধু মালিকের"),
+ "feat_user_agent_tools":("1","ইউজার এজেন্টের নিরাপদ টুল","User agent safe tools","ইউজারের এজেন্ট শুধু web_search/browse চালাতে পারবে, প্রতিটা ঝুঁকির কাজে অনুমতি কার্ড; বন্ধ = টুল শুধু মালিকের"),
  # AI providers (router.PROV_FLAG). Off = that provider's models are skipped in every chain.
  "prov_groq":        ("1","Groq","AI provider","GPT-OSS 120B — মূল ইউজার মডেল (ফ্রি, ~১০০০/দিন)"),
  "prov_gemini":      ("1","Google Gemini","AI provider","Gemini Flash-Lite (ইউজার) ও 3.6 Flash (ডেভ) — ফ্রি টিয়ার"),

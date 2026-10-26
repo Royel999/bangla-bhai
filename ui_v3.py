@@ -131,7 +131,7 @@ def setup(app,H):
             ags=[_row(r) for r in c.execute("select * from agents where user=? and archived=0 order by updated desc",(u,))]
             for a in ags:
                 a["runs"]=[dict(r) for r in c.execute("select r.task_id,r.goal,r.created,t.status from agent_runs r left join tasks t on t.id=r.task_id where r.agent_id=? order by r.created desc limit 10",(a["id"],))]
-        return {"agents":ags,"tiers":TIERS,"perm_levels":PERM_LEVELS,"can_tools":is_owner(u) and FL.on("feat_agent"),"limit":None if is_owner(u) else 5}
+        return {"agents":ags,"tiers":TIERS,"perm_levels":PERM_LEVELS,"can_tools":FL.on("feat_agent") and (is_owner(u) or FL.on("feat_user_agent_tools")),"safe_tools":None if is_owner(u) else ["web_search","browse"],"limit":None if is_owner(u) else 5}
     @app.post("/bb/api/v3/agents")
     async def ag_create(request:Request):
         u=need(request); d=clean(await request.json()); aid=uuid.uuid4().hex[:10]; t=time.time()
@@ -166,15 +166,26 @@ def setup(app,H):
             except KeyError: return JSONResponse({"error":"not found"},404)
             sk={r["id"]:_row(r) for r in c.execute("select * from skill_catalog")}
         if not FL.on("feat_agent"): return JSONResponse({"error":FL.OFF_MSG["feat_agent"]},403)
-        if not is_owner(u) or a["perm_level"]=="chat_only":
-            return JSONResponse({"error":"tool_runs_owner_only","hint":"এই ধাপে টুলসহ এজেন্ট শুধু মালিকের জন্য; চ্যাটে এজেন্টের পারসোনা দিয়ে উত্তর পাবেন।"},403)
-        skills=[sk[s] for s in a["skills"] if s in sk and available(sk[s],True)[0]]
+        own=is_owner(u)
+        if a["perm_level"]=="chat_only": return JSONResponse({"error":"এই এজেন্ট 'শুধু চ্যাট' — চ্যাটে কথা বলুন।","chat_only":True},403)
+        if not own:
+            if not FL.on("feat_user_agent_tools"): return JSONResponse({"error":FL.OFF_MSG["feat_user_agent_tools"]},403)
+            rl=H.get("rate_ok")
+            if rl and not (rl(f"v3run10m:{u}",5,600) and rl(f"v3runday:{u}",30,86400)): return JSONResponse({"error":"অনেক কাজ দিয়েছেন — একটু পরে আবার চেষ্টা করুন।"},429)
+            if len([1 for t in H["AG"].TASKS.values() if t.get("user")==u and t.get("status")=="running"])>=2: return JSONResponse({"error":"আগের কাজ শেষ হওয়া পর্যন্ত অপেক্ষা করুন (একসাথে সর্বোচ্চ ২টা)।"},429)
+        skills=[sk[s] for s in a["skills"] if s in sk and available(sk[s],own)[0]]
         sysx=H["sys_rule"](u)+f"\nYou are acting as the user's personal agent '{a['name']}'. Persona: {a['persona'] or '(default)'}."
         if skills: sysx+="\nSkills you may apply: "+"; ".join(f"{s['name_en']}: {s['prompt']}" for s in skills)
         sysx+="\nPermission level: "+a["perm_level"]+". Never send, pay or delete without an approval card."
+        if not own and a["perm_level"]=="safe_auto": sysx+=" "+H["AG"].SAFE_AUTO_MARK
         tid=H["AG"].start_task(goal,sysx,user=u)
         with db() as c: c.execute("insert into agent_runs values(?,?,?,?,?)",(tid,aid,u,goal[:300],time.time()))
-        audit(ev="agent_run",agent=aid,task=tid); return {"ok":True,"task":tid}
+        audit(ev="agent_run",agent=aid,task=tid,restricted=not own); return {"ok":True,"task":tid}
+    @app.get("/bb/api/v3/runs/{tid}")
+    def run_events(request:Request,tid:str,since:int=0):
+        u=need(request); t=H["AG"].get_task(tid)
+        if not t or (t.get("user")!=u and not is_owner(u)): return JSONResponse({"error":"নেই"},404)
+        return {"status":t["status"],"events":t["events"][max(0,since):],"n":len(t["events"])}
     # ---- skills (owner) ----
     @app.get("/bb/admin/api/v3/skills")
     def adm_sk(request:Request):

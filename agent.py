@@ -131,6 +131,7 @@ async def _browser():
     return _PW
 async def run_tool(name,a):
     import flags as FL; FL.need("feat_agent")
+    if restricted((TASKS.get(t_id_ctx.get(None)) or {}).get("user")) and name not in SAFE_TOOLS: raise RuntimeError("এই টুল ইউজার এজেন্টের জন্য নেই")  # defense in depth
     if name=="mcp_call":
         import connections as CN
         return await CN.mcp_call((TASKS.get(t_id_ctx.get()) or {}).get("user"),a)
@@ -246,6 +247,20 @@ def ev(t,**k):
     try: AL.task_save(tid,T.get("user"),T.get("goal"),T.get("sysx",""),T["status"],T["events"][-300:])
     except Exception: pass
 ON_DONE=[]
+# Phase 4 (v3 personal agents): tasks of anyone other than the owner are RESTRICTED (fail-closed):
+# only SAFE_TOOLS, no owner devices / MCP connections in the prompt, owner device permissions never apply.
+# browse always needs an approval card; web_search auto-runs only when the agent is safe_auto (marker in sysx,
+# so it survives restart/resume). OWNER is set by app.py right after import.
+OWNER=None; SAFE_TOOLS=("web_search","browse"); SAFE_AUTO_MARK="[[perm:safe_auto]]"
+def restricted(user): return user is not None and user!=OWNER
+SYS_SAFE="""তুমি 'বাংলা ভাই' — একজন ইউজারের ব্যক্তিগত এজেন্ট। তোমার হাতে শুধু এই টুলগুলো আছে (অন্য কোনো টুল, ডিভাইস, শেল বা অ্যাকাউন্ট নেই):
+টুল: {tools}
+নিয়ম:
+- প্রতি ধাপে শুধু একটা JSON: {{"thought":"সংক্ষিপ্ত ভাবনা","alternatives":["বিকল্প"],"action":{{"tool":"web_search|browse","args":{{...}}}},"why":"কেন"}}
+- টুল লাগলে আগে টুল চালাও; কল্পিত ফলাফল লিখবে না। টুল না লাগলে সরাসরি শেষ উত্তর দাও।
+- শেষ: {{"thought":"...","final":"ইউজারের জন্য Markdown উত্তর"}}
+- ইউজার 'না' বললে সেই কাজ আর করবে না। কোনো কিছু পাঠানো, কেনা, পেমেন্ট, ডিলিট বা লগইন করবে না।
+"""
 import contextvars; t_id_ctx=contextvars.ContextVar("tid")
 def start_task(goal,sysx="",user=None,tid=None,resume=None):
     tid=tid or uuid.uuid4().hex[:10]
@@ -294,21 +309,27 @@ def decide(tid,aid,d):
     if f and not f.done(): f.set_result(d); return True
     return False
 async def loop(tid,goal,sysx="",resume_ctx=None):
-    devs=", ".join(f"{d['id']}={d['name']}({'অনলাইন' if d['online'] else 'অফলাইন'})" for d in devices() if d["status"]=="approved")
-    tools="; ".join(f"{n}{list(v[2])}: {v[1]}" for n,v in TOOLS.items())
-    try:
-        import connections as CN; _mp=CN.mcp_prompt((TASKS.get(tid) or {}).get("user"))
-        if _mp: tools+="\n"+_mp
-    except Exception: pass
-    hint=pick_device(None,goal)
-    msgs=[{"role":"system","content":SYS.format(tools=tools,devs=devs)+f"\nডিফল্ট টার্গেট ডিভাইস id: {hint} (ফোনের কাজ হলে এটাই use করো।)"+("\n\nOVERRIDES (highest priority): "+sysx if sysx else "")},{"role":"user","content":goal}]+([{"role":"user","content":"(সার্ভার রিস্টার্টের আগে এই ধাপগুলো হয়ে গেছে, আবার করবে না; বাকিটা শেষ করো:)\n"+resume_ctx}] if resume_ctx else [])
+    RX=restricted((TASKS.get(tid) or {}).get("user")); AUTO_OK=RX and SAFE_AUTO_MARK in (sysx or "")
+    if RX:
+        tools="; ".join(f"{n}{list(TOOLS[n][2])}: {TOOLS[n][1]}" for n in SAFE_TOOLS)
+        sys0=SYS_SAFE.format(tools=tools)
+    else:
+        devs=", ".join(f"{d['id']}={d['name']}({'অনলাইন' if d['online'] else 'অফলাইন'})" for d in devices() if d["status"]=="approved")
+        tools="; ".join(f"{n}{list(v[2])}: {v[1]}" for n,v in TOOLS.items())
+        try:
+            import connections as CN; _mp=CN.mcp_prompt((TASKS.get(tid) or {}).get("user"))
+            if _mp: tools+="\n"+_mp
+        except Exception: pass
+        hint=pick_device(None,goal)
+        sys0=SYS.format(tools=tools,devs=devs)+f"\nডিফল্ট টার্গেট ডিভাইস id: {hint} (ফোনের কাজ হলে এটাই use করো।)"
+    msgs=[{"role":"system","content":sys0+("\n\nOVERRIDES (highest priority): "+sysx.replace(SAFE_AUTO_MARK,"") if sysx else "")},{"role":"user","content":goal}]+([{"role":"user","content":"(সার্ভার রিস্টার্টের আগে এই ধাপগুলো হয়ে গেছে, আবার করবে না; বাকিটা শেষ করো:)\n"+resume_ctx}] if resume_ctx else [])
     ev("plan",text="লক্ষ্য বুঝে পরিকল্পনা করছি...")
     fails=0; ran_ok=bool(resume_ctx)
     for step in range(10):
         model,j=await llm_json(msgs); msgs.append({"role":"assistant","content":json.dumps(j,ensure_ascii=False)})
         ev("think",text=j.get("thought",""),alternatives=j.get("alternatives",[]),model=model,step=step+1)
         fin=j.get("final"); act=j.get("action")
-        needs_tool=not ran_ok and bool(re.search(r"(চালাও|চালান|uname|df\s*-h|স্ক্রিনশট|ক্যামেরা|shell|কমান্ড|ফোনে|ডিভাইসে|ব্রাউজ|সার্চ|মেসেজ|ইনবক্স|sms|এসএমএস|পাঠাও|কল|কন্টাক্ট|নোটিফ|ব্যাটারি|ওয়াইফাই|অ্যাপ|পড়)",goal,re.I))
+        needs_tool=not RX and not ran_ok and bool(re.search(r"(চালাও|চালান|uname|df\s*-h|স্ক্রিনশট|ক্যামেরা|shell|কমান্ড|ফোনে|ডিভাইসে|ব্রাউজ|সার্চ|মেসেজ|ইনবক্স|sms|এসএমএস|পাঠাও|কল|কন্টাক্ট|নোটিফ|ব্যাটারি|ওয়াইফাই|অ্যাপ|পড়)",goal,re.I))
         if fin and not act:
             if needs_tool and step<6:
                 msgs.append({"role":"user","content":"তুমি টুল চালাওনি। কল্পিত ফলাফল নিষিদ্ধ। এখনই action JSON দাও — shell দিয়ে আসল কমান্ড চালাও (device=ফোনের id)।"}); ev("repair",text="টুল ছাড়া উত্তর বাতিল — আসল টুল চাই"); continue
@@ -336,6 +357,9 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
         
         alias={"bash":"shell","cmd":"shell","terminal":"shell","search":"web_search","open":"browse","navigate":"browse"}
         tool=alias.get(tool,tool)
+        if RX and tool not in SAFE_TOOLS:
+            ev("blocked",text=f"'{tool}' এই এজেন্টের জন্য নেই — শুধু ওয়েব সার্চ ও ব্রাউজ"); audit(ev="agent_tool_blocked",task=tid,tool=str(tool)[:40])
+            msgs.append({"role":"user","content":f"'{tool}' টুল তোমার জন্য নেই। শুধু: {', '.join(SAFE_TOOLS)}। এগুলো দিয়ে করো বা চূড়ান্ত উত্তর দাও।"}); continue
         if tool not in TOOLS: msgs.append({"role":"user","content":f"'{tool}' নামে কোনো টুল নেই। তালিকা: {', '.join(TOOLS)}"}); ev("repair",text=f"অজানা টুল '{tool}' — ঠিক করছি"); continue
         cap=TOOLS[tool][0]
         if tool=="shell" or cap not in(None,"browser"):
@@ -346,14 +370,15 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
         else:
             dev="box"
         mode=get_perm(dev,cap) if cap else "always"
+        if RX: mode="always" if (AUTO_OK and tool=="web_search") else "ask"   # owner's device perms never apply to users
         force_card = tool in("sms_send","call_make") or (tool=="shell" and args.get("device","box")=="box") or AL.risk(tool,args)=="high"  # destructive/outgoing: always confirm  # outgoing + box shell: always confirm
         if mode=="off": d="no"; ev("blocked",text=f"{CAPS[cap]} এই ডিভাইসে বন্ধ (অনুমতি কেন্দ্র)")
-        elif (mode=="always" and not force_card) or tool=="list_devices": d="yes"; cap and ev("auto",text=f"'সবসময় অনুমতি' দেওয়া আছে — {CAPS[cap]}")
+        elif (mode=="always" and not force_card) or tool=="list_devices": d="yes"; cap and ev("auto",text=("নিরাপদ কাজ — অনুমতি ছাড়াই চালাচ্ছি (ওয়েব সার্চ)" if RX else f"'সবসময় অনুমতি' দেওয়া আছে — {CAPS[cap]}"))
         else:
             d=await ask(tid,tool,args,j.get("why",""),cap)
-            if mode=="once" and d=="yes": set_perm(dev,cap,"ask")
+            if mode=="once" and d=="yes" and not RX: set_perm(dev,cap,"ask")
         if d!="yes":
-            msgs.append({"role":"user","content":f"মালিক এই কাজের অনুমতি দেননি ({d})। এটা করবে না; বিকল্প বা চূড়ান্ত উত্তর দাও।"}); continue
+            msgs.append({"role":"user","content":f"{'ইউজার' if RX else 'মালিক'} এই কাজের অনুমতি দেননি ({d})। এটা করবে না; বিকল্প বা চূড়ান্ত উত্তর দাও।"}); continue
         for attempt in range(2):
             ev("run",tool=tool,args=args,attempt=attempt+1)
             try:
@@ -368,7 +393,7 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
                 fails+=1; ev("error",tool=tool,text=er)
                 ev("repair",text="ভুলটা বিশ্লেষণ করে বিকল্প পথ খুঁজছি...")
                 msgs.append({"role":"user","content":f"টুল ব্যর্থ ({tool}): {er}\nকারণ বিশ্লেষণ করো এবং অন্য বিকল্প পথে চেষ্টা করো।"}); break
-        if fails>=4: ev("final",text="রয়েল, কয়েকবার চেষ্টা করেও কাজটা শেষ করতে পারিনি। বিস্তারিত উপরের ধাপগুলোতে আছে।"); return
+        if fails>=4: ev("final",text=("দুঃখিত, " if RX else "রয়েল, ")+"কয়েকবার চেষ্টা করেও কাজটা শেষ করতে পারিনি। বিস্তারিত উপরের ধাপগুলোতে আছে।"); return
     ev("final",text="ধাপের সীমা (১০) শেষ হয়েছে।")
 # ---------------- voice & vision ----------------
 VOICE="910fb75e-1d20-4840-ac63-ac6b26a71bdc"
