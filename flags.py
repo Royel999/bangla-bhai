@@ -11,6 +11,11 @@ FLAGS={
  "feat_devices":     ("1","ডিভাইস অ্যাকশন","Device actions","যুক্ত ফোন/ল্যাপটপে কাজ চালানো ও নতুন ডিভাইস পেয়ার"),
  "feat_council":     ("1","কাউন্সিল","Council","একাধিক মডেলের পরামর্শ (কাউন্সিল)"),
  "feat_pwa_install": ("1","অ্যাপ ইনস্টল (PWA)","PWA install","ইনস্টল বোতাম ও ইনস্টল প্রম্পট"),
+ # v3 UI rollout (owner always sees /v3; these control everyone else)
+ "feat_ui_v3":       ("0","নতুন UI (v3) সবার জন্য","New UI v3 for all","চালু = সব ইউজার নতুন চ্যাট/স্কিল/এজেন্ট UI পাবে; বন্ধ = শুধু মালিক (/v3), বাকিরা পুরনো /app"),
+ "feat_skill_catalog":("1","স্কিল ক্যাটালগ","Skill catalog","বিল্ট-ইন স্কিল তালিকা ও চ্যাটে স্কিল ব্যবহার (মালিক সবসময় পারবে)"),
+ "feat_user_agents": ("1","ইউজারের নিজস্ব এজেন্ট","Personal agents","ইউজাররা নিজের এজেন্ট বানাতে/এডিট করতে পারবে (সর্বোচ্চ ৫টা)"),
+ "feat_user_agent_tools":("0","ইউজার এজেন্টের নিরাপদ টুল","User agent safe tools","ইউজারের এজেন্ট শুধু web_search/browse চালাতে পারবে, প্রতিটা ঝুঁকির কাজে অনুমতি কার্ড; বন্ধ = টুল শুধু মালিকের"),
  # AI providers (router.PROV_FLAG). Off = that provider's models are skipped in every chain.
  "prov_groq":        ("1","Groq","AI provider","GPT-OSS 120B — মূল ইউজার মডেল (ফ্রি, ~১০০০/দিন)"),
  "prov_gemini":      ("1","Google Gemini","AI provider","Gemini Flash-Lite (ইউজার) ও 3.6 Flash (ডেভ) — ফ্রি টিয়ার"),
@@ -63,6 +68,6 @@ def set_val(k,v):
     return prev[0] if prev else None
 class Off(Exception): pass
 OFF_MSG={"feat_agent":"এজেন্ট টুলস এখন বন্ধ (অ্যাডমিন)","feat_browse":"ব্রাউজ টুল এখন বন্ধ (অ্যাডমিন)","feat_shell":"শেল টুল এখন বন্ধ (অ্যাডমিন)",
-         "feat_devices":"ডিভাইস অ্যাকশন এখন বন্ধ (অ্যাডমিন)","signups_open":"নতুন সাইনআপ এখন বন্ধ — পরে চেষ্টা করুন। / New signups are closed right now."}
+         "feat_devices":"ডিভাইস অ্যাকশন এখন বন্ধ (অ্যাডমিন)","feat_skill_catalog":"স্কিল ক্যাটালগ এখন বন্ধ (অ্যাডমিন)","feat_user_agents":"নিজস্ব এজেন্ট এখন বন্ধ (অ্যাডমিন)","feat_user_agent_tools":"এজেন্টের টুল এখন শুধু মালিকের জন্য (অ্যাডমিন)","signups_open":"নতুন সাইনআপ এখন বন্ধ — পরে চেষ্টা করুন। / New signups are closed right now."}
 def need(name):
     if not on(name): raise RuntimeError(OFF_MSG.get(name,"এই ফিচার এখন বন্ধ"))
