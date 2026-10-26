@@ -184,9 +184,52 @@ def setup(app,H):
             use={r["skill_id"]:(r["n"],r["u"]) for r in c.execute("select skill_id,sum(enabled) n,count(*) u from user_skills group by skill_id")}
         for d in rows: d["enabled_users"]=(use.get(d["id"]) or (0,0))[0]
         return {"skills":rows,"flags":FL.all_flags()}
+    def _csrf_ok(request):
+        import hmac as _h
+        t=request.headers.get("x-csrf",""); sv=request.session.get("csrf","")
+        return bool(sv) and _h.compare_digest(t,sv)
+    @app.get("/bb/admin/api/v3/learned")
+    def adm_learned(request:Request):
+        # owner's own self-learned skills (skills_jobs.skills) that can be promoted to the catalog for everyone
+        if not is_admin(request): return JSONResponse({"error":"owner only"},403)
+        ow=H.get("owner") or ""
+        with db() as c:
+            try: rows=[dict(r) for r in c.execute("select id,name,description,steps,mode,runs,updated from skills where user=? order by runs desc limit 50",(ow,))]
+            except Exception: rows=[]
+            have={r[0] for r in c.execute("select id from skill_catalog")}
+        for d in rows:
+            try: d["steps"]=json.loads(d["steps"] or "[]")
+            except Exception: d["steps"]=[]
+            d["promoted"]=("l-"+re.sub(r"[^a-z0-9_-]","",(d["name"] or "").lower())[:20]) in have
+        return {"learned":rows}
+    @app.post("/bb/admin/api/v3/learned/{lid}/promote")
+    def adm_promote(lid:str,request:Request):
+        if not is_admin(request) or not _csrf_ok(request): return JSONResponse({"error":"owner only"},403)
+        ow=H.get("owner") or ""; t=time.time()
+        with db() as c:
+            r=c.execute("select * from skills where id=? and user=?",(lid,ow)).fetchone()
+            if not r: return JSONResponse({"error":"not found"},404)
+            d=dict(r); sid="l-"+re.sub(r"[^a-z0-9_-]","",(d["name"] or "").lower())[:20]
+            try: steps=json.loads(d["steps"] or "[]")
+            except Exception: steps=[]
+            prompt=((d["description"] or "")+"\nSteps:\n"+"\n".join(f"{i+1}. {x}" for i,x in enumerate(steps))+"\nInput: {input}")[:2000]
+            if c.execute("select 1 from skill_catalog where id=?",(sid,)).fetchone(): return JSONResponse({"error":"already in catalog","id":sid},409)
+            c.execute("insert into skill_catalog(id,icon,name_bn,name_en,desc_bn,desc_en,category,mode,prompt,tools,perms,flag,owner_only,admin_on,sort,builtin,version,created,updated) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,1,?,?)",
+                      (sid,"🧠",(d["name"] or sid)[:40],(d["name"] or sid)[:40],(d["description"] or "")[:200],(d["description"] or "")[:200],"শেখা",
+                       "chat",prompt,"[]","[]",None,0,0,900,t,t))   # starts OFF: owner reviews, then switches on
+        audit(ev="skill_promoted",skill=sid,src=lid,by=request.session.get("u")); return {"ok":True,"id":sid}
+    @app.post("/bb/admin/api/v3/skills/{sid}/toggle")
+    async def adm_sk_toggle(sid:str,request:Request):
+        if not is_admin(request) or not _csrf_ok(request): return JSONResponse({"error":"owner only"},403)
+        b=await request.json(); on=1 if b.get("on") else 0
+        with db() as c:
+            r=c.execute("select admin_on from skill_catalog where id=?",(sid,)).fetchone()
+            if not r: return JSONResponse({"error":"not found"},404)
+            c.execute("update skill_catalog set admin_on=?,updated=? where id=?",(on,time.time(),sid))
+        audit(ev="skill_toggle",skill=sid,frm=str(r[0]),to=str(on),by=request.session.get("u")); return {"ok":True}
     @app.post("/bb/admin/api/v3/skills")
     async def adm_sk_save(request:Request):
-        if not is_admin(request): return JSONResponse({"error":"owner only"},403)
+        if not is_admin(request) or not _csrf_ok(request): return JSONResponse({"error":"owner only"},403)
         b=await request.json(); sid=re.sub(r"[^a-z0-9_-]","",str(b.get("id") or uuid.uuid4().hex[:8]).lower())[:24]; t=time.time()
         f=dict(icon=str(b.get("icon","⭐"))[:4],name_bn=str(b.get("name_bn",""))[:40],name_en=str(b.get("name_en",""))[:40],desc_bn=str(b.get("desc_bn",""))[:200],
                desc_en=str(b.get("desc_en",""))[:200],category=str(b.get("category","অন্যান্য"))[:20],mode=b.get("mode") if b.get("mode") in("chat","agent","media","schedule") else "chat",
@@ -197,4 +240,4 @@ def setup(app,H):
                 c.execute("update skill_catalog set "+",".join(k+"=?" for k in f)+",version=version+1,updated=? where id=?",(*f.values(),t,sid))
             else:
                 c.execute("insert into skill_catalog(id,"+",".join(f)+",builtin,version,created,updated) values(?,"+",".join("?"*len(f))+",0,1,?,?)",(sid,*f.values(),t,t))
-        audit(ev="skill_catalog_save",skill=sid,admin_on=f["admin_on"]); return {"ok":True,"id":sid}
+        audit(ev="skill_catalog_save",skill=sid,admin_on=f["admin_on"],mode=f["mode"],owner_only=f["owner_only"],by=request.session.get("u")); return {"ok":True,"id":sid}
