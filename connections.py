@@ -72,6 +72,9 @@ def db():
     return c
 enc=lambda s:MD.FER.encrypt(s.encode()).decode()
 dec=lambda s:MD.FER.decrypt(s.encode()).decode()
+def _hint(k):
+    try: return mask(MD.dec(k))
+    except MD.KeyInvalid: return "⚠️ বাতিল — আবার যোগ করুন"
 def admin_get(k):
     with db() as c: r=c.execute("select v from conn_admin where k=?",(k,)).fetchone()
     return r["v"] if r else ""
@@ -185,7 +188,7 @@ def status(u,owner):
             if i in oa: st.update(added=True,accounts=[oa[i]["account"] or "connected"])
         elif m=="key":
             ks=[k for k in keys if k["provider"]==i]
-            st.update(added=bool(ks),accounts=[(k["label"] or MD.PROV[i]["name"]) for k in ks],keys=[{"id":k["id"],"label":k["label"],"hint":mask(MD.dec(k))} for k in ks])
+            st.update(added=bool(ks),accounts=[(k["label"] or MD.PROV[i]["name"]) for k in ks],keys=[{"id":k["id"],"label":k["label"],"hint":_hint(k)} for k in ks])
         elif m=="telegram":
             lk=TG.link_of(u); st.update(bot=TG.STATE.get("bot"),running=bool(TG.STATE.get("running")),linked=bool(lk),has_token=bool(TG.token()))
             st.update(added=bool(lk) or (owner and bool(TG.token())),accounts=(["@"+lk["username"]] if lk and lk.get("username") else (["linked"] if lk else [])))

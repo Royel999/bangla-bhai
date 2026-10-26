@@ -604,10 +604,13 @@ async def stream(request:Request,cid:str):
         return StreamingResponse(igen(),media_type="text/event-stream",headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"})
     sched_reply,mems,gctx=await asyncio.gather(_sched(),_mem(),_gr())
     msgs=[{"role":"system","content":persona(st,proj["instructions"] if proj else "",uid=u,mems=mems)+("\n\n"+gctx if gctx else "")+("\n\n"+v3ctx if v3ctx else "")}]+hist
+    byok_note=None
     if sel.startswith("byok:"):
         res=MD.resolve_chat(u,sel)
         if res: _BYOK_CTX[sel]=res
-        else: sel="auto"
+        else:
+            sel="auto"
+            if MD.notices(u): byok_note=MD.BYOK_INVALID_BN+" এখন ফ্রি মডেল দিয়ে উত্তর দিচ্ছি।"
     if (sel=="dev" or sel in RT.DEV_ONLY) and not is_admin(request): sel="auto"   # dev tier is owner-only
     if not sel.startswith("byok:") and sel not in ("auto","dev") and not RT.allowed(sel): sel="auto"
     extra=[_spec(sel)] if sel not in ("auto","dev") and _spec(sel) and sel not in RT.CHAIN else []
@@ -616,6 +619,7 @@ async def stream(request:Request,cid:str):
     council=(b.get("council") or (sel=="auto" and HARD.search(q) and len(q)>60)) and FL.on("feat_council")
     async def gen():
         advisors=[]; msgs2=msgs
+        if byok_note: yield "event: status\ndata: "+json.dumps({"text":byok_note})+"\n\n"
         if sched_reply:
             yield "event: meta\ndata: "+json.dumps({"model":"Scheduler"})+"\n\n"; yield "data: "+json.dumps({"d":sched_reply})+"\n\n"
             save(sched_reply,"Scheduler",[]); yield "event: done\ndata: "+json.dumps({"model":"Scheduler"})+"\n\n"; return
@@ -819,6 +823,8 @@ async def stt(request:Request,file:UploadFile=File(...)):
 # ---- media studio + BYOK ----
 import media as MD
 MD.H.update(need=need,rate_ok=rate_ok,db=db,audit=audit,is_owner=is_owner_uid,act=AL.log)
+try: print("[byok] key sweep",{k:v for k,v in MD.rotate_sweep().items() if k!="fp"},flush=True)
+except Exception as _e: print("[byok] key sweep failed",type(_e).__name__,flush=True)
 import features as FT
 FT.setup(app,dict(need=need,need_admin=need_admin,get_settings=get_settings,db=db,audit=audit,page=page,is_owner=is_owner_uid,rate_ok=rate_ok,AG=AG))
 app.include_router(MD.router)

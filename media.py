@@ -2,10 +2,17 @@
 import os, json, time, uuid, base64, asyncio, httpx
 from fastapi import APIRouter, Request, UploadFile, File, Form
 from fastapi.responses import JSONResponse, FileResponse
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, MultiFernet, InvalidToken
+import hashlib
 S=os.path.expanduser('~/.secrets'); BASE=os.path.expanduser('~/bangla_bhai'); STORE=BASE+'/media_store'
 os.makedirs(STORE,exist_ok=True)
-FER=Fernet(open(S+'/bb_byok.key').read().strip().encode())
+# BYOK/connection encryption key. During a key rotation the previous key sits in bb_byok.key.old:
+# MultiFernet encrypts with the new key, still decrypts old rows, and rotate_sweep() re-encrypts them at startup.
+_KEY=open(S+'/bb_byok.key').read().strip().encode(); _NEW=Fernet(_KEY)
+_OLD=[Fernet(x.encode()) for x in (open(S+'/bb_byok.key.old').read().split() if os.path.exists(S+'/bb_byok.key.old') else [])]
+FER=MultiFernet([_NEW]+_OLD)
+KEY_FP=hashlib.sha256(_KEY).hexdigest()[:10]   # fingerprint only (not the key) for the rotation audit
+BYOK_INVALID_BN="আপনার সেভ করা API কী নিরাপত্তার কারণে বাতিল হয়েছে (এনক্রিপশন কী বদলানো হয়েছে)। স্টুডিও → API কী থেকে কীটি আবার যোগ করুন।"
 def _env(f):
     d={}
     try:
@@ -63,7 +70,65 @@ def keys_for(u):
 def key_row(u,kid):
     with _db() as c: r=c.execute("select * from user_keys where id=? and user=?",(kid,u)).fetchone()
     return dict(r) if r else None
-def dec(r): return FER.decrypt(r["enc"].encode()).decode()
+class KeyInvalid(Exception): pass
+def _ntbl(c): c.execute("create table if not exists byok_notice(user text,provider text,label text,t real)")
+def _invalidate(c,r,why="undecryptable"):
+    """clear a saved key we can no longer decrypt and leave the user a notice (shown on the keys page + in chat)"""
+    _ntbl(c); c.execute("delete from user_keys where id=?",(r["id"],))
+    c.execute("insert into byok_notice values(?,?,?,?)",(r["user"],r["provider"],r["label"] or "",time.time()))
+def dec(r):
+    try: return FER.decrypt(r["enc"].encode()).decode()
+    except InvalidToken:
+        try:
+            with _db() as c: _invalidate(c,r)
+            H["audit"](ev="byok_key_invalidated",provider=r.get("provider"),reason="undecryptable")
+        except Exception: pass
+        raise KeyInvalid(BYOK_INVALID_BN)
+def notices(u):
+    try:
+        with _db() as c: _ntbl(c); return [dict(x) for x in c.execute("select provider,label,t from byok_notice where user=? order by t desc",(u,))]
+    except Exception: return []
+def clear_notices(u):
+    with _db() as c: _ntbl(c); c.execute("delete from byok_notice where user=?",(u,))
+def rotate_sweep():
+    """startup: re-encrypt every Fernet-encrypted row with the current key; clear user keys nothing can decrypt.
+    Idempotent: rows already on the current key are left untouched. Audited once per key fingerprint / when anything changed."""
+    st={"fp":KEY_FP,"old_keys":len(_OLD),"byok_reenc":0,"byok_invalid":0,"byok_users_invalid":0,"conn_reenc":0,"conn_bad":0}
+    def fix(tok):
+        try: _NEW.decrypt(tok.encode()); return None          # already on the new key
+        except InvalidToken: pass
+        return FER.rotate(tok.encode()).decode()               # raises InvalidToken if no key can read it
+    c=_db()
+    try:
+        bad_users=set()
+        for r in [dict(x) for x in c.execute("select * from user_keys")]:
+            try:
+                n=fix(r["enc"])
+                if n: c.execute("update user_keys set enc=? where id=?",(n,r["id"])); st["byok_reenc"]+=1
+            except InvalidToken: _invalidate(c,r); st["byok_invalid"]+=1; bad_users.add(r["user"])
+        st["byok_users_invalid"]=len(bad_users)
+        for tbl,idc,col,where in (("conn_oauth","id","enc",""),("conn_mcp","id","enc",""),("conn_admin","k","v"," where k like '%\\_secret' escape '\\'")):
+            try: rows=c.execute(f"select {idc},{col} from {tbl}{where}").fetchall()
+            except Exception: continue
+            for i,v in rows:
+                if not v: continue
+                try:
+                    n=fix(v)
+                    if n: c.execute(f"update {tbl} set {col}=? where {idc}=?",(n,i)); st["conn_reenc"]+=1
+                except InvalidToken: st["conn_bad"]+=1
+        c.execute("create table if not exists app_settings(k text primary key,v text)")
+        prev=c.execute("select v from app_settings where k='byok_key_fp'").fetchone()
+        prev=prev[0] if prev else None
+        work=st["byok_reenc"] or st["byok_invalid"] or st["conn_reenc"] or st["conn_bad"]
+        rotated=(prev is not None and prev!=KEY_FP) or bool(_OLD)
+        changed=work or (prev!=KEY_FP and prev is not None)   # first run with no work = silent baseline
+        if prev!=KEY_FP: c.execute("insert or replace into app_settings(k,v) values('byok_key_fp',?)",(KEY_FP,))
+        c.commit()
+    finally: c.close()
+    if changed:
+        try: H["audit"](ev="byok_key_rotated" if rotated else "byok_key_sweep",prev_fp=prev,**st)
+        except Exception: pass
+    return st
 def models_of(r,kind):
     extra=json.loads(r["models"] or "{}").get(kind,[]) if r.get("models") else []
     return list(dict.fromkeys(extra+PROV.get(r["provider"],{}).get(kind,[])))
@@ -80,7 +145,9 @@ def resolve_chat(u,mid):
     r=key_row(u,kid)
     if not r: return None
     base=(r["base_url"] or PROV[r["provider"]]["base"]).rstrip("/")
-    return (f"🔑 {model}",base+"/chat/completions",dec(r),model)
+    try: k=dec(r)
+    except KeyInvalid: return None
+    return (f"🔑 {model}",base+"/chat/completions",k,model)
 # ---------- helpers ----------
 def _sniff(b):
     if b[:3]==b"\xff\xd8\xff": return "image/jpeg","jpg"
@@ -506,7 +573,15 @@ def _mask(k): return (k[:4]+"…"+k[-4:]) if len(k)>12 else "••••"
 def list_keys(request:Request):
     u=H["need"](request)
     return {"providers":{k:{"name":v["name"],"chat":v["chat"],"image":v["image"],"video":v["video"]} for k,v in PROV.items()},
-            "keys":[{"id":r["id"],"provider":r["provider"],"label":r["label"],"base_url":r["base_url"],"models":json.loads(r["models"] or "{}"),"hint":_mask(dec(r)),"created":r["created"]} for r in keys_for(u)]}
+            "keys":[x for x in (_krow(r) for r in keys_for(u)) if x],
+            "notice":BYOK_INVALID_BN if notices(u) else None,"invalidated":[{"provider":n["provider"],"label":n["label"]} for n in notices(u)]}
+def _krow(r):
+    try: h=_mask(dec(r))
+    except KeyInvalid: return None
+    return {"id":r["id"],"provider":r["provider"],"label":r["label"],"base_url":r["base_url"],"models":json.loads(r["models"] or "{}"),"hint":h,"created":r["created"]}
+@router.post("/bb/api/keys/notice/dismiss")
+def dismiss_notice(request:Request):
+    u=H["need"](request); clear_notices(u); return {"ok":True}
 @router.post("/bb/api/keys")
 async def add_key(request:Request):
     u=H["need"](request); b=await request.json()
@@ -524,7 +599,7 @@ async def add_key(request:Request):
     if p=="custom" and not any(ms.values()): return JSONResponse({"error":"Add at least one model name"},400)
     kid=uuid.uuid4().hex[:12]
     with _db() as c: c.execute("insert into user_keys values(?,?,?,?,?,?,?,?)",(kid,u,p,(b.get("label") or "")[:60],FER.encrypt(k.encode()).decode(),base or None,json.dumps(ms),time.time()))
-    H["audit"](ev="byok_add",provider=p); return {"ok":True,"id":kid}
+    clear_notices(u); H["audit"](ev="byok_add",provider=p); return {"ok":True,"id":kid}
 @router.delete("/bb/api/keys/{kid}")
 def del_key(request:Request,kid:str):
     u=H["need"](request)
