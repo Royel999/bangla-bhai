@@ -10,7 +10,8 @@ def env(f):
 K={}
 for f in ("groq","gemini","openrouter","deepgram","cartesia","assemblyai"): K.update(env(f"{S}/{f}.env"))
 AUDIT=BASE+'/audit.jsonl'
-def audit(**k): open(AUDIT,'a').write(json.dumps({"t":time.time(),**k},ensure_ascii=False)+"\n")
+def audit(**k):
+    import auditdb; auditdb.write(**k)
 DB=BASE+'/data.db'
 def db():
     c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; return c

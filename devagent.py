@@ -19,7 +19,7 @@ def _env(f):
 def gh_tok(): return _env("github_devagent.env").get("GH_DEVAGENT_TOKEN") or os.environ.get("GH_DEVAGENT_TOKEN")
 def rd_tok(): return _env("render.env").get("RENDER_API_KEY")
 # ---------- guardrails ----------
-PROTECTED = re.compile(r"^(\.github/|auth\.py$|persist\.py$|render_start\.sh$|start\.sh$|supervise\.sh$|keep_supervise\.sh$|Dockerfile$|notebook\.py$|vault|devagent\.py$|connections\.py$|requirements)")
+PROTECTED = re.compile(r"^(\.github/|auth\.py$|auditdb\.py$|persist\.py$|render_start\.sh$|start\.sh$|supervise\.sh$|keep_supervise\.sh$|Dockerfile$|notebook\.py$|vault|devagent\.py$|connections\.py$|requirements)")
 FORBID_PATH = re.compile(r"(^|/)(\.secrets|\.env|.*\.key|.*\.pem|.*\.keystore|data\.db|audit\.jsonl)$|^(venv|archive|media_store)/")
 EXFIL = re.compile(r"\.secrets|BB_SECRETS|os\.environ|getenv|_sec\(\)|RENDER_API_KEY|GH_DEVAGENT_TOKEN|API_KEY|subprocess|os\.system|eval\(|exec\(|webhook\.site|ngrok|pastebin|requestbin", re.I)
 MAX_FILES, MAX_LINES, MAX_FILE_BYTES = 8, 400, 200_000

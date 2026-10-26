@@ -12,7 +12,8 @@ def env(f):
     return d
 CFG=env(ENVF); K={**env(S+'/groq.env'),**env(S+'/gemini.env'),**env(S+'/openrouter.env')}
 AUDIT=BASE+'/audit.jsonl'
-def audit(**k): open(AUDIT,'a').write(json.dumps({"t":time.time(),**k},ensure_ascii=False)+"\n")
+def audit(**k):
+    import auditdb; auditdb.write(**k)
 # ---------- DB ----------
 DB=BASE+'/data.db'
 def db():
@@ -222,7 +223,7 @@ def admin_page(request:Request, e:str="", m:str="", lang:str="", next:str=""):
 @app.post("/login")
 def do_login(request:Request,username:str=Form(""),password:str=Form("")):
     if not rate_ok("login:"+cip(request),8,600): audit(ev="login_ratelimited"); return RedirectResponse("/admin?e=1",303)
-    ok=hmac.compare_digest(username.strip(),CFG["BB_USER"]) and hmac.compare_digest(password,CFG["BB_PASSWORD"])
+    ok=hmac.compare_digest(username.strip(),CFG["BB_USER"]) and AU.owner_pw_ok(password,CFG.get("BB_PASSWORD",""))
     audit(ev="login",ok=ok,via="admin")
     if not ok: return RedirectResponse("/admin?e=1",303)
     AU.ensure_owner()
@@ -281,8 +282,9 @@ def cp(request:Request,current_password:str=Form(""),new_password:str=Form(""),c
     if not user(request): return RedirectResponse("/login",303)
     if not is_admin(request): return RedirectResponse("/app",303)
     if not rate_ok("cp:"+cip(request),5,600): return RedirectResponse("/change-password?m=bad",303)
-    if not hmac.compare_digest(current_password,CFG["BB_PASSWORD"]): return RedirectResponse("/change-password?m=bad",303)
+    if not AU.owner_pw_ok(current_password,CFG.get("BB_PASSWORD","")): return RedirectResponse("/change-password?m=bad",303)
     if new_password!=confirm_password or len(new_password)<8: return RedirectResponse("/change-password?m=mm",303)
+    AU.set_owner_pw(new_password)  # persistent (DB -> KV backup); env file below kept for box tooling
     CFG["BB_PASSWORD"]=new_password
     _tmp=ENVF+".tmp"; _fd=os.open(_tmp,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
     with os.fdopen(_fd,"w") as _f: _f.write("".join(f"{k}={v}\n" for k,v in CFG.items())); _f.flush(); os.fsync(_f.fileno())
@@ -376,7 +378,21 @@ async def _pe(request,exc): return JSONResponse({"error":"login required"},401)
 async def _ao(request,exc): return JSONResponse({"error":"owner only"},403)
 # --- API ---
 @app.get("/bb/health")
-def health(): return {"ok":True,"node":os.environ.get("BB_NODE","box")}
+def health():
+    out={"ok":True,"node":os.environ.get("BB_NODE","box")}
+    try:
+        c=sqlite3.connect(DB,timeout=3)
+        try: c.execute("select count(*) from users").fetchone(); out["db"]="ok"
+        finally: c.close()
+    except Exception as e: out["db"]="error:"+type(e).__name__
+    try: st=json.load(open(BASE+"/.persist_state.json"))
+    except Exception: st={}
+    iso=lambda t: time.strftime("%Y-%m-%dT%H:%M:%S+06:00",time.gmtime(t+6*3600)) if t else None
+    out["backup"]={"last_push":iso(st.get("last_push")),"last_check":iso(st.get("last_check")),
+        "restored":iso(st.get("restored")),"daily_last":st.get("daily_last"),"daily_kept":st.get("daily_count"),
+        "size_warn":bool(st.get("size_warn")),
+        "refused":({"at":iso(st.get("last_refused"))} if (st.get("last_refused") or 0)>(st.get("last_push") or 0) else None)}
+    return out
 @app.get("/bb/api/models")
 def models(request:Request):
     u=need(request); return [{"id":"auto","name":"Auto (best + backup)"}]+[{"id":k,"name":v[0]} for k,v in MODELS.items()]+MD.byok_chat_list(u)

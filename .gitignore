@@ -28,3 +28,4 @@ media_store/
 .emb_cache/
 backups/
 logs/
+.persist_state.json*

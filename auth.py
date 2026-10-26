@@ -16,7 +16,8 @@ CFG=env(S+'/bangla_bhai.env'); GMAIL=env(S+'/agent_gmail.env')
 # optional Resend
 RESEND=env(S+'/resend.env') if os.path.exists(S+'/resend.env') else {}
 
-def audit(**k): open(AUDIT,'a').write(json.dumps({"t":time.time(),**k},ensure_ascii=False)+"\n")
+def audit(**k):
+    import auditdb; auditdb.write(**k)
 def db():
     c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; return c
 
@@ -27,6 +28,28 @@ create table if not exists otps(email text, code_hash text, expires real, tries 
 create index if not exists otps_email on otps(email);
 """)
 
+# ---- owner password: a salted PBKDF2 hash in data.db (owner_auth) wins over the env value,
+# so a password changed in the app survives Render redeploys (DB is restored from the KV backup).
+# Recovery: set BB_PASSWORD_FORCE_ENV=1 in the env to ignore the stored hash.
+def _pw_tbl(c): c.execute("create table if not exists owner_auth(k text primary key, v text, t real)")
+def _pw_hash(pw, salt=None, it=310000):
+    salt=salt or secrets.token_hex(16)
+    return f"pbkdf2_sha256${it}${salt}$"+hashlib.pbkdf2_hmac("sha256",pw.encode(),bytes.fromhex(salt),it).hex()
+def owner_pw_stored():
+    if CFG.get("BB_PASSWORD_FORCE_ENV")=="1": return None
+    try:
+        with db() as c: _pw_tbl(c); r=c.execute("select v from owner_auth where k='pw'").fetchone()
+        return r["v"] if r else None
+    except Exception: return None
+def owner_pw_ok(pw, env_pw):
+    h=owner_pw_stored()
+    if h:
+        try:
+            _,it,salt,_d=h.split("$"); return hmac.compare_digest(h,_pw_hash(pw or "",salt,int(it)))
+        except Exception: return False
+    return bool(env_pw) and hmac.compare_digest((pw or "").encode(),env_pw.encode())
+def set_owner_pw(pw):
+    with db() as c: _pw_tbl(c); c.execute("insert or replace into owner_auth values('pw',?,?)",(_pw_hash(pw),time.time()))
 def owner_user(): return CFG.get("BB_USER","abba")
 def is_owner(uid): return uid==owner_user()
 
