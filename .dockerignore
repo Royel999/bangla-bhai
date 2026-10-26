@@ -9,3 +9,4 @@ windows
 archive
 static/shots
 .persist_state.json*
+.standby_sync.json*

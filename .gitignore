@@ -29,3 +29,5 @@ media_store/
 backups/
 logs/
 .persist_state.json*
+.standby_sync.json*
+data.db.*

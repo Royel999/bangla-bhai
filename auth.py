@@ -74,6 +74,20 @@ def create_otp(email):
         c.execute("insert into otps values(?,?,?,?,?)",(email,hash_code(email,code),time.time()+600,0,time.time()))
     return code
 
+def _signup_ok(email):
+    """New accounts allowed? Owner email and invited team members always pass."""
+    import flags as FL
+    if FL.on("signups_open"): return True
+    if email==os.environ.get("BB_OWNER_EMAIL","skbadol3210@gmail.com").strip().lower(): return True
+    try:
+        with db() as c: return bool(c.execute("select 1 from team_members where email=?",(email,)).fetchone())
+    except Exception: return False
+def may_login(email):
+    """Existing account (or allowed new signup) for this email."""
+    email=normalize_email(email); uid="u_"+hashlib.sha256(email.encode()).hexdigest()[:16]
+    with db() as c:
+        if c.execute("select 1 from users where id=? or email=?",(uid,email)).fetchone(): return True
+    return _signup_ok(email)
 def verify_otp(email, code):
     email=normalize_email(email); code=(code or "").strip()
     with db() as c:
@@ -86,6 +100,7 @@ def verify_otp(email, code):
         c.execute("delete from otps where email=?",(email,))
         uid="u_"+hashlib.sha256(email.encode()).hexdigest()[:16]
         if not c.execute("select 1 from users where id=?",(uid,)).fetchone():
+            if not _signup_ok(email): return False,"নতুন সাইনআপ এখন বন্ধ — পরে চেষ্টা করুন। / New signups are closed right now."
             c.execute("insert into users values(?,?,?,?,?,?)",(uid,email,email.split("@")[0],"user",time.time(),time.time()))
         else:
             c.execute("update users set last_login=?, email=? where id=?",(time.time(),email,uid))

@@ -101,6 +101,8 @@ async def _sec(request,call_next):
     if _e and request.url.path!="/bb/health" and (request.headers.get("x-forwarded-for") or request.headers.get("x-forwarded-host") or request.headers.get("ngrok-skip-browser-warning")) \
        and not hmac.compare_digest(request.headers.get("x-bb-edge",""),_e):
         return Response("Please use https://banglabhai.dpdns.org",403,media_type="text/plain")
+    if request.url.path=="/bb/static/install.js" and not FL.on("feat_pwa_install"):
+        return Response("/* install disabled by admin */if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(function(){});document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('[data-install-btn],#installBtn').forEach(function(b){b.style.display='none'})});",media_type="application/javascript",headers={"Cache-Control":"no-cache"})
     r=await call_next(request)
     _p=request.url.path
     if not (_p.startswith("/webui") or _p.startswith(WEBUI_PREFIXES)) or _p.startswith("/admin/panel"):
@@ -117,6 +119,7 @@ async def _sec(request,call_next):
     r.headers.setdefault("Content-Security-Policy","frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'")
     return r
 import auth as AU
+import flags as FL
 def user(r):
     u=r.session.get("u")
     if not u: return None
@@ -236,6 +239,8 @@ async def otp_req(request:Request, email:str=Form(""), src:str=Form("")):
     LP="/admin" if src=="admin" else "/login"
     if not (rate_ok("otp:"+cip(request),5,900) and rate_ok("otpm:"+email,6,900)):
         return RedirectResponse(LP+"?e=send&m="+quote("Too many requests, try later"),303)
+    if not FL.on("signups_open") and not AU.may_login(email):
+        return RedirectResponse(LP+"?e=send&m="+quote(FL.OFF_MSG["signups_open"]),303)
     try:
         code=AU.create_otp(email)
         ok,via,detail=AU.send_otp_email(email, code)
@@ -597,7 +602,7 @@ async def stream(request:Request,cid:str):
     extra=[_spec(sel)] if sel!="auto" and _spec(sel) and sel not in RT.CHAIN else []
     rchain=[sel]+[m for m in RT.DEFAULT if m!=sel] if sel in RT.CHAIN else RT.DEFAULT
     chain=[sel] if extra else rchain
-    council=b.get("council") or (sel=="auto" and HARD.search(q) and len(q)>60)
+    council=(b.get("council") or (sel=="auto" and HARD.search(q) and len(q)>60)) and FL.on("feat_council")
     async def gen():
         advisors=[]; msgs2=msgs
         if sched_reply:
@@ -647,7 +652,7 @@ async def chat(request:Request):
         import ground as GR; gctx=await GR.context(hist[-1]["content"] if hist and isinstance(hist[-1].get("content"),str) else "")
     except Exception: gctx=""
     msgs=[{"role":"system","content":persona(st,uid=u)+("\n\n"+gctx if gctx else "")}]+hist; advisors=[]
-    if b.get("council"):
+    if b.get("council") and FL.on("feat_council"):
         notes=[r for r in await asyncio.gather(*[call(a,msgs) for a in ADVISORS]) if r]; advisors=[n for n,_ in notes]
         if notes: msgs+= [{"role":"system","content":"কাউন্সিলের মতামত:\n"+"\n---\n".join(t[:2500] for _,t in notes)}]
     try:
@@ -671,6 +676,7 @@ async def intent(request:Request):
 @app.post("/bb/api/agent")
 async def ag_start(request:Request):
     u=need_admin(request); b=await request.json(); st=get_settings(u)
+    if not FL.on("feat_agent"): return JSONResponse({"error":FL.OFF_MSG["feat_agent"]},403)
     sysx=lang_rule(st)+" "+addr_rule(u)+" Write the JSON 'thought' and 'final' fields in that language."
     return {"id":AG.start_task(b.get("goal",""),sysx,user=u)}
 @app.get("/bb/api/agent/{tid}")
@@ -696,6 +702,7 @@ async def dv_act(request:Request,did:str,act:str):
 def rv(request:Request): need_admin(request); AG.revoke_all(); return {"ok":True}
 @app.post("/bb/link/pair")
 async def lk_pair(request:Request):
+    if not FL.on("feat_devices"): return JSONResponse({"error":FL.OFF_MSG["feat_devices"]},403)
     if not rate_ok("pair:"+cip(request),5,3600): return JSONResponse({"error":"rate limited"},429)
     b=await request.json(); info=b.get("info",{}) if isinstance(b.get("info"),dict) else {}
     if len(json.dumps(info))>4000: info={}
@@ -836,6 +843,9 @@ try:
     BRG.setup(app,dict(db=db,audit=audit,is_admin=is_admin,rate_ok=rate_ok,notify=SJ.notify,owner=CFG["BB_USER"]))
 except Exception as _e: print("bridge setup failed",_e)
 BZ.setup(app,dict(need=need,is_admin=is_admin,FT=FT,db=db,cip=cip,RT=RT,AdminOnly=AdminOnly,user=user,rate_ok=rate_ok,audit=audit,notify=SJ.notify,owner=CFG["BB_USER"]))
+import admin_dash as ADM
+ADM.setup(app,dict(db=db,is_admin=is_admin,AdminOnly=AdminOnly,audit=audit,RT=RT,owner=CFG["BB_USER"],secret=CFG.get("BB_SESSION_SECRET",""),health=health,
+    advisors=ADVISORS,caps=AG.CAPS,revoke_all=AG.revoke_all,cip=cip,notify=SJ.notify,redact=AG.redact_secrets))
 # ---- Open WebUI proxy ----
 UP="http://127.0.0.1:8080"; WEBUI_PREFIXES=("/_app","/api/","/ws","/ollama","/openai","/manifest.json","/favicon","/auth","/c/","/workspace","/admin","/oauth","/assets","/static/","/notes","/channels","/playground","/home","/s/")
 client=httpx.AsyncClient(base_url=UP,timeout=120)

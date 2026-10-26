@@ -130,6 +130,7 @@ async def _browser():
         pw=await async_playwright().start(); _PW=await pw.chromium.launch(headless=True)
     return _PW
 async def run_tool(name,a):
+    import flags as FL; FL.need("feat_agent")
     if name=="mcp_call":
         import connections as CN
         return await CN.mcp_call((TASKS.get(t_id_ctx.get()) or {}).get("user"),a)
@@ -140,6 +141,7 @@ async def run_tool(name,a):
         if not r: raise RuntimeError("কোনো ফলাফল পাওয়া যায়নি")
         return r
     if name=="browse":
+        FL.need("feat_browse")
         if not _url_ok(a.get("url","")): raise RuntimeError("এই URL ব্লক করা (লোকাল/প্রাইভেট/file নিষিদ্ধ)")
         b=await _browser(); pg=await b.new_page(viewport={"width":1200,"height":800})
         async def _guard(route):
@@ -153,10 +155,12 @@ async def run_tool(name,a):
             t=await pg.inner_text("body"); return {"text":f"শিরোনাম: {await pg.title()}\n{t[:3500]}","image":"/bb/static/"+fn}
         finally: await pg.close()
     dev=a.get("device","box")
+    if name=="shell": FL.need("feat_shell")
     if dev=="box":
         if name=="shell": return await _shell_box(a.get("cmd") or a.get("command") or "echo ok")
         raise RuntimeError("বক্সে ক্যামেরা/মাইক/স্ক্রিন নেই — একটা যুক্ত ডিভাইস বেছে নাও")
     # phone/laptop shell etc → device_call below
+    FL.need("feat_devices")
     d=[x for x in devices() if x["id"]==dev]
     if not d or d[0]["status"]!="approved": raise RuntimeError(f"ডিভাইস '{dev}' যুক্ত/অনুমোদিত নয়")
     if not d[0]["online"]: raise RuntimeError(f"ডিভাইস '{d[0]['name']}' অফলাইন")

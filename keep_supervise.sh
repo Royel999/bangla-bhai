@@ -11,6 +11,8 @@ while true; do
     echo "$(date -Is) restarting supervise" >> "$LOG"
     nohup setsid "$BB/supervise.sh" >/dev/null 2>&1 &
   }
+ # standby auto-sync: refresh data.db from KV backup (read-only GET, integrity-checked, keeps .bak)
+  pgrep -f 'bangla_bhai/standby_sync.py' >/dev/null || nohup setsid "$BB/venv/bin/python" "$BB/standby_sync.py" loop >>/tmp/bb_standby_sync.log 2>&1 &
   bash "$HOME/box_ai_watchdog.sh" >/dev/null 2>&1 || true
   [ $(( $(date +%-M) % 5 )) -eq 0 ] && curl -s -m60 -o /dev/null https://bangla-bhai-q0x5.onrender.com/bb/health &
   # phone just registered → publish feed now

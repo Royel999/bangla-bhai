@@ -1,0 +1,183 @@
+<!doctype html><html lang=bn><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>রয়েল ড্যাশবোর্ড · বাংলা ভাই</title><meta name=robots content=noindex><meta name=theme-color content="#07080f"><link rel=icon href=/bb/static/icon-192.png>
+<style>
+:root{--bk:#07080f;--p1:#0f1222;--p2:#151a31;--bd:#252c4d;--tx:#eef1fb;--mu:#8f98b8;--bl:#2347d6;--bl2:#4a73ff;--rd:#b3133a;--rd2:#e23a5f;--gd:#d4af37;--ok:#2fbf71;--wa:#e8a33d}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bk);color:var(--tx);font:15px/1.45 'Hind Siliguri','Noto Sans Bengali',system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
+body{padding-bottom:calc(74px + env(safe-area-inset-bottom))}a{color:var(--bl2)}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:12px 14px;background:linear-gradient(120deg,#0b1240 0%,#07080f 55%,#2a0712 100%);border-bottom:1px solid var(--bd)}
+header .cr{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,var(--bl),var(--rd));box-shadow:0 0 0 1px #d4af3755,0 4px 14px #2347d655;font-size:18px}
+header h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.2px}header .sub{font-size:11.5px;color:var(--mu)}
+header .sp{flex:1}.dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:var(--mu);margin-right:5px;vertical-align:middle}.dot.g{background:var(--ok);box-shadow:0 0 8px var(--ok)}.dot.r{background:var(--rd2);box-shadow:0 0 8px var(--rd2)}.dot.y{background:var(--wa)}
+.ib{border:1px solid var(--bd);background:var(--p1);color:var(--tx);border-radius:10px;padding:7px 10px;font:inherit;cursor:pointer}
+main{max-width:980px;margin:0 auto;padding:12px}
+.card{background:linear-gradient(180deg,var(--p2),var(--p1));border:1px solid var(--bd);border-radius:16px;padding:14px;margin:0 0 12px;box-shadow:0 6px 22px #0006}
+.card h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px;font-weight:650}.card h2 .r{margin-left:auto;font-size:12px;color:var(--mu);font-weight:400}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.g4{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:720px){.g4{grid-template-columns:repeat(4,1fr)}.g2w{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--p1);border:1px solid var(--bd);border-radius:14px;padding:12px;position:relative;overflow:hidden}
+.kpi b{display:block;font-size:24px;line-height:1.1;font-weight:700}.kpi span{font-size:12px;color:var(--mu)}
+.kpi::after{content:"";position:absolute;right:-18px;top:-18px;width:60px;height:60px;border-radius:50%;background:radial-gradient(var(--c,#2347d6),transparent 70%);opacity:.35}
+.st{display:flex;align-items:center;gap:10px;background:var(--p1);border:1px solid var(--bd);border-radius:14px;padding:10px 12px}
+.st .i{font-size:20px}.st b{display:block;font-size:13.5px}.st small{color:var(--mu);font-size:11.5px}
+.mu{color:var(--mu)}.sm{font-size:12.5px}.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;word-break:break-all}
+.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11.5px;background:#2347d633;color:#b9c8ff;border:1px solid #2347d655;white-space:nowrap}
+.tag.ok{background:#2fbf7122;color:#8ff0b8;border-color:#2fbf7155}.tag.bad{background:#b3133a33;color:#ff9fb4;border-color:#e23a5f66}.tag.wa{background:#e8a33d22;color:#ffd08a;border-color:#e8a33d55}.tag.gd{background:#d4af3722;color:#f3dc8a;border-color:#d4af3766}
+.row{display:flex;gap:8px;align-items:center}.row.w{flex-wrap:wrap}.grow{flex:1;min-width:0}
+input,select,textarea{width:100%;background:var(--bk);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:10px;font:inherit;font-size:15px}
+textarea{min-height:90px;resize:vertical}input:focus,select:focus,textarea:focus{outline:2px solid var(--bl);border-color:var(--bl)}
+.btn{border:0;border-radius:11px;padding:10px 14px;font:inherit;font-weight:650;cursor:pointer;color:#fff;background:linear-gradient(135deg,var(--bl),#1a33a3);box-shadow:0 3px 12px #2347d644}
+.btn.red{background:linear-gradient(135deg,var(--rd2),var(--rd));box-shadow:0 3px 12px #b3133a55}.btn.gh{background:var(--p1);border:1px solid var(--bd);box-shadow:none;color:var(--tx)}
+.btn:disabled{opacity:.45}
+.seg{display:flex;background:var(--p1);border:1px solid var(--bd);border-radius:12px;padding:3px;gap:3px;margin-bottom:10px;overflow-x:auto}
+.seg button{flex:1;border:0;background:none;color:var(--mu);padding:8px 10px;border-radius:9px;font:inherit;font-size:13.5px;white-space:nowrap;cursor:pointer}.seg button.on{background:var(--bl);color:#fff}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px}.chip{border:1px solid var(--bd);background:var(--p1);color:var(--mu);border-radius:99px;padding:5px 11px;font:inherit;font-size:12.5px;white-space:nowrap;cursor:pointer}.chip.on{border-color:var(--gd);color:var(--gd)}
+.list>div{padding:10px 0;border-top:1px solid #ffffff10}.list>div:first-child{border-top:0}
+.uc{display:flex;gap:11px;align-items:center;padding:11px;background:var(--p1);border:1px solid var(--bd);border-radius:14px;margin-bottom:8px;cursor:pointer;text-decoration:none;color:inherit}
+.av{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-weight:700;flex:none;background:linear-gradient(135deg,var(--bl),#0b1240);border:1px solid #4a73ff55}
+.av.own{background:linear-gradient(135deg,var(--gd),var(--rd))}
+.mini{display:flex;gap:10px;font-size:11.5px;color:var(--mu);flex-wrap:wrap}
+.tl{position:relative;padding-left:22px}.tl::before{content:"";position:absolute;left:8px;top:4px;bottom:4px;width:2px;background:linear-gradient(var(--bl),var(--rd))}
+.ti{position:relative;margin-bottom:10px;background:var(--p1);border:1px solid var(--bd);border-radius:12px;padding:8px 10px}
+.ti::before{content:attr(data-i);position:absolute;left:-24px;top:7px;width:22px;height:22px;border-radius:50%;background:var(--bk);border:1px solid var(--bd);display:grid;place-items:center;font-size:11px}
+.sw{position:relative;width:52px;height:30px;flex:none}.sw input{opacity:0;width:0;height:0}.sw span{position:absolute;inset:0;border-radius:99px;background:#2a2f4a;border:1px solid var(--bd);transition:.2s;cursor:pointer}
+.sw span::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#cfd6ee;transition:.2s}
+.sw input:checked+span{background:linear-gradient(135deg,var(--bl),var(--bl2))}.sw input:checked+span::after{transform:translateX(22px);background:#fff}
+.fl{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid #ffffff10}.fl:first-child{border-top:0}
+.bar{height:8px;border-radius:9px;background:#ffffff12;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--bl),var(--gd))}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:#07080fee;backdrop-filter:blur(10px);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom)}
+nav a{flex:1;text-align:center;padding:8px 2px 7px;color:var(--mu);text-decoration:none;font-size:11px;line-height:1.2}nav a i{display:block;font-style:normal;font-size:19px;margin-bottom:1px}
+nav a.on{color:#fff}nav a.on i{filter:drop-shadow(0 0 6px var(--bl2))}nav a.on::after{content:"";display:block;width:22px;height:3px;border-radius:3px;margin:3px auto 0;background:linear-gradient(90deg,var(--bl2),var(--rd2))}
+.sk{height:90px;border-radius:16px;background:linear-gradient(90deg,var(--p1),var(--p2),var(--p1));background-size:200% 100%;animation:sk 1.2s infinite;margin-bottom:12px}@keyframes sk{to{background-position:-200% 0}}
+.err{color:#ff9fb4}.empty{text-align:center;color:var(--mu);padding:24px 0}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--p2);border:1px solid var(--gd);padding:9px 14px;border-radius:12px;z-index:9;font-size:13.5px;box-shadow:0 8px 30px #000a}
+.cb{width:20px;height:20px;accent-color:var(--bl)}
+</style></head><body>
+<header><div class=cr>👑</div><div><h1>রয়েল ড্যাশবোর্ড</h1><div class=sub id=hs><span class=dot></span>লোড হচ্ছে…</div></div><div class=sp></div><button class=ib onclick=go(true) aria-label="রিফ্রেশ">⟳</button><a class=ib href=/admin/panel style="text-decoration:none">পুরনো প্যানেল</a></header>
+<main id=m><div class=sk></div><div class=sk></div></main>
+<nav id=nv>
+<a href=#o data-t=o><i>🏠</i>ওভারভিউ</a><a href=#u data-t=u><i>👥</i>ইউজার</a><a href=#p data-t=p><i>🛡️</i>অনুমতি</a><a href=#f data-t=f><i>🎚️</i>ফিচার</a><a href=#n data-t=n><i>📣</i>মনে করানো</a><a href=#a data-t=a><i>📜</i>অডিট</a>
+</nav>
+<script>
+const CSRF=__CSRF__;const m=document.getElementById('m');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const bn=n=>Number(n||0).toLocaleString('bn-BD');
+const dt=t=>t?new Date(t*1000).toLocaleString('bn-BD',{timeZone:'Asia/Dhaka',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}):'—';
+function ago(t){if(!t)return 'কখনো না';const s=Date.now()/1000-t;if(s<60)return 'এইমাত্র';if(s<3600)return bn(Math.floor(s/60))+' মিনিট আগে';if(s<86400)return bn(Math.floor(s/3600))+' ঘণ্টা আগে';return bn(Math.floor(s/86400))+' দিন আগে'}
+async function api(u,o){const r=await fetch(u,Object.assign({credentials:'same-origin'},o||{}));if(r.status==401||r.status==403){location.href='/admin';throw new Error('owner only')}
+ const ct=r.headers.get('content-type')||'';const j=ct.includes('json')?await r.json():{};if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j}
+const post=(u,b)=>api(u,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify(b||{})});
+function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
+function bars(vals,labels,c1,c2){const mx=Math.max(1,...vals),w=100/vals.length;return `<svg viewBox="0 0 100 44" preserveAspectRatio=none style="width:100%;height:110px;display:block"><defs><linearGradient id=g${c1.slice(1)} x1=0 y1=0 x2=0 y2=1><stop offset=0 stop-color="${c1}"/><stop offset=1 stop-color="${c2}"/></linearGradient></defs>${vals.map((v,i)=>`<rect x="${i*w+w*.18}" y="${42-40*v/mx}" width="${w*.64}" height="${Math.max(.4,40*v/mx)}" rx=.9 fill="url(#g${c1.slice(1)})"><title>${esc(labels[i])}: ${v}</title></rect>`).join('')}<line x1=0 y1=42.2 x2=100 y2=42.2 stroke="#252c4d" stroke-width=.4 /></svg><div class="row mu sm"><span class=grow>${esc((labels[0]||'').slice(5))}</span><span>সর্বোচ্চ ${bn(mx)} · ${esc((labels[labels.length-1]||'').slice(5))}</span></div>`}
+const kpi=(n,l,c)=>`<div class=kpi style="--c:${c||'#2347d6'}"><b>${n}</b><span>${l}</span></div>`;
+const stile=(ok,icon,t,s)=>`<div class=st><span class=i>${icon}</span><div class=grow><b><span class="dot ${ok===true?'g':ok===false?'r':'y'}"></span>${t}</b><small>${s}</small></div></div>`;
+let TAB='o',ARG='';
+function go(force){const h=(location.hash||'#o').slice(1).split('/');TAB=h[0]||'o';ARG=decodeURIComponent(h.slice(1).join('/'));
+ document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.t==TAB));
+ ({o:ov,u:()=>ARG?ud(ARG):ul(),p:pv,f:fv,n:nv,a:av}[TAB]||ov)();if(force)toast('রিফ্রেশ হয়েছে')}
+window.addEventListener('hashchange',()=>{go();scrollTo(0,0)});
+function fail(e){m.innerHTML=`<div class="card err">⚠️ ${esc(e.message)}</div>`}
+const sk=()=>m.innerHTML='<div class=sk></div><div class=sk></div><div class=sk></div>';
+/* ---------- overview ---------- */
+async function ov(){sk();let D;try{D=await api('/bb/admin/api/dash/overview')}catch(e){return fail(e)}
+ const h=D.health,b=D.backup,k=D.kpi,now=D.now;const bAge=b.last_check?now-b.last_check:1e9;
+ const bOk=b.refused_at&&b.refused_at>(b.last_push||0)?false:(bAge<900?true:null);
+ document.getElementById('hs').innerHTML=`<span class="dot ${h.ok&&h.db=='ok'?'g':'r'}"></span>${esc(D.node)} · ${h.ok&&h.db=='ok'?'সব ঠিক আছে':'সমস্যা'}`;
+ const sb=D.standby;const days=Object.keys(D.usage);const lab=days;
+ const chat=days.map(d=>D.usage[d].chat),media=days.map(d=>D.usage[d].images+D.usage[d].voice+D.usage[d].videos),msg=days.map(d=>D.messages[d]||0),sg=days.map(d=>D.signups[d]||0);
+ const gz=b.size_gz||0,pct=Math.min(100,gz/(25*1048576)*100);
+ m.innerHTML=`<div class=g2 style="margin-bottom:12px">
+ ${stile(!!h.ok,'🌐','সাইট',esc(D.node)+' সার্ভ করছে')}
+ ${stile(h.db=='ok','🗄️','ডাটাবেস',h.db=='ok'?'পড়া/লেখা ঠিক':esc(h.db))}
+ ${stile(bOk,'💾','ব্যাকআপ',b.last_push?'শেষ আপলোড '+ago(b.last_push):(b.last_check?'চেক '+ago(b.last_check):'তথ্য নেই'))}
+ ${stile(sb?(sb.ok!==false):null,'🛟','স্ট্যান্ডবাই',sb?('সিঙ্ক '+ago(sb.last_sync||sb.last_try)):'এই নোডে প্রযোজ্য নয়')}</div>
+ <div class=g4 style="margin-bottom:12px">${kpi(bn(k.users),'মোট ইউজার')}${kpi(bn(k.active_24h),'২৪ ঘণ্টায় সক্রিয়','#2fbf71')}${kpi(bn(k.active_7d),'৭ দিনে সক্রিয়','#4a73ff')}${kpi(bn(k.messages_24h),'আজ মেসেজ','#d4af37')}
+ ${kpi(bn(k.approvals_pending),'পেন্ডিং অনুমোদন',k.approvals_pending?'#e23a5f':'#2347d6')}${kpi(bn(k.devices_online)+'/'+bn(k.devices),'ডিভাইস অনলাইন','#2fbf71')}${kpi(bn(k.login_fail_24h),'ব্যর্থ লগইন (২৪ঘ)',k.login_fail_24h?'#e23a5f':'#2347d6')}${kpi(bn(k.nudge_pending+k.payments_pending),'অপেক্ষায় (নাজ+পেমেন্ট)','#d4af37')}</div>
+ <div class="g2 g2w" style="display:grid;gap:12px;grid-template-columns:1fr">
+ <div class=card><h2>💬 মেসেজ / দিন <span class=r>১৪ দিন</span></h2>${bars(msg,lab,'#4a73ff','#2347d6')}</div>
+ <div class=card><h2>🖼️ ছবি + ভয়েস / দিন <span class=r>১৪ দিন</span></h2>${bars(media,lab,'#e23a5f','#b3133a')}</div>
+ <div class=card><h2>🆕 নতুন সাইনআপ <span class=r>১৪ দিন</span></h2>${bars(sg,lab,'#d4af37','#8a6d12')}</div>
+ <div class=card><h2>💾 ব্যাকআপ (KV)</h2><div class=list>
+  <div class=row><span class=grow>শেষ আপলোড</span><b>${b.last_push?dt(b.last_push):'—'}</b></div>
+  <div class=row><span class=grow>শেষ চেক</span><span>${ago(b.last_check)}</span></div>
+  <div class=row><span class=grow>দৈনিক কপি</span><span class="tag gd">${esc(b.daily_last||'—')}</span><span class=mu>${bn(b.daily_kept||0)}/১৪</span></div>
+  <div><div class="row sm"><span class=grow>আকার (২৫MB সীমা)</span><span>${gz?bn((gz/1024).toFixed(0))+' KB':'—'}</span></div><div class=bar style="margin-top:5px"><i style="width:${Math.max(1,pct)}%"></i></div></div>
+  ${b.refused_at&&b.refused_at>(b.last_push||0)?`<div class=err>⛔ আপলোড আটকানো হয়েছে ${dt(b.refused_at)}: ${esc(b.refused_reason)}</div>`:''}${b.size_warn?'<div class=err>⚠️ আকার ২৫MB সীমার কাছে</div>':''}
+  ${sb?`<div class=row><span class=grow>স্ট্যান্ডবাই সিঙ্ক</span><span>${ago(sb.last_sync)}</span>${sb.note?`<span class="tag wa">${esc(sb.note)}</span>`:''}</div>`:''}</div></div></div>
+ <div class=card><h2>🤖 মডেল চেইন <span class=r>কল ${bn(D.stats.calls)} · বদল ${bn(D.stats.failovers)}</span></h2><div class=list>${D.models.map((x,i)=>`<div class=row><span class=mu style="width:18px">${bn(i+1)}</span><span class=grow>${esc(x.label)}</span><span class="tag ${!x.configured?'bad':x.cooldown?'wa':'ok'}">${!x.configured?'কী নেই':x.cooldown?'বিরতি '+bn(x.cooldown)+'s':'চালু'}</span></div>`).join('')}</div>
+ <div style="margin-top:10px" class="row w"><span class=mu>কাউন্সিল:</span><span class="tag ${D.council_on?'ok':'bad'}">${D.council_on?'চালু':'বন্ধ'}</span>${D.advisors.map(a=>`<span class=tag>${esc(a.split(':').slice(-1)[0])}</span>`).join('')}</div></div>
+ <div class=card><h2>🎚️ ফিচার সংক্ষেপ <a class=r href=#f>বদলান →</a></h2><div class="row w">${D.flags.map(f=>`<span class="tag ${f.on?'ok':'bad'}">${f.on?'●':'○'} ${esc(f.bn)}</span>`).join('')}</div></div>
+ <div class="row w mu sm" style="justify-content:center;gap:14px;padding:6px 0 16px"><a href=/admin/login-requests>লগইন অনুরোধ</a><a href=/admin/dev>ডেভ এজেন্ট</a><a href=/change-password>পাসওয়ার্ড</a><a href=/bb/health target=_blank>health</a></div>`}
+/* ---------- users ---------- */
+let UQ='',UI=0;
+async function ul(){sk();let D;try{D=await api('/bb/admin/api/dash/users?q='+encodeURIComponent(UQ)+'&inactive='+UI)}catch(e){return fail(e)}
+ m.innerHTML=`<div class=card><input id=uq placeholder="🔍 ইমেইল বা নাম দিয়ে খুঁজুন" value="${esc(UQ)}"><div class=chips style="margin-top:8px">${[[0,'সবাই'],[3,'৩+ দিন নিষ্ক্রিয়'],[7,'৭+ দিন'],[30,'৩০+ দিন']].map(([d,l])=>`<button class="chip ${UI==d?'on':''}" onclick="UI=${d};ul()">${l}</button>`).join('')}</div><div class="mu sm">${bn(D.users.length)} জন</div></div>
+ ${D.users.map(u=>`<a class=uc href="#u/${encodeURIComponent(u.id)}"><div class="av ${u.owner?'own':''}">${esc(((u.email||u.name||u.id)[0]||'?').toUpperCase())}</div><div class=grow><div class=row><b class=grow style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(u.email||u.name||u.id)}</b>${u.owner?'<span class="tag gd">মালিক</span>':`<span class=tag>${esc(u.plan)}</span>`}</div>
+ <div class=mini><span>🕒 ${ago(u.last_active)}</span><span>💬 ${bn(u.messages)}</span><span>⚙️ ${bn(u.actions)}</span><span>🧭 ${bn(u.tasks)}</span>${u.pending?`<span style="color:var(--rd2)">⏳ ${bn(u.pending)}</span>`:''}<span>৭দিন ${bn(u.week)}</span></div></div></a>`).join('')||'<div class=empty>কেউ নেই</div>'}`;
+ const q=document.getElementById('uq');let t;q.oninput=()=>{clearTimeout(t);t=setTimeout(()=>{UQ=q.value;ul().then(()=>{const x=document.getElementById('uq');x.focus();x.setSelectionRange(x.value.length,x.value.length)})},350)}}
+const TI={action:'⚙️',approval:'✋',task:'🧭',media:'🖼️',job:'⏰',payment:'💳',audit:'📜',admin:'👑',nudge:'📣',chat:'💬',device:'📱'};
+const TN={action:'অ্যাকশন',approval:'অনুমোদন',task:'টাস্ক',media:'মিডিয়া',job:'শিডিউল',payment:'পেমেন্ট',audit:'অডিট',admin:'অ্যাডমিন',nudge:'নাজ',chat:'চ্যাট',device:'ডিভাইস'};
+let TF='';
+function stTag(s){if(s==null||s==='')return '';const v=String(s);const c=/ok|approved|done|sent|yes|on|allow|success/.test(v)?'ok':/pend|wait|run/.test(v)?'wa':/fail|den|rej|no|off|err|cancel|revok/.test(v)?'bad':'';return `<span class="tag ${c}">${esc(v)}</span>`}
+async function ud(id){sk();let D;try{D=await api('/bb/admin/api/dash/users/'+encodeURIComponent(id))}catch(e){return fail(e)}
+ const u=D.user,c=D.counts,days=Object.keys(D.usage);const types=[...new Set(D.timeline.map(x=>x.type))];
+ const tl=D.timeline.filter(x=>!TF||x.type==TF);
+ m.innerHTML=`<a href=#u class=mu style="text-decoration:none">← সব ইউজার</a>
+ <div class=card style="margin-top:8px"><div class=row><div class="av ${u.owner?'own':''}" style="width:52px;height:52px;font-size:20px">${esc(((u.email||u.name||u.id)[0]||'?').toUpperCase())}</div><div class=grow><b style="font-size:16px;word-break:break-all">${esc(u.email||u.name||u.id)}</b><div class="row w" style="margin-top:4px">${u.owner?'<span class="tag gd">মালিক</span>':''}<span class=tag>${esc(u.plan)}</span>${u.optout?'<span class="tag bad">নাজ বন্ধ</span>':''}</div></div></div>
+ <div class="list sm" style="margin-top:10px"><div class=row><span class=grow class=mu>শেষ সক্রিয়</span><b>${ago(u.last_active)}</b></div><div class=row><span class=grow>যোগ দিয়েছেন</span><span>${dt(u.created)}</span></div><div class=row><span class=grow>শেষ লগইন</span><span>${dt(u.last_login)}</span></div><div class=row><span class=grow>আইডি</span><span class=mono>${esc(u.id)}</span></div></div></div>
+ <div class=g4 style="margin-bottom:12px">${kpi(bn(c.messages),'মেসেজ')}${kpi(bn(c.chats),'চ্যাট','#4a73ff')}${kpi(bn(c.actions),'অ্যাকশন','#d4af37')}${kpi(bn(c.tasks),'টাস্ক','#2fbf71')}${kpi(bn(c.approvals),'অনুমোদন','#e23a5f')}${kpi(bn(c.media),'মিডিয়া','#4a73ff')}${kpi(bn(c.memories),'স্মৃতি','#d4af37')}${kpi(bn(c.jobs)+' / '+bn(c.skills),'শিডিউল / স্কিল','#2fbf71')}</div>
+ <div class=card><h2>📈 ব্যবহার <span class=r>৩০ দিন</span></h2>${bars(days.map(d=>D.usage[d]),days,'#4a73ff','#b3133a')}<div class="mini" style="margin-top:6px"><span>🔔 পুশ ${bn(c.push)}</span><span>🔑 নিজস্ব কী ${bn(c.keys)}</span><span>🔗 কানেকশন ${bn(c.connections)}</span></div></div>
+ ${D.devices.length?`<div class=card><h2>📱 ডিভাইস ও অনুমতি</h2><div class=list>${D.devices.map(d=>`<div><div class=row><b class=grow>${esc(d.name)}</b>${stTag(d.status)}</div><div class="row w" style="margin-top:4px">${D.perms.filter(p=>p.device==d.id).map(p=>`<span class="tag ${p.mode=='off'?'bad':p.mode=='always'?'ok':'wa'}">${esc(p.cap)}: ${esc(p.mode)}</span>`).join('')||'<span class=mu>অনুমতি সেট নেই</span>'}</div></div>`).join('')}</div></div>`:''}
+ <div class=card><h2>🕰️ অ্যাক্টিভিটি টাইমলাইন <span class=r>${bn(tl.length)}</span></h2><div class=chips><button class="chip ${TF?'':'on'}" onclick="TF='';ud('${esc(id)}')">সব</button>${types.map(t=>`<button class="chip ${TF==t?'on':''}" onclick="TF='${t}';ud('${esc(id)}')">${TI[t]||''} ${TN[t]||t}</button>`).join('')}</div>
+ <div class=tl>${tl.slice(0,200).map(x=>`<div class=ti data-i="${TI[x.type]||'•'}"><div class=row><b class=grow style="font-size:13.5px">${esc(x.title||TN[x.type]||x.type)}</b>${stTag(x.status)}${x.risk?`<span class="tag ${x.risk=='high'?'bad':'wa'}">${esc(x.risk)}</span>`:''}</div>${x.detail?`<div class="mono mu" style="margin-top:3px">${esc(x.detail)}</div>`:''}<div class="mu sm" style="margin-top:3px">${TN[x.type]||x.type} · ${dt(x.t)}</div></div>`).join('')||'<div class=empty>কিছু নেই</div>'}</div>
+ <div class="mu sm">গোপনীয়তার জন্য চ্যাটের লেখা দেখানো হয় না — শুধু দিনের মেসেজ সংখ্যা।</div></div>`}
+/* ---------- permissions ---------- */
+let PK='approvals',PF={status:'',risk:'',user:'',q:'',days:0};
+async function pv(){sk();let D;const qs=new URLSearchParams({kind:PK,...PF});try{D=await api('/bb/admin/api/dash/perms?'+qs)}catch(e){return fail(e)}
+ const sel=(id,opts,v,lab)=>`<select id=${id} onchange="PF.${id}=this.value;pv()"><option value="">${lab}</option>${opts.map(o=>`<option value="${esc(o[0])}" ${String(v)==String(o[0])?'selected':''}>${esc(o[1])}</option>`).join('')}</select>`;
+ let body='';
+ if(PK=='devices'){body=D.rows.map(d=>`<div class=card><div class=row><span style="font-size:22px">${d.kind=='phone'?'📱':'💻'}</span><div class=grow><b>${esc(d.name)}</b><div class="mu sm">${d.online?'<span class="dot g"></span>অনলাইন':'অফলাইন'} · শেষ দেখা ${ago(d.last_seen)}</div></div>${stTag(d.status)}</div>
+  <div class="row w" style="margin-top:8px">${Object.keys(D.caps).map(cp=>{const md=d.perms[cp]||'ask';return `<span class="tag ${md=='off'?'bad':md=='always'?'ok':'wa'}">${esc(D.caps[cp])}: ${esc(md)}</span>`}).join('')}</div></div>`).join('')||'<div class=empty>কোনো ডিভাইস নেই</div>';
+  body+=`<div class=card><h2>🚨 জরুরি</h2><div class="mu sm">সব ডিভাইসের সব অনুমতি বন্ধ করে দেবে।</div><button class="btn red" style="margin-top:8px;width:100%" onclick=revokeAll()>সব অনুমতি বাতিল করুন</button></div>`}
+ else body=`<div class=card><div class=list>${D.rows.map(r=>`<div><div class=row><b class=grow>${esc(r.tool||r.kind)}</b>${PK=='approvals'?stTag(r.status)+(r.risk?`<span class="tag ${r.risk=='high'?'bad':'wa'}">${esc(r.risk)}</span>`:''):stTag(r.ok?'ok':'fail')}</div>
+  <div class="mono mu" style="margin-top:3px">${esc(PK=='approvals'?(r.why||'')+' '+(r.args||''):r.input||'')}</div><div class="mu sm" style="margin-top:3px">👤 <a href="#u/${encodeURIComponent(r.user)}">${esc(r.who)}</a> · ${dt(r.created)}${r.decided?' → '+dt(r.decided):''}</div></div>`).join('')||'<div class=empty>কিছু পাওয়া যায়নি</div>'}</div></div>`;
+ m.innerHTML=`<div class=seg>${[['approvals','✋ অনুমোদন'],['actions','⚙️ অ্যাকশন'],['devices','📱 ডিভাইস অনুমতি']].map(([k,l])=>`<button class="${PK==k?'on':''}" onclick="PK='${k}';PF={status:'',risk:'',user:'',q:'',days:0};pv()">${l}</button>`).join('')}</div>
+ <div class=card><div class=g2>${sel('status',D.facets.status.map(s=>[s,s]),PF.status,'অবস্থা: সব')}${PK=='approvals'?sel('risk',D.facets.risk.map(s=>[s,s]),PF.risk,'ঝুঁকি: সব'):''}${PK!='devices'?sel('user',D.users.map(u=>[u.id,u.label]),PF.user,'ইউজার: সবাই')+sel('days',[[1,'২৪ ঘণ্টা'],[7,'৭ দিন'],[30,'৩০ দিন']],PF.days,'সময়: সব'):''}</div>
+ <input id=pq style="margin-top:8px" placeholder="🔍 টুল/কারণ খুঁজুন" value="${esc(PF.q)}" onchange="PF.q=this.value;pv()"><div class="mu sm" style="margin-top:6px">${bn(D.rows.length)} টি রেকর্ড</div></div>${body}`}
+async function revokeAll(){if(!confirm('সব ডিভাইসের সব অনুমতি বাতিল করবেন?'))return;try{await post('/bb/admin/api/dash/revoke-all');toast('সব অনুমতি বাতিল হয়েছে');pv()}catch(e){alert(e.message)}}
+/* ---------- flags ---------- */
+async function fv(){sk();let D;try{D=await api('/bb/admin/api/dash/flags')}catch(e){return fail(e)}
+ const ag=D.flags.find(f=>f.key=='feat_agent');
+ m.innerHTML=`<div class=card><h2>🎚️ ফিচার চালু/বন্ধ <span class=r>সঙ্গে সঙ্গে কার্যকর</span></h2>${D.flags.map(f=>`<div class=fl><div class=grow><b>${esc(f.bn)}</b> <span class="mu sm">${esc(f.en)}</span><div class="mu sm">${esc(f.desc)}</div>${f.raw_on&&!f.on?'<div class="sm" style="color:var(--wa)">এজেন্ট টুলস বন্ধ থাকায় এটিও বন্ধ</div>':''}</div>
+ <label class=sw><input type=checkbox ${f.raw_on?'checked':''} onchange="flip('${f.key}',this)"><span></span></label></div>`).join('')}</div>
+ <div class=card><h2>🧾 বদলের ইতিহাস</h2><div class="list sm">${D.history.map(h=>{let d={};try{d=JSON.parse(h.data)}catch(e){}return `<div class=row><span class=grow>${esc((D.flags.find(f=>f.key==d.key)||{}).bn||d.key)}</span>${stTag(d.to=='1'?'on':'off')}<span class=mu>${dt(h.t)}</span></div>`}).join('')||'<div class=empty>এখনো কোনো বদল নেই</div>'}</div></div>`}
+async function flip(k,el){const on=el.checked;if(!confirm((on?'চালু':'বন্ধ')+' করবেন?')){el.checked=!on;return}try{await post('/bb/admin/api/dash/flags',{key:k,on});toast(on?'চালু হয়েছে':'বন্ধ হয়েছে');fv()}catch(e){el.checked=!on;alert(e.message)}}
+/* ---------- nudge ---------- */
+let ND=14;const DEF_S='{name}, আপনাকে মিস করছি! 👋',DEF_B='আসসালামু আলাইকুম {name},\nঅনেকদিন বাংলা ভাইয়ের সাথে কথা হয়নি। নতুন কী আছে দেখে যান — প্রশ্ন করুন, ছবি বানান, কাজ সহজ করুন।\nhttps://banglabhai.dpdns.org/app\n\n— বাংলা ভাই';
+async function nv(){sk();let C,B;try{[C,B]=await Promise.all([api('/bb/admin/api/dash/nudge/candidates?days='+ND),api('/bb/admin/api/dash/nudge/batches')])}catch(e){return fail(e)}
+ const why={optout:'বন্ধ করেছেন',recent:'৩০ দিনে পাঠানো'};
+ m.innerHTML=`<div class=card style="border-color:#d4af3766"><div class=sm>🔒 এখানে কিছু লিখলে <b>কিছুই পাঠানো হয় না</b>। ব্যাচ সারিতে থাকে, আপনি <b>“অনুমোদন ও পাঠান”</b> চাপলেই কেবল যায়।${B.dry_run?' <span class="tag wa">ড্রাই-রান মোড</span>':''}</div></div>
+ <div class=card><h2>😴 নিষ্ক্রিয় ইউজার</h2><div class=row><span class=mu>কত দিন ধরে নিষ্ক্রিয়:</span><input type=number min=1 max=365 value=${ND} style="width:90px" onchange="ND=+this.value||14;nv()"></div>
+ <div class=list style="margin-top:8px">${C.users.map(u=>`<div class=row><input class=cb type=checkbox name=nu value="${esc(u.id)}" ${u.eligible?'checked':'disabled'}><div class=grow><b style="word-break:break-all">${esc(u.email||u.name||u.id)}</b><div class="mu sm">${bn(u.idle_days)} দিন নিষ্ক্রিয় · ${u.push?'🔔 পুশ আছে':'পুশ নেই'}${u.last_nudge?' · শেষ নাজ '+ago(u.last_nudge):''}</div></div>${u.eligible?'':`<span class="tag wa">${why[u.why]||u.why}</span>`}</div>`).join('')||'<div class=empty>এই সময়ে নিষ্ক্রিয় কেউ নেই 🎉</div>'}</div></div>
+ <div class=card><h2>✍️ বার্তা লিখুন</h2><label class="mu sm">মাধ্যম</label><select id=nch><option value=inapp>অ্যাপের ভেতরে + পুশ</option><option value=email>ইমেইল (আপনার Gmail থেকে)</option><option value=both>দুটোই</option></select>
+ <label class="mu sm">বিষয়</label><input id=nsu value="${esc(DEF_S)}"><label class="mu sm">বার্তা ({name} = ইউজারের নাম)</label><textarea id=nbo>${esc(DEF_B)}</textarea>
+ <button class=btn style="width:100%;margin-top:10px" onclick=queue() ${C.users.some(u=>u.eligible)?'':'disabled'}>📥 অনুমোদনের জন্য সারিতে রাখুন</button></div>
+ <div class=card><h2>📦 ব্যাচ</h2><div class=list>${B.batches.map(b=>`<div><div class=row><b class=grow>${esc(b.subject)}</b>${stTag(b.status)}</div><div class="mu sm">${bn(b.users.length)} জন · ${esc({inapp:'অ্যাপ',email:'ইমেইল',both:'অ্যাপ+ইমেইল'}[b.channel]||b.channel)} · ${dt(b.created)}${b.finished?' → '+dt(b.finished):''}</div>
+ ${b.status=='pending'?`<div class=row style="margin-top:8px"><button class="btn red grow" onclick="approve('${b.id}',${b.users.length})">✅ অনুমোদন ও পাঠান</button><button class="btn gh" onclick="cancelB('${b.id}')">বাতিল</button></div>`:''}
+ ${Object.keys(b.results||{}).length?`<details style="margin-top:6px"><summary class="mu sm">ফলাফল</summary><div class="mono mu">${Object.entries(b.results).map(([k,v])=>esc(k)+': '+esc(v)).join('<br>')}</div></details>`:''}</div>`).join('')||'<div class=empty>কোনো ব্যাচ নেই</div>'}</div></div>`}
+async function queue(){const ids=[...document.querySelectorAll('input[name=nu]:checked')].map(x=>x.value);if(!ids.length)return alert('কাউকে বাছাই করুন');
+ try{const r=await post('/bb/admin/api/dash/nudge/batches',{days:ND,channel:nch.value,subject:nsu.value,body:nbo.value,users:ids});toast(bn(r.n)+' জনের ব্যাচ সারিতে — এখনো কিছু পাঠানো হয়নি');nv()}catch(e){alert(e.message)}}
+async function approve(id,n){if(!confirm(bn(n)+' জনকে এখনই পাঠাবেন? এটা ফেরানো যাবে না।'))return;try{await post('/bb/admin/api/dash/nudge/batches/'+id+'/approve',{confirm:'APPROVE_AND_SEND'});toast('পাঠানো শুরু হয়েছে');setTimeout(nv,1500)}catch(e){alert(e.message)}}
+async function cancelB(id){if(!confirm('ব্যাচ বাতিল করবেন?'))return;try{await post('/bb/admin/api/dash/nudge/batches/'+id+'/cancel');nv()}catch(e){alert(e.message)}}
+/* ---------- audit ---------- */
+let AS='events',AF={q:'',ev:'',days:7},AO=0,AR=[];
+async function av(more){if(!more){sk();AO=0;AR=[]}let D;const qs=new URLSearchParams({src:AS,...AF,limit:100,offset:AO});try{D=await api('/bb/admin/api/dash/audit?'+qs)}catch(e){return fail(e)}
+ AR=AR.concat(D.rows);AO+=D.rows.length;
+ const col=e=>/fail|denied|ratelimit|error|err|revok|refus/.test(e)?'bad':/login|otp|password|flag|nudge|settings/.test(e)?'gd':'';
+ m.innerHTML=`<div class=seg>${[['events','📜 ইভেন্ট'],['admin','👑 অ্যাডমিন'],['dev','🛠️ ডেভ এজেন্ট']].map(([k,l])=>`<button class="${AS==k?'on':''}" onclick="AS='${k}';AF.ev='';av()">${l}</button>`).join('')}</div>
+ <div class=card><div class=g2><select onchange="AF.ev=this.value;av()"><option value="">ইভেন্ট: সব</option>${D.events.map(e=>`<option ${AF.ev==e?'selected':''}>${esc(e)}</option>`).join('')}</select><select onchange="AF.days=+this.value;av()">${[[1,'২৪ ঘণ্টা'],[7,'৭ দিন'],[30,'৩০ দিন'],[0,'সব সময়']].map(([d,l])=>`<option value=${d} ${AF.days==d?'selected':''}>${l}</option>`).join('')}</select></div>
+ <input style="margin-top:8px" placeholder="🔍 ইমেইল, ইভেন্ট, যেকোনো লেখা" value="${esc(AF.q)}" onchange="AF.q=this.value;av()">
+ <div class=row style="margin-top:8px"><span class="mu sm grow">${bn(D.total)} টির মধ্যে ${bn(AR.length)} টি</span><a class="btn gh" style="text-decoration:none;padding:7px 12px" href="/bb/admin/api/dash/audit?${new URLSearchParams({src:AS,...AF,fmt:'csv',limit:2000})}">⬇️ CSV</a></div></div>
+ <div class=card><div class=list>${AR.map(r=>`<div><div class=row><span class="tag ${col(r.ev||'')}">${esc(r.ev)}</span><span class=grow></span><span class="mu sm">${dt(r.t)}</span></div>${r.data&&r.data!='{}'?`<div class="mono mu" style="margin-top:4px">${esc(r.data)}</div>`:''}${r.actor||r.ip?`<div class="mu sm">${esc(r.actor||'')} ${esc(r.ip||'')}</div>`:''}</div>`).join('')||'<div class=empty>কিছু নেই</div>'}</div>
+ ${AR.length<D.total?`<button class="btn gh" style="width:100%;margin-top:10px" onclick=av(1)>আরো দেখুন</button>`:''}</div>`}
+go();
+</script></body></html>
