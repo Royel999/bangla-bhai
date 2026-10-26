@@ -271,6 +271,8 @@ def start_task(goal,sysx="",user=None,tid=None,resume=None):
         try:
             if resume: ev("resume",text="সার্ভার রিস্টার্টের পর কাজটা আবার চালু করছি...")
             await loop(tid,goal,sysx,resume_ctx=(resume or {}).get("ctx"))
+        except asyncio.CancelledError:
+            st="cancelled"; ev("error",text="কাজটা থামানো হয়েছে।")
         except Exception as e:
             st="failed"; ev("error",text="এজেন্ট থেমে গেছে: "+friendly(e))
         TASKS[tid]["status"]=st; ev("end")
@@ -278,7 +280,7 @@ def start_task(goal,sysx="",user=None,tid=None,resume=None):
             for f in ON_DONE:
                 try: f(tid)
                 except Exception: pass
-    asyncio.create_task(runner()); audit(ev="agent_task",task=tid,goal=goal[:200])
+    TASKS[tid]["atask"]=asyncio.create_task(runner()); audit(ev="agent_task",task=tid,goal=goal[:200])
     AL.log(user,"agent","task",goal[:200],"resumed" if resume else "started",task=tid); return tid
 def resume_all():
     """called once at startup: resume interrupted tasks once, otherwise mark failed."""
@@ -301,9 +303,20 @@ async def ask(tid,tool,args,why,cap):
     aid=uuid.uuid4().hex[:8]; f=asyncio.get_running_loop().create_future(); TASKS[tid]["pending"][aid]=f
     rk=AL.risk(tool,args); AL.appr_open(aid,TASKS[tid].get("user"),tid,tool,args,why,rk)
     ev("approval",id=aid,tool=tool,args=args,why=why,cap=cap,capname=CAPS.get(cap,""),risk=rk)
+    for h in ON_APPROVAL:
+        try: h(TASKS[tid].get("user"),tid,tool)
+        except Exception: pass
     try: d=await asyncio.wait_for(f,600)
     except asyncio.TimeoutError: d="timeout"
     TASKS[tid]["pending"].pop(aid,None); AL.appr_close(aid,{"yes":"approved","no":"denied"}.get(d,d)); AL.log(TASKS[tid].get("user"),"approval",tool,args,d,ok=(d=="yes"),task=tid); ev("decision",id=aid,decision=d); audit(ev="agent_decision",task=tid,tool=tool,decision=d); return d
+ON_APPROVAL=[]   # hooks(user,tid,tool) — v3 sends an in-app + web push "approval waiting" notification
+def cancel(tid):
+    T=TASKS.get(tid)
+    if not T or T.get("status")!="running" or not T.get("atask"): return False
+    for aid in list(T["pending"]):
+        try: AL.appr_close(aid,"cancelled")
+        except Exception: pass
+    T["atask"].cancel(); audit(ev="agent_cancel",task=tid); return True
 def decide(tid,aid,d):
     f=TASKS.get(tid,{}).get("pending",{}).get(aid)
     if f and not f.done(): f.set_result(d); return True

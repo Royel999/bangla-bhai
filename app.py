@@ -862,7 +862,7 @@ try:
 except Exception as _e: print("bridge setup failed",_e)
 BZ.setup(app,dict(need=need,is_admin=is_admin,FT=FT,db=db,cip=cip,RT=RT,AdminOnly=AdminOnly,user=user,rate_ok=rate_ok,audit=audit,notify=SJ.notify,owner=CFG["BB_USER"]))
 import ui_v3 as V3  # v3 UI: skills catalog + personal agents (flags feat_ui_v3/feat_skill_catalog/feat_user_agents/feat_user_agent_tools)
-V3.setup(app,dict(rate_ok=rate_ok,owner=CFG["BB_USER"],need=need,user=user,is_admin=is_admin,is_owner=is_owner_uid,audit=audit,AG=AG,sys_rule=lambda u:lang_rule(get_settings(u))+" "+addr_rule(u)))
+V3.setup(app,dict(notify=lambda *a: SJ.notify(*a),rate_ok=rate_ok,owner=CFG["BB_USER"],need=need,user=user,is_admin=is_admin,is_owner=is_owner_uid,audit=audit,AG=AG,sys_rule=lambda u:lang_rule(get_settings(u))+" "+addr_rule(u)))
 import admin_dash as ADM
 ADM.setup(app,dict(db=db,is_admin=is_admin,AdminOnly=AdminOnly,audit=audit,RT=RT,owner=CFG["BB_USER"],secret=CFG.get("BB_SESSION_SECRET",""),health=health,
     advisors=ADVISORS,caps=AG.CAPS,revoke_all=AG.revoke_all,cip=cip,notify=SJ.notify,redact=AG.redact_secrets))

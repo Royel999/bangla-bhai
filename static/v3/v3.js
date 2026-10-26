@@ -142,9 +142,15 @@ async function pgAgents(){$('#view').innerHTML=topbar('<h1>এজেন্ট</h
   <div class=foot><button class="btn pri grow" onclick="go('/v3/agents/${a.id}')">${svg('play')} কাজ দিন</button><button class=btn onclick="editAgent('${a.id}')">এডিট</button></div>
   ${a.runs.length?`<div class="small mut" style="margin-top:10px">শেষ কাজ: ${esc(a.runs[0].goal)} · ${ago(a.runs[0].created)}</div>`:''}</div>`).join('')||'')}
 const ICONS=['🤖','🧑‍💼','✍️','🔎','💻','🎓','📈','🕌','⚡','🛡️','🎨','📱'];
-function editAgent(id){const a=ST.agents.find(x=>x.id===id)||{icon:'🤖',name:'',persona:'',model_tier:'auto',skills:['write','summarize'],perm_level:'ask'};const D=JSON.parse(JSON.stringify(a));
+const TPL=[{icon:'🔎',name:'গবেষক',persona:'যেকোনো প্রশ্নে ওয়েবে খুঁজে সংক্ষেপে উত্তর দেবে, সবসময় সূত্রের লিংক দেবে।',model_tier:'auto',skills:['research','summarize'],perm_level:'safe_auto'},
+ {icon:'📰',name:'খবরের সারাংশ',persona:'আজকের বাংলাদেশ ও বিশ্বের বড় খবর ৫টা পয়েন্টে বাংলায় বলবে, প্রতিটার সূত্র দেবে।',model_tier:'fast',skills:['research','summarize'],perm_level:'safe_auto'},
+ {icon:'🎓',name:'পড়াশোনার সাথী',persona:'ধাপে ধাপে সহজ ভাষায় বোঝাবে, শেষে ছোট্ট কুইজ দেবে।',model_tier:'auto',skills:['tutor','summarize'],perm_level:'chat_only'},
+ {icon:'✍️',name:'লেখার সহকারী',persona:'চিঠি, পোস্ট, ইমেইল সুন্দর ও ভদ্র বাংলায় লিখে দেবে; পাঠাবে না, শুধু খসড়া দেবে।',model_tier:'auto',skills:['write','mail','translate'],perm_level:'chat_only'},
+ {icon:'📈',name:'ব্যবসার পরামর্শক',persona:'ছোট ব্যবসার আইডিয়া, দাম ও মার্কেটিং নিয়ে বাস্তবসম্মত পরামর্শ দেবে; দরকার হলে বাজারদর খুঁজবে।',model_tier:'deep',skills:['biz','research'],perm_level:'ask'}];
+function editAgent(id,ti){const a=ST.agents.find(x=>x.id===id)||(ti!=null&&TPL[ti])||{icon:'🤖',name:'',persona:'',model_tier:'auto',skills:['write','summarize'],perm_level:'ask'};const D=JSON.parse(JSON.stringify(a));
  const avail=ST.skills.filter(s=>s.available);
  openSheet(`<h3>${id?'এজেন্ট এডিট':'নতুন এজেন্ট'}</h3><p class=sub>সব পরে বদলানো যাবে।</p>
+ ${id?'':`<label class=l>রেডিমেড টেমপ্লেট</label><div class=pick>${TPL.map((t,i)=>`<button type=button class="${ti===i?'on':''}" onclick="editAgent(null,${i})">${t.icon} ${esc(t.name)}</button>`).join('')}</div>`}
  <label class=l>আইকন</label><div class=icopick id=ip>${ICONS.map(i=>`<button class="${D.icon===i?'on':''}" data-i="${i}">${i}</button>`).join('')}</div>
  <label class=l for=an>নাম</label><input class=fld id=an maxlength=40 placeholder="যেমন: আমার গবেষক" value="${esc(D.name)}">
  <label class=l for=ap>স্বভাব ও নির্দেশনা</label><textarea class=fld id=ap rows=3 placeholder="যেমন: সংক্ষেপে উত্তর দেবে, সবসময় সূত্র দেবে, বাংলায় লিখবে">${esc(D.persona)}</textarea>
@@ -183,10 +189,11 @@ function stepEl(box,e,tid,demo){   // FIX of live bug: old bb2.js shadowed L() w
   if(e.type==='run')b.innerHTML=`<code>${esc(e.tool)}</code>`;else if(e.type==='result'||e.type==='error'){b.innerHTML='<pre></pre>';$('pre',b).textContent=e.text||''}
   else if(e.type==='final')b.replaceChildren(md(e.text));else b.textContent=e.text||''}
  box.appendChild(d);d.scrollIntoView({block:'nearest',behavior:'smooth'})}
-async function watch(tid,goal){const v=$('#runv');v.innerHTML=`<div class=card style="margin-top:12px"><div class=row><b class=grow>${esc(goal||'কাজ')}</b><span class="tag gold" id=rst>চলছে</span></div><div class=tl id=tl></div></div>`;
- let n=0;for(;;){let j;try{j=await api(`/bb/api/v3/runs/${tid}?since=${n}`)}catch(e){$('#rst').textContent=e.status===404?'পাওয়া যায়নি':'ত্রুটি';break}
-  n=typeof j.n==='number'?j.n:n+j.events.length;j.events.forEach(e=>stepEl($('#tl'),e,tid));if(j.status!=='running'){$('#rst').textContent=j.status==='done'?'সম্পন্ন':'থেমেছে';$('#rst').className='tag '+(j.status==='done'?'ok':'red');break}
-  await new Promise(r=>setTimeout(r,900));if(!$('#tl'))break}}
+async function watch(tid,goal){const v=$('#runv');v.innerHTML=`<div class=card style="margin-top:12px"><div class=row><b class=grow>${esc(goal||'কাজ')}</b><span class="tag gold" id=rst>চলছে</span><button class="btn sm" id=cxl style="margin-left:6px" aria-label="কাজ থামান">⏹ থামান</button></div><div class=tl id=tl></div></div>`;
+ $('#cxl').onclick=async()=>{if(!confirm('কাজটা থামাবেন?'))return;try{await api(`/bb/api/v3/runs/${tid}/cancel`,{method:'POST',body:'{}'});toast('থামানো হচ্ছে…')}catch(e){toast(e.message)}};
+ let n=0,idle=0;for(;;){let j;try{j=await api(`/bb/api/v3/runs/${tid}?since=${n}`)}catch(e){$('#rst').textContent=e.status===404?'পাওয়া যায়নি':'ত্রুটি';break}
+  n=typeof j.n==='number'?j.n:n+j.events.length;j.events.forEach(e=>stepEl($('#tl'),e,tid));if(j.status!=='running'){$('#rst').textContent=j.status==='done'?'সম্পন্ন':j.status==='cancelled'?'থামানো':'থেমেছে';$('#rst').className='tag '+(j.status==='done'?'ok':'red');$('#cxl')?.remove();break}
+  idle=j.events.length?0:idle+1;await new Promise(r=>setTimeout(r,document.hidden?4000:Math.min(600+idle*250,2500)));if(!$('#tl'))break}}
 async function demoRun(goal){const v=$('#runv');v.innerHTML=`<div class=card style="margin-top:12px"><div class=row><b class=grow>${esc(goal)}</b><span class="tag gold" id=rst>ডেমো · চলছে</span></div><div class=tl id=tl></div></div>`;
  const tl=$('#tl');const W=ms=>new Promise(r=>setTimeout(r,ms));
  stepEl(tl,{type:'plan',text:'১) ওয়েবে খুঁজব ২) একটা আবহাওয়া সাইট খুলে পড়ব ৩) ৩ লাইনে সারাংশ দেব'});await W(250);

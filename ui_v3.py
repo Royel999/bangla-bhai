@@ -77,6 +77,17 @@ def chat_ctx(u,skill_id,agent_id,owner):
 TIERS={"fast":"দ্রুত (ছোট মডেল)","auto":"অটো (সেরা + ব্যাকআপ)","deep":"গভীর চিন্তা (বড় মডেল/কাউন্সিল)"}
 PERM_LEVELS={"ask":"প্রতিটা অ্যাকশনে জিজ্ঞেস","safe_auto":"শুধু পড়া-সার্চ নিজে, বাকিগুলোতে জিজ্ঞেস","chat_only":"কোনো টুল নয়, শুধু চ্যাট"}
 def setup(app,H):
+    def _appr_hook(user,tid,tool):
+        if not user or not H.get("notify"): return
+        with db() as c:
+            r=c.execute("select r.agent_id,a.name,a.id from agent_runs r left join agents a on a.id=r.agent_id where r.task_id=?",(tid,)).fetchone()
+        if not r: return   # only v3 agent runs
+        import asyncio as _a
+        args=(user,"⏳ অনুমতি দরকার",f"'{r[1] or 'এজেন্ট'}' {tool} চালানোর আগে আপনার অনুমতি চাইছে।",f"/v3/agents/{r[2]}")
+        try: _a.get_running_loop().run_in_executor(None,lambda: H["notify"](*args))   # web push is blocking HTTP
+        except RuntimeError: H["notify"](*args)
+    try: H["AG"].ON_APPROVAL.append(_appr_hook)
+    except Exception: pass
     need=H["need"]; is_admin=H["is_admin"]; audit=H["audit"]; is_owner=H["is_owner"]
     init()
     def page(request:Request):
@@ -181,6 +192,11 @@ def setup(app,H):
         tid=H["AG"].start_task(goal,sysx,user=u)
         with db() as c: c.execute("insert into agent_runs values(?,?,?,?,?)",(tid,aid,u,goal[:300],time.time()))
         audit(ev="agent_run",agent=aid,task=tid,restricted=not own); return {"ok":True,"task":tid}
+    @app.post("/bb/api/v3/runs/{tid}/cancel")
+    def run_cancel(request:Request,tid:str):
+        u=need(request); t=H["AG"].get_task(tid)
+        if not t or (t.get("user")!=u and not is_owner(u)): return JSONResponse({"error":"নেই"},404)
+        ok=H["AG"].cancel(tid); AL.log(u,"agent","cancel",tid,"ok" if ok else "not running"); return {"ok":ok}
     @app.get("/bb/api/v3/runs/{tid}")
     def run_events(request:Request,tid:str,since:int=0):
         u=need(request); t=H["AG"].get_task(tid)
