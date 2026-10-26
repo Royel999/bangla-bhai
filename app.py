@@ -23,7 +23,7 @@ with db() as c:
 create table if not exists messages(id integer primary key autoincrement,chat_id text,role text,content text,model text,advisors text,created real);
 create table if not exists settings(user text primary key,data text);
 create table if not exists projects(id text primary key,user text,name text,instructions text,created real);""")
-DEFAULT_SETTINGS={"theme":"dark","accent":"blue","lang":"en","font":16,"instructions":"","memory":True,"memory_notes":"","model":"auto","council":False}
+DEFAULT_SETTINGS={"theme":"dark","accent":"blue","lang":"bn","font":16,"instructions":"","memory":True,"memory_notes":"","model":"auto","council":False}
 def get_settings(u):
     with db() as c: r=c.execute("select data from settings where user=?",(u,)).fetchone()
     return {**DEFAULT_SETTINGS,**(json.loads(r["data"]) if r else {})}
@@ -281,7 +281,7 @@ def cp_page(request:Request,m:str=""):
 <label for=current_password>Current Password</label><input id=current_password name=current_password type=password>
 <label for=new_password>New Password</label><input id=new_password name=new_password type=password autocomplete=new-password>
 <label for=confirm_password>Confirm New Password</label><input id=confirm_password name=confirm_password type=password autocomplete=new-password>
-<button type=submit>Change Password</button><p><a href=/app>← চ্যাটে ফিরুন</a></p></form>""")
+<button type=submit>Change Password</button><p><a href=/home>← চ্যাটে ফিরুন</a></p></form>""")
 @app.post("/change-password")
 def cp(request:Request,current_password:str=Form(""),new_password:str=Form(""),confirm_password:str=Form("")):
     if not user(request): return RedirectResponse("/login",303)

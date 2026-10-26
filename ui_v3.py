@@ -186,6 +186,12 @@ def setup(app,H):
         u=need(request); t=H["AG"].get_task(tid)
         if not t or (t.get("user")!=u and not is_owner(u)): return JSONResponse({"error":"নেই"},404)
         return {"status":t["status"],"events":t["events"][max(0,since):],"n":len(t["events"])}
+    @app.get("/home")
+    def home(request:Request):
+        # one "back to chat" target for shared pages: v3 for v3 users, classic otherwise
+        u=H["user"](request)
+        if not u: return RedirectResponse("/login",303)
+        return RedirectResponse("/v3" if (is_owner(u) or FL.on("feat_ui_v3")) else "/app",303)
     # ---- skills (owner) ----
     @app.get("/bb/admin/api/v3/skills")
     def adm_sk(request:Request):

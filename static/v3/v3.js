@@ -212,11 +212,14 @@ async function dec(id,ok){try{await api('/bb/api/approvals/'+id,{method:'POST',b
 function openMe(){const t=localStorage.bbTheme||'dark';const own=ST.me.role==='owner';
  openSheet(`<div class=row style="margin-bottom:8px"><img src="/bb/static/logo.png" style="width:48px;height:48px;border-radius:50%;box-shadow:0 0 0 2px var(--gold)" alt=""><div class=grow><b>${esc(own?'রয়েল':(ST.me.name||ST.me.email||''))}</b><div class="small mut">${esc(ST.me.email||'')} ${own?'<span class="tag gold">♛ মালিক</span>':''}</div></div></div>
  <label class=l>থিম</label><div class=seg>${[['dark','🌙 ডার্ক'],['light','☀️ লাইট'],['system','📱 সিস্টেম']].map(([k,l])=>`<button class="${t===k?'on':''}" onclick="setTheme('${k}');openMe();route()">${l}</button>`).join('')}</div>
- <div style="margin-top:12px">${[['🧠','মেমরি','/memory'],['⏰','শিডিউল','/schedules'],['🔌','কানেকশন','/connections'],['🎨','স্টুডিও','/studio'],['💳','অ্যাকাউন্ট ও প্ল্যান','/account'],['⚙️','পুরনো সেটিংস','/app']].map(([i,l,h])=>`<a class=list-row href="${h}"><span class=ki>${i}</span><span class=grow>${l}</span><span class=mut>›</span></a>`).join('')}
+ <label class=l>ভাষা</label><div class=seg>${[['bn','বাংলা'],['en','English']].map(([k,l])=>`<button class="${(ST.set?.lang||'bn')===k?'on':''}" onclick="saveSet({lang:'${k}'})">${l}</button>`).join('')}</div>
+ <label class=list-row style="margin-top:10px"><span class=ki>💾</span><span class=grow>আমার কথা মনে রাখো (মেমরি)</span><input type=checkbox ${ST.set?.memory!==false?'checked':''} onchange="saveSet({memory:this.checked})" style="width:20px;height:20px"></label>
+ <div style="margin-top:12px">${[['🧠','মেমরি','/memory'],['⏰','শিডিউল','/schedules'],['🔌','কানেকশন','/connections'],['🎨','স্টুডিও','/studio'],['💳','অ্যাকাউন্ট ও প্ল্যান','/account'],['⚙️','ক্লাসিক UI ও পুরো সেটিংস','/app?classic=1']].map(([i,l,h])=>`<a class=list-row href="${h}"><span class=ki>${i}</span><span class=grow>${l}</span><span class=mut>›</span></a>`).join('')}
  ${own?`<a class=list-row href="/admin/dash"><span class=ki>🛡️</span><span class=grow><b>অ্যাডমিন ড্যাশবোর্ড</b></span><span class="tag gold">মালিক</span></a>`:''}
  <a class=list-row href="/logout"><span class=ki>↩︎</span><span class=grow style="color:var(--red)">লগআউট</span></a></div>`)}
+async function saveSet(p){try{ST.set=await api('/bb/api/settings',{method:'PUT',body:JSON.stringify(p)});const l=ST.set.lang||'bn';document.cookie='bb_lang='+l+';path=/;max-age=31536000;samesite=lax';localStorage.bbLang=l;toast('সংরক্ষণ হয়েছে');openMe()}catch(e){toast(e.message)}}
 /* ---------- boot ---------- */
 (async()=>{$('#nav').innerHTML=navHTML();$('#rail').insertAdjacentHTML('beforeend',navHTML());
- try{ST.me=await api('/bb/api/me')}catch(e){}
+ try{ST.me=await api('/bb/api/me')}catch(e){}try{ST.set=await api('/bb/api/settings')}catch(e){}
  try{const j=await api('/bb/api/v3/skills');ST.skills=j.skills;ST.cats=j.categories}catch(e){}
  route();try{const D=await api('/bb/api/activity');const b=$('#nav .badge');if(b&&D.approvals?.length){b.hidden=false;b.textContent=bnNum(D.approvals.length)}}catch(e){}})();
