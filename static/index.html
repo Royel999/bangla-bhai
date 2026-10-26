@@ -81,6 +81,7 @@ select{background:var(--panel2);color:var(--tx);border:1px solid var(--bd);borde
 #toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%) translateY(20px);background:var(--tx);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:90}
 #toast.on{opacity:1;transform:translateX(-50%)}
 .kbd{font-family:ui-monospace,monospace;background:var(--panel2);border:1px solid var(--bd);border-radius:5px;padding:1px 6px;font-size:12px}
+body:not(.is-owner) #agentT{display:none!important}
 </style><link rel="stylesheet" href="/bb/static/bb2.css"><link rel="stylesheet" href="/bb/static/viz.css"><script>window.BB_APP=1</script><script src="/bb/static/i18n.js"></script><style>.owner-only{display:none!important}body.is-owner .owner-only{display:flex!important}.abdg{position:fixed;top:8px;right:8px;z-index:50;background:#f4b400;color:#0b1a33;font:700 11px Inter,sans-serif;padding:3px 8px;border-radius:999px;letter-spacing:.06em}</style></head><body>
 <div id="app">
  <aside id="side">
@@ -215,7 +216,7 @@ function renderAtt(){$('#att').innerHTML='';FILES.forEach((f,i)=>{const s=docume
 $('#file').onchange=async e=>{for(const f of e.target.files){const fd=new FormData();fd.append('file',f);toast('⏳ '+f.name+L(' reading...',' পড়ছি...'));
  const r=await fetch('/bb/api/upload',{method:'POST',body:fd});const j=await r.json();if(j.error){toast(j.error);continue}FILES.push(j);renderAtt();if(j.note)toast(j.note)}e.target.value=''};
 function sendOrStop(){if(ctrl){ctrl.abort();return}send()}
-async function send(){if(/^(এজেন্ট|Agent):/i.test($('#inp').value)&&!AGENT)setAgent(true);if(AGENT)return agentSend();
+async function send(){if(/^(এজেন্ট|Agent):/i.test($('#inp').value)&&!AGENT&&isOwner())setAgent(true);if(AGENT)return agentSend();
  const inp=$('#inp');let t=inp.value.trim();if(!t&&!FILES.length)return;
  // Intent router: action → agent loop in same chat (step log + Approve)
  if(t&&!FILES.length&&!/^\s*(\/skill|run skill|স্কিল)\b/i.test(t)&&!/(every\s+(day|morning|week|hour)|daily|remind me|reminder|schedule|in\s+\d+\s*min|প্রতিদিন|মনে\s*করি|রিমাইন্ড|শিডিউল|মিনিট\s*পর)/i.test(t)){try{const it=await api('/bb/api/intent',{method:'POST',body:JSON.stringify({text:t})});
@@ -281,6 +282,6 @@ document.addEventListener('keydown',e=>{const k=e.key.toLowerCase(),m=e.ctrlKey|
  else if(m&&k===','){e.preventDefault();openSettings()}else if(k==='escape'){if(ctrl)ctrl.abort();closeM()}});
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js');
 matchMedia('(prefers-color-scheme: light)').addEventListener('change',applySettings);
-(async()=>{try{window.BB_ME=await api('/bb/api/me')}catch(e){window.BB_ME={}};if(isOwner()){document.body.classList.add('is-owner');const bd=document.createElement('a');bd.href='/admin/panel';bd.className='abdg owner-only';bd.textContent='🛡️ ADMIN';bd.style.textDecoration='none';document.body.appendChild(bd)};S=await api('/bb/api/settings');await window.bbI18nReady;if(bbLang()!==S.lang)await bbSetLang(S.lang);const ms=await api('/bb/api/models');$('#model').innerHTML=ms.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+(async()=>{try{window.BB_ME=await api('/bb/api/me')}catch(e){window.BB_ME={}};if(!isOwner()&&typeof AGENT!=='undefined'&&AGENT)setAgent(false);if(isOwner()){document.body.classList.add('is-owner');const bd=document.createElement('a');bd.href='/admin/panel';bd.className='abdg owner-only';bd.textContent='🛡️ ADMIN';bd.style.textDecoration='none';document.body.appendChild(bd)};S=await api('/bb/api/settings');await window.bbI18nReady;if(bbLang()!==S.lang)await bbSetLang(S.lang);const ms=await api('/bb/api/models');$('#model').innerHTML=ms.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
  applySettings();renderEmpty();loadChats();if(innerWidth<=820)$('#side').classList.remove('closed')})();
 </script><script src="/bb/static/bb2.js"></script><script src="/bb/static/viz.js"></script><script src="/bb/static/install.js"></script></body></html>

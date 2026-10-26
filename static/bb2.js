@@ -1,6 +1,7 @@
 const BB_PUBLIC=window.BB_PUBLIC||'https://banglabhai.dpdns.org';
 // ===== বাংলা ভাই v0.3 add-ons: modals, agent, voice, camera, permission center =====
 let AGENT=localStorage.bbAgent==='1';
+const canAgent=()=>!window.BB_ME||(typeof isOwner==='function'&&isOwner());
 function dlg(html){return new Promise(res=>{const d=document.createElement('div');d.className='dlg';d.innerHTML=`<div class=card>${html}</div>`;document.body.appendChild(d);
  const done=v=>{d.remove();res(v)};d.onclick=e=>{if(e.target===d)done(null)};d._done=done;
  d.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>done(b.dataset.v==='__in'?d.querySelector('.fld').value:b.dataset.v));
@@ -9,7 +10,7 @@ const HD=t=>`<h3><img src="/bb/static/logo.png" alt="">${esc(t)}</h3>`;
 function uiPrompt(msg,def=''){const long=(def||'').length>60||/নির্দেশনা|এডিট|instruction|edit/i.test(msg);
  return dlg(HD(msg.split('\n')[0])+(msg.includes('\n')?`<p>${esc(msg.split('\n').slice(1).join('\n'))}</p>`:'')+(long?`<textarea class=fld rows=5>${esc(def)}</textarea>`:`<input class=fld value="${esc(def)}">`)+`<div class=btns><button class=btn data-v="">${L('Cancel','বাতিল')}</button><button class="btn pri" data-v="__in">${L('OK','ঠিক আছে')}</button></div>`).then(v=>v===''?null:v)}
 function uiConfirm(msg){return dlg(HD(L('Please confirm','নিশ্চিত করুন'))+`<p>${esc(msg)}</p><div class=btns><button class=btn data-v="0">${L('No','না')}</button><button class="btn dan" data-v="1">${L('Yes, do it','হ্যাঁ, করুন')}</button></div>`).then(v=>v==='1')}
-function setAgent(v){AGENT=v;localStorage.bbAgent=v?'1':'0';$('#agentT').classList.toggle('on',v);$('#inp').placeholder=t(v?'app.ph_agent':'app.ph');if(v)toast(t('app.agent_on'));if(window.bbRefreshLivebar)bbRefreshLivebar()}
+function setAgent(v){if(v&&!canAgent()){v=false}AGENT=v;localStorage.bbAgent=v?'1':'0';$('#agentT').classList.toggle('on',v);$('#inp').placeholder=t(v?'app.ph_agent':'app.ph');if(v)toast(t('app.agent_on'));if(window.bbRefreshLivebar)bbRefreshLivebar()}
 // ---- agent ----
 async function agentSend(){const inp=$('#inp');let t=inp.value.trim().replace(/^(এজেন্ট|Agent):\s*/i,'');if(!t)return;inp.value='';autoGrow();
  if(!CH){const r0=await api('/bb/api/chats',{method:'POST',body:JSON.stringify({project:curProject})});CH={id:r0.id,title:t.slice(0,40),messages:[]};$('#ttl').textContent=CH.title}
@@ -24,9 +25,9 @@ async function agentSend(){const inp=$('#inp');let t=inp.value.trim().replace(/^
  $('#send').classList.remove('stop');$('#send').textContent='➤';
  const acts=w.querySelector('.acts');setActs(acts,{content:final});
  try{await api('/bb/api/chats/'+CH.id+'/note',{method:'POST',body:JSON.stringify({user:t,assistant:final||L('(agent)','(এজেন্ট)')})});loadChats()}catch(e){}}
-function stepEl(box,e,tid){const d=document.createElement('div');const L={plan:[L('🗺️ Plan','🗺️ পরিকল্পনা'),''],think:[L('💭 Thinking · step ','💭 ভাবনা · ধাপ ')+e.step,''],run:[L('▶️ Running','▶️ চালানো হচ্ছে'),''],result:[L('✅ Result','✅ ফলাফল'),'ok'],error:[L('❌ Error','❌ সমস্যা'),'err'],retry:[L('🔁 Retry','🔁 আবার চেষ্টা'),'retry'],repair:[L('🛠️ Repair','🛠️ রিপেয়ার'),'repair'],decision:['',''],auto:[L('🔓 Auto-approved','🔓 স্বয়ংক্রিয় অনুমতি'),'ok'],blocked:[L('⛔ Blocked','⛔ বন্ধ'),'err'],final:[L('🏁 Final answer','🏁 চূড়ান্ত উত্তর'),'ok'],approval:[L('🔐 Permission needed','🔐 অনুমতি দরকার'),'ask']}[e.type]||[e.type,''];
+function stepEl(box,e,tid){const d=document.createElement('div');const LAB={plan:[L('🗺️ Plan','🗺️ পরিকল্পনা'),''],think:[L('💭 Thinking · step ','💭 ভাবনা · ধাপ ')+e.step,''],run:[L('▶️ Running','▶️ চালানো হচ্ছে'),''],result:[L('✅ Result','✅ ফলাফল'),'ok'],error:[L('❌ Error','❌ সমস্যা'),'err'],retry:[L('🔁 Retry','🔁 আবার চেষ্টা'),'retry'],repair:[L('🛠️ Repair','🛠️ রিপেয়ার'),'repair'],decision:['',''],auto:[L('🔓 Auto-approved','🔓 স্বয়ংক্রিয় অনুমতি'),'ok'],blocked:[L('⛔ Blocked','⛔ বন্ধ'),'err'],final:[L('🏁 Final answer','🏁 চূড়ান্ত উত্তর'),'ok'],approval:[L('🔐 Permission needed','🔐 অনুমতি দরকার'),'ask']}[e.type]||[e.type,''];
  if(e.type==='decision'){const a=box.querySelector(`[data-aid="${e.id}"]`);if(a){a.classList.add('done');a.querySelector('.btns').innerHTML=e.decision==='yes'?L('✅ Approved','✅ অনুমতি দিয়েছেন'):L('🚫 Denied','🚫 অনুমতি দেননি')}return}
- d.className='st '+L[1]+(e.type==='run'?' running':'');d.innerHTML=`<div class=lab>${L[0]}</div>`;const b=document.createElement('div');
+ d.className='st '+LAB[1]+(e.type==='run'?' running':'');d.innerHTML=`<div class=lab>${LAB[0]}</div>`;const b=document.createElement('div');
  if(e.type==='result'||e.type==='error'||e.type==='final'){box.querySelectorAll('.st.running').forEach(x=>x.classList.remove('running'))}
  if(e.type==='think'){b.textContent=e.text;if(e.alternatives?.length){const u=document.createElement('ul');u.className='alts';u.innerHTML=L('<b style="font-size:12px">Alternatives:</b>','<b style="font-size:12px">বিকল্প চিন্তা:</b>');e.alternatives.forEach(x=>{const li=document.createElement('li');li.textContent=x;u.appendChild(li)});b.appendChild(u)}const m=document.createElement('div');m.style.cssText='font-size:11px;color:var(--mut)';m.textContent='🧠 '+e.model;b.appendChild(m)}
  else if(e.type==='run'){b.innerHTML=`<code>${esc(e.tool)}</code> ${e.attempt>1?L('(attempt ','(চেষ্টা ')+e.attempt+')':''}`}
