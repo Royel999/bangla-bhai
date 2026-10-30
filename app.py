@@ -120,6 +120,8 @@ async def _sec(request,call_next):
     return r
 import auth as AU
 import flags as FL
+import workspace_store as WS
+WS.upgrade(DB)
 def user(r):
     u=r.session.get("u")
     if not u: return None
@@ -353,6 +355,9 @@ def need(request):
     u=user(request)
     if not u: raise PermissionError
     return u
+def _workspace_actor(request:Request): return need(request)
+from workspace_api import create_workspace_router as _create_workspace_router
+app.include_router(_create_workspace_router(DB,_workspace_actor))
 class AdminOnly(Exception): pass
 class NotFound(Exception): pass
 @app.exception_handler(NotFound)

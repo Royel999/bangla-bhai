@@ -22,6 +22,8 @@ jobs:
           python -m py_compile *.py
           pyflakes *.py | grep -E "undefined name|syntax|invalid" && exit 1 || true
           for f in static/*.js; do node --check "$f"; done
+      - name: Workspace migration and authorization tests
+        run: python -m unittest discover -s tests -p 'test_workspace*.py' -v
       - name: Boot app and hit /bb/health
         run: |
           ln -s "$GITHUB_WORKSPACE" ~/bangla_bhai
@@ -33,3 +35,4 @@ jobs:
           for i in $(seq 1 40); do curl -fsS localhost:8099/bb/health && ok=1 && break; sleep 1; done
           [ -n "${ok:-}" ] || { cat /tmp/app.log; exit 1; }
           for p in / /login /admin /privacy; do c=$(curl -s -o /dev/null -w '%{http_code}' localhost:8099$p); echo "$p $c"; [ "$c" -lt 500 ] || { tail -50 /tmp/app.log; exit 1; }; done
+          c=$(curl -s -o /dev/null -w '%{http_code}' localhost:8099/api/v1/workspaces); echo "/api/v1/workspaces unauthenticated $c"; [ "$c" = "401" ]
