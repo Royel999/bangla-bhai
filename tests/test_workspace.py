@@ -64,6 +64,13 @@ class WorkspaceDatabaseTests(unittest.TestCase):
         with store.connect(self.db_path) as conn:
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspaces").fetchone()[0], 0)
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_memberships").fetchone()[0], 0)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_projects").fetchone()[0], 0)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_chats").fetchone()[0], 0)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_messages").fetchone()[0], 0)
+            self.assertEqual(conn.execute(f"SELECT COUNT(*) FROM {store.MIGRATION_TABLE}").fetchone()[0], 2)
+            for table in ("chats", "projects", "messages"):
+                columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+                self.assertNotIn("workspace_id", columns)
             self.assertEqual(
                 tuple(conn.execute("SELECT id, user, title FROM chats").fetchone()),
                 ("legacy-c1", "u1", "Existing private chat"),
@@ -97,6 +104,9 @@ class WorkspaceDatabaseTests(unittest.TestCase):
             tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             self.assertNotIn("workspaces", tables)
             self.assertNotIn("workspace_memberships", tables)
+            self.assertNotIn("workspace_projects", tables)
+            self.assertNotIn("workspace_chats", tables)
+            self.assertNotIn("workspace_messages", tables)
             self.assertNotIn(store.MIGRATION_TABLE, tables)
             self.assertEqual(conn.execute("SELECT title FROM chats WHERE id='legacy-c1'").fetchone()[0], "Existing private chat")
             self.assertEqual(conn.execute("SELECT content FROM messages WHERE id=1").fetchone()[0], "legacy message")
@@ -110,7 +120,13 @@ class WorkspaceDatabaseTests(unittest.TestCase):
             store.downgrade(self.db_path)
         with store.connect(self.db_path) as conn:
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspaces WHERE id='p1'").fetchone()[0], 1)
-            self.assertEqual(conn.execute(f"SELECT COUNT(*) FROM {store.MIGRATION_TABLE}").fetchone()[0], 1)
+            self.assertEqual(conn.execute(f"SELECT COUNT(*) FROM {store.MIGRATION_TABLE}").fetchone()[0], 2)
+
+    def test_database_allows_at_most_one_personal_workspace_per_account(self):
+        with store.connect(self.db_path) as conn:
+            insert_workspace(conn, "p1", "PERSONAL", "Personal", "u1")
+            with self.assertRaises(sqlite3.IntegrityError):
+                insert_workspace(conn, "p2", "PERSONAL", "Second personal", "u1")
 
     def test_migration_requires_identity_table_and_rolls_back_cleanly(self):
         other = Path(self.temp.name) / "without-users.db"

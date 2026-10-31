@@ -358,6 +358,8 @@ def need(request):
 def _workspace_actor(request:Request): return need(request)
 from workspace_api import create_workspace_router as _create_workspace_router
 app.include_router(_create_workspace_router(DB,_workspace_actor))
+from workspace_resources_api import create_workspace_resources_router as _create_workspace_resources_router
+app.include_router(_create_workspace_resources_router(DB,_workspace_actor))
 class AdminOnly(Exception): pass
 class NotFound(Exception): pass
 @app.exception_handler(NotFound)
