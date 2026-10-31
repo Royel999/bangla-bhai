@@ -356,10 +356,16 @@ def need(request):
     if not u: raise PermissionError
     return u
 def _workspace_actor(request:Request): return need(request)
+_workspace_owner_id=CFG.get("BB_USER")
+if (not _workspace_owner_id or AU.owner_user()!=_workspace_owner_id
+        or os.path.realpath(AU.DB)!=os.path.realpath(DB)):
+    _workspace_owner_id=None  # fail closed; never fall back to a session role for workspace governance
 from workspace_api import create_workspace_router as _create_workspace_router
-app.include_router(_create_workspace_router(DB,_workspace_actor))
+app.include_router(_create_workspace_router(DB,_workspace_actor,_workspace_owner_id))
 from workspace_resources_api import create_workspace_resources_router as _create_workspace_resources_router
 app.include_router(_create_workspace_resources_router(DB,_workspace_actor))
+from workspace_membership_api import create_workspace_membership_router as _create_workspace_membership_router
+app.include_router(_create_workspace_membership_router(DB,_workspace_actor,_workspace_owner_id))
 class AdminOnly(Exception): pass
 class NotFound(Exception): pass
 @app.exception_handler(NotFound)

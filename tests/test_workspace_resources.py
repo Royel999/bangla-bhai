@@ -92,7 +92,7 @@ class WorkspaceResourceApiTests(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_projects").fetchone()[0], 0)
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_memberships").fetchone()[0], 6)
         self.assertEqual(self.client.get("/api/v1/workspaces/p1/chats").status_code, 401)
-        self.assertEqual(self.client.post("/api/v1/workspaces").status_code, 405)
+        self.assertEqual(self.client.post("/api/v1/workspaces").status_code, 401)
         self.assertEqual(self.client.post("/api/v1/workspaces/o1/members").status_code, 404)
 
     def test_mutation_rejects_cross_site_origin_before_writing(self):
@@ -347,7 +347,7 @@ class WorkspaceResourceApiTests(unittest.TestCase):
         )
         with store.connect(self.db_path) as conn:
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_projects").fetchone()[0], 1)
-            self.assertEqual(conn.execute(f"SELECT COUNT(*) FROM {store.MIGRATION_TABLE}").fetchone()[0], 2)
+            self.assertEqual(conn.execute(f"SELECT COUNT(*) FROM {store.MIGRATION_TABLE}").fetchone()[0], 3)
 
 
 if __name__ == "__main__":

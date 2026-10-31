@@ -10,25 +10,18 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 APP_PROBE = r'''
 import json
-import time
+import os
 from fastapi.testclient import TestClient
 import app
 import workspace_store as ws
 
 owner = app.CFG["BB_USER"]
 with ws.connect(app.DB) as conn:
-    conn.execute(
-        """INSERT INTO workspaces
-           (id,type,name,status,created_by,created_at,updated_at)
-           VALUES ('personal-ci','PERSONAL','CI Personal','active',?,?,?)""",
-        (owner, time.time(), time.time()),
-    )
-    conn.execute(
-        """INSERT INTO workspace_memberships
-           (workspace_id,user_id,role,status,created_at)
-           VALUES ('personal-ci',?,'owner','active',?)""",
-        (owner, time.time()),
-    )
+    assert conn.execute("SELECT COUNT(*) FROM workspaces").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM workspace_memberships").fetchone()[0] == 0
+assert app.AU.owner_user() == owner
+assert os.path.realpath(app.AU.DB) == os.path.realpath(app.DB)
+assert app._workspace_owner_id == owner
 
 with app.db() as conn:
     conn.execute(
@@ -46,32 +39,49 @@ with app.db() as conn:
 
 with TestClient(app.app, headers={"Origin": "http://testserver"}) as client:
     assert client.get("/bb/health").status_code == 200
-    assert client.get("/api/v1/workspaces/personal-ci/chats").status_code == 401
+    assert client.get("/api/v1/workspaces/not-created/chats").status_code == 401
+    assert client.get("/api/v1/workspaces").status_code == 401
+    assert client.post("/api/v1/workspaces/official", json={"name": "Anonymous Official"}).status_code == 401
+    assert client.get("/api/v1/workspace-memberships/management").status_code == 401
+    assert client.get("/api/v1/workspace-memberships/requests/mine").status_code == 401
     login = client.post(
         "/login", data={"username": owner, "password": app.CFG["BB_PASSWORD"]},
         follow_redirects=False,
     )
     assert login.status_code == 303, (login.status_code, login.text)
 
+    assert client.get("/api/v1/workspace-memberships/management").json() == {"workspaces": []}
+    assert client.get("/api/v1/workspace-memberships/requests/mine").json() == []
+    assert client.get("/api/v1/workspaces").json() == []
+    official_response = client.post("/api/v1/workspaces/official", json={"name": "CI Official"})
+    assert official_response.status_code == 201, (official_response.status_code, official_response.text)
+    official_id = official_response.json()["id"]
+    assert official_response.json()["type"] == "OFFICIAL"
+    assert client.get(f"/api/v1/workspaces/{official_id}").status_code == 200
+    personal_response = client.post("/api/v1/workspaces", json={"name": "CI Personal"})
+    assert personal_response.status_code == 201, (personal_response.status_code, personal_response.text)
+    personal_id = personal_response.json()["id"]
+    assert personal_response.json()["type"] == "PERSONAL"
+
     new_project_response = client.post(
-        "/api/v1/workspaces/personal-ci/projects",
+        f"/api/v1/workspaces/{personal_id}/projects",
         json={"name": "Workspace-only project", "instructions": "WS_PROJECT_SENTINEL"},
     )
     assert new_project_response.status_code == 201, (new_project_response.status_code, new_project_response.text)
     new_project = new_project_response.json()
     new_chat_response = client.post(
-        "/api/v1/workspaces/personal-ci/chats",
+        f"/api/v1/workspaces/{personal_id}/chats",
         json={"title": "Workspace-only chat", "project_id": new_project["id"]},
     )
     assert new_chat_response.status_code == 201, (new_chat_response.status_code, new_chat_response.text)
     new_chat = new_chat_response.json()
     new_message_response = client.post(
-        f"/api/v1/workspaces/personal-ci/chats/{new_chat['id']}/messages",
+        f"/api/v1/workspaces/{personal_id}/chats/{new_chat['id']}/messages",
         json={"content": "WORKSPACE_ONLY_SENTINEL"},
     )
     assert new_message_response.status_code == 201, (new_message_response.status_code, new_message_response.text)
-    assert [row["id"] for row in client.get("/api/v1/workspaces/personal-ci/chats").json()] == [new_chat["id"]]
-    assert [row["id"] for row in client.get("/api/v1/workspaces/personal-ci/projects").json()] == [new_project["id"]]
+    assert [row["id"] for row in client.get(f"/api/v1/workspaces/{personal_id}/chats").json()] == [new_chat["id"]]
+    assert [row["id"] for row in client.get(f"/api/v1/workspaces/{personal_id}/projects").json()] == [new_project["id"]]
 
     legacy_chats = client.get("/bb/api/chats").json()
     legacy_projects = client.get("/bb/api/projects").json()
@@ -108,7 +118,7 @@ with TestClient(app.app, headers={"Origin": "http://testserver"}) as client:
     ).status_code == 200
     assert client.delete(f"/bb/api/projects/{new_project['id']}").status_code == 200
     still_there = client.get(
-        f"/api/v1/workspaces/personal-ci/projects/{new_project['id']}"
+        f"/api/v1/workspaces/{personal_id}/projects/{new_project['id']}"
     )
     assert still_there.status_code == 200, still_there.text
     assert still_there.json()["name"] == "Workspace-only project"
@@ -117,12 +127,12 @@ with TestClient(app.app, headers={"Origin": "http://testserver"}) as client:
     assert client.delete("/bb/api/data").status_code == 200
     assert client.get("/bb/api/chats").json() == []
     assert client.get("/bb/api/projects").json() == []
-    assert client.get(f"/api/v1/workspaces/personal-ci/chats/{new_chat['id']}").status_code == 200
-    assert client.get(f"/api/v1/workspaces/personal-ci/projects/{new_project['id']}").status_code == 200
+    assert client.get(f"/api/v1/workspaces/{personal_id}/chats/{new_chat['id']}").status_code == 200
+    assert client.get(f"/api/v1/workspaces/{personal_id}/projects/{new_project['id']}").status_code == 200
 
     # New v1 routes are equally unable to resolve legacy IDs.
-    assert client.get("/api/v1/workspaces/personal-ci/chats/legacy-chat").status_code == 404
-    assert client.get("/api/v1/workspaces/personal-ci/projects/legacy-project").status_code == 404
+    assert client.get(f"/api/v1/workspaces/{personal_id}/chats/legacy-chat").status_code == 404
+    assert client.get(f"/api/v1/workspaces/{personal_id}/projects/legacy-project").status_code == 404
 
 with ws.connect(app.DB) as conn:
     assert conn.execute("SELECT COUNT(*) FROM chats").fetchone()[0] == 0
@@ -130,6 +140,8 @@ with ws.connect(app.DB) as conn:
     assert conn.execute("SELECT COUNT(*) FROM workspace_chats").fetchone()[0] == 1
     assert conn.execute("SELECT COUNT(*) FROM workspace_projects").fetchone()[0] == 1
     assert conn.execute("SELECT content FROM workspace_messages").fetchone()[0] == "WORKSPACE_ONLY_SENTINEL"
+    assert conn.execute("SELECT COUNT(*) FROM workspaces WHERE type='OFFICIAL' AND name='CI Official'").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM workspace_membership_events WHERE action='official_created'").fetchone()[0] == 1
 '''
 
 

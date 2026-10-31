@@ -13,13 +13,20 @@ DEFAULT_DB = os.path.expanduser("~/bangla_bhai/data.db")
 MIGRATION_TABLE = "workspace_schema_migrations"
 MIGRATION_VERSION = 1
 RESOURCE_MIGRATION_VERSION = 2
+MEMBERSHIP_MIGRATION_VERSION = 3
 WORKSPACE_TABLES = {"workspaces", "workspace_memberships"}
 RESOURCE_TABLES = {"workspace_projects", "workspace_chats", "workspace_messages"}
+MEMBERSHIP_TABLES = {"workspace_membership_requests", "workspace_membership_events"}
 RESOURCE_INDEXES = {
     "personal_workspace_per_creator_idx",
     "workspace_projects_owner_updated_idx",
     "workspace_chats_owner_updated_idx",
     "workspace_messages_chat_idx",
+}
+MEMBERSHIP_INDEXES = {
+    "workspace_membership_pending_unique_idx",
+    "workspace_membership_requests_status_idx",
+    "workspace_membership_events_workspace_idx",
 }
 
 
@@ -164,6 +171,46 @@ def _resource_schema_statements():
     )
 
 
+def _membership_schema_statements():
+    return (
+        """CREATE TABLE workspace_membership_requests (
+            id TEXT PRIMARY KEY CHECK(length(id) BETWEEN 1 AND 128),
+            workspace_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('pending', 'approved', 'rejected')),
+            requested_at REAL NOT NULL,
+            decided_by TEXT,
+            decided_at REAL,
+            CHECK (
+                (status = 'pending' AND decided_by IS NULL AND decided_at IS NULL) OR
+                (status IN ('approved', 'rejected') AND decided_by IS NOT NULL AND decided_at IS NOT NULL)
+            ),
+            FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT,
+            FOREIGN KEY(decided_by) REFERENCES users(id) ON DELETE RESTRICT
+        )""",
+        "CREATE UNIQUE INDEX workspace_membership_pending_unique_idx "
+        "ON workspace_membership_requests(workspace_id, user_id) WHERE status = 'pending'",
+        "CREATE INDEX workspace_membership_requests_status_idx "
+        "ON workspace_membership_requests(workspace_id, status, requested_at)",
+        """CREATE TABLE workspace_membership_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            workspace_id TEXT NOT NULL,
+            subject_user_id TEXT NOT NULL,
+            actor_user_id TEXT NOT NULL,
+            action TEXT NOT NULL CHECK(action IN ('requested', 'approved', 'rejected', 'revoked', 'personal_created', 'official_created')),
+            occurred_at REAL NOT NULL,
+            request_id TEXT,
+            FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE RESTRICT,
+            FOREIGN KEY(subject_user_id) REFERENCES users(id) ON DELETE RESTRICT,
+            FOREIGN KEY(actor_user_id) REFERENCES users(id) ON DELETE RESTRICT,
+            FOREIGN KEY(request_id) REFERENCES workspace_membership_requests(id) ON DELETE RESTRICT
+        )""",
+        "CREATE INDEX workspace_membership_events_workspace_idx "
+        "ON workspace_membership_events(workspace_id, occurred_at, id)",
+    )
+
+
 def _upgrade_registry(db_path):
     conn = connect(db_path)
     try:
@@ -221,7 +268,10 @@ def _upgrade_resources(db_path):
         tables = _tables(conn)
         indexes = _indexes(conn)
         if RESOURCE_MIGRATION_VERSION in versions:
-            if versions != [MIGRATION_VERSION, RESOURCE_MIGRATION_VERSION]:
+            if versions not in (
+                [MIGRATION_VERSION, RESOURCE_MIGRATION_VERSION],
+                [MIGRATION_VERSION, RESOURCE_MIGRATION_VERSION, MEMBERSHIP_MIGRATION_VERSION],
+            ):
                 raise WorkspaceMigrationError("unsupported workspace migration history")
             if not RESOURCE_TABLES.issubset(tables) or not RESOURCE_INDEXES.issubset(indexes):
                 raise WorkspaceMigrationError("v2 is recorded but its schema is incomplete")
@@ -264,15 +314,62 @@ def _upgrade_resources(db_path):
         conn.close()
 
 
+def _upgrade_membership(db_path):
+    conn = connect(db_path)
+    try:
+        if MIGRATION_TABLE not in _tables(conn):
+            raise WorkspaceMigrationError("workspace resource v2 must be applied first")
+        conn.execute("BEGIN IMMEDIATE")
+        versions = _versions(conn)
+        if versions[:2] != [MIGRATION_VERSION, RESOURCE_MIGRATION_VERSION]:
+            raise WorkspaceMigrationError("workspace resource v2 must be applied first")
+        tables = _tables(conn)
+        indexes = _indexes(conn)
+        if MEMBERSHIP_MIGRATION_VERSION in versions:
+            if versions != [MIGRATION_VERSION, RESOURCE_MIGRATION_VERSION, MEMBERSHIP_MIGRATION_VERSION]:
+                raise WorkspaceMigrationError("unsupported workspace migration history")
+            if not MEMBERSHIP_TABLES.issubset(tables) or not MEMBERSHIP_INDEXES.issubset(indexes):
+                raise WorkspaceMigrationError("v3 is recorded but its schema is incomplete")
+            conn.commit()
+            return False
+        if versions != [MIGRATION_VERSION, RESOURCE_MIGRATION_VERSION]:
+            raise WorkspaceMigrationError("unsupported workspace migration version")
+        collisions = MEMBERSHIP_TABLES.intersection(tables)
+        if collisions:
+            raise WorkspaceMigrationError(
+                "untracked membership table(s) already exist: " + ", ".join(sorted(collisions))
+            )
+        index_collisions = MEMBERSHIP_INDEXES.intersection(indexes)
+        if index_collisions:
+            raise WorkspaceMigrationError(
+                "untracked membership index(es) already exist: " + ", ".join(sorted(index_collisions))
+            )
+        for statement in _membership_schema_statements():
+            conn.execute(statement)
+        conn.execute(
+            f"INSERT INTO {MIGRATION_TABLE}(version, name, applied_at) VALUES (?, ?, ?)",
+            (MEMBERSHIP_MIGRATION_VERSION, "workspace_membership_approval_v3", time.time()),
+        )
+        conn.commit()
+        return True
+    except Exception:
+        if conn.in_transaction:
+            conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def upgrade(db_path=DEFAULT_DB):
-    """Apply registry v1 and fresh workspace-resource v2 atomically per version."""
+    """Apply the additive registry, resource and membership migrations per version."""
     changed_registry = _upgrade_registry(db_path)
     changed_resources = _upgrade_resources(db_path)
-    return changed_registry or changed_resources
+    changed_membership = _upgrade_membership(db_path)
+    return changed_registry or changed_resources or changed_membership
 
 
 def downgrade(db_path=DEFAULT_DB):
-    """Remove v2 then v1 only when all workspace-owned data is empty."""
+    """Remove v3, v2 then v1 only when each workspace-owned layer is empty."""
     conn = connect(db_path)
     try:
         if MIGRATION_TABLE not in _tables(conn):
@@ -281,6 +378,31 @@ def downgrade(db_path=DEFAULT_DB):
         versions = _versions(conn)
         changed = False
         tables = _tables(conn)
+        if MEMBERSHIP_MIGRATION_VERSION in versions:
+            if versions != [MIGRATION_VERSION, RESOURCE_MIGRATION_VERSION, MEMBERSHIP_MIGRATION_VERSION]:
+                raise WorkspaceMigrationError("downgrade newer workspace migrations first")
+            if not MEMBERSHIP_TABLES.issubset(tables) or not MEMBERSHIP_INDEXES.issubset(_indexes(conn)):
+                raise WorkspaceMigrationError("v3 migration record exists but membership tables are missing")
+            has_membership_rows = any(
+                conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone()
+                for table in ("workspace_membership_events", "workspace_membership_requests")
+            )
+            if has_membership_rows:
+                raise UnsafeWorkspaceDowngrade(
+                    "membership requests or audit events exist; preserve the membership decision history before downgrade"
+                )
+            conn.execute("DROP INDEX IF EXISTS workspace_membership_events_workspace_idx")
+            conn.execute("DROP INDEX IF EXISTS workspace_membership_requests_status_idx")
+            conn.execute("DROP INDEX IF EXISTS workspace_membership_pending_unique_idx")
+            conn.execute("DROP TABLE workspace_membership_events")
+            conn.execute("DROP TABLE workspace_membership_requests")
+            conn.execute(
+                f"DELETE FROM {MIGRATION_TABLE} WHERE version = ?",
+                (MEMBERSHIP_MIGRATION_VERSION,),
+            )
+            changed = True
+            versions = _versions(conn)
+            tables = _tables(conn)
         if RESOURCE_MIGRATION_VERSION in versions:
             if versions != [MIGRATION_VERSION, RESOURCE_MIGRATION_VERSION]:
                 raise WorkspaceMigrationError("downgrade newer workspace migrations first")

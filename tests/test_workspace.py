@@ -67,7 +67,9 @@ class WorkspaceDatabaseTests(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_projects").fetchone()[0], 0)
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_chats").fetchone()[0], 0)
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_messages").fetchone()[0], 0)
-            self.assertEqual(conn.execute(f"SELECT COUNT(*) FROM {store.MIGRATION_TABLE}").fetchone()[0], 2)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_membership_requests").fetchone()[0], 0)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_membership_events").fetchone()[0], 0)
+            self.assertEqual(conn.execute(f"SELECT COUNT(*) FROM {store.MIGRATION_TABLE}").fetchone()[0], 3)
             for table in ("chats", "projects", "messages"):
                 columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
                 self.assertNotIn("workspace_id", columns)
@@ -78,6 +80,42 @@ class WorkspaceDatabaseTests(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT content FROM messages WHERE id=1").fetchone()[0], "legacy message")
             self.assertEqual(conn.execute("SELECT name FROM projects WHERE id='legacy-p1'").fetchone()[0], "Existing project")
             self.assertEqual(conn.execute("SELECT data FROM settings WHERE user='u1'").fetchone()[0], '{"theme":"dark"}')
+
+    def test_v3_upgrade_preserves_an_existing_v2_workspace_and_legacy_database(self):
+        existing_v2 = Path(self.temp.name) / "existing-v2.db"
+        create_legacy_database(existing_v2)
+        self.assertTrue(store._upgrade_registry(existing_v2))
+        self.assertTrue(store._upgrade_resources(existing_v2))
+        with store.connect(existing_v2) as conn:
+            insert_workspace(conn, "p1", "PERSONAL", "Personal", "u1")
+            insert_membership(conn, "p1", "u1", role="owner")
+            conn.execute(
+                """INSERT INTO workspace_projects
+                   (workspace_id,id,owner_user_id,name,instructions,created_at,updated_at)
+                   VALUES ('p1','wp1','u1','Workspace project','kept',1,1)"""
+            )
+            conn.execute(
+                """INSERT INTO workspace_chats
+                   (workspace_id,id,owner_user_id,project_id,title,pinned,created_at,updated_at)
+                   VALUES ('p1','wc1','u1','wp1','Workspace chat',0,1,1)"""
+            )
+            conn.execute(
+                """INSERT INTO workspace_messages
+                   (workspace_id,chat_id,owner_user_id,author_user_id,role,content,created_at)
+                   VALUES ('p1','wc1','u1','u1','user','kept message',1)"""
+            )
+            self.assertEqual(conn.execute(f"SELECT COUNT(*) FROM {store.MIGRATION_TABLE}").fetchone()[0], 2)
+        self.assertTrue(store.upgrade(existing_v2))
+        with store.connect(existing_v2) as conn:
+            self.assertEqual(conn.execute(f"SELECT COUNT(*) FROM {store.MIGRATION_TABLE}").fetchone()[0], 3)
+            self.assertEqual(conn.execute("SELECT status FROM workspace_memberships WHERE workspace_id='p1' AND user_id='u1'").fetchone()[0], "active")
+            self.assertEqual(conn.execute("SELECT name FROM workspace_projects WHERE id='wp1'").fetchone()[0], "Workspace project")
+            self.assertEqual(conn.execute("SELECT title FROM workspace_chats WHERE id='wc1'").fetchone()[0], "Workspace chat")
+            self.assertEqual(conn.execute("SELECT content FROM workspace_messages WHERE chat_id='wc1'").fetchone()[0], "kept message")
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_membership_requests").fetchone()[0], 0)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspace_membership_events").fetchone()[0], 0)
+            self.assertEqual(conn.execute("SELECT content FROM messages WHERE id=1").fetchone()[0], "legacy message")
+            self.assertEqual(conn.execute("SELECT name FROM projects WHERE id='legacy-p1'").fetchone()[0], "Existing project")
 
     def test_foreign_keys_are_enabled_for_each_workspace_connection(self):
         with store.connect(self.db_path) as conn:
@@ -104,6 +142,8 @@ class WorkspaceDatabaseTests(unittest.TestCase):
             tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             self.assertNotIn("workspaces", tables)
             self.assertNotIn("workspace_memberships", tables)
+            self.assertNotIn("workspace_membership_requests", tables)
+            self.assertNotIn("workspace_membership_events", tables)
             self.assertNotIn("workspace_projects", tables)
             self.assertNotIn("workspace_chats", tables)
             self.assertNotIn("workspace_messages", tables)
@@ -120,7 +160,7 @@ class WorkspaceDatabaseTests(unittest.TestCase):
             store.downgrade(self.db_path)
         with store.connect(self.db_path) as conn:
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM workspaces WHERE id='p1'").fetchone()[0], 1)
-            self.assertEqual(conn.execute(f"SELECT COUNT(*) FROM {store.MIGRATION_TABLE}").fetchone()[0], 2)
+            self.assertEqual(conn.execute(f"SELECT COUNT(*) FROM {store.MIGRATION_TABLE}").fetchone()[0], 3)
 
     def test_database_allows_at_most_one_personal_workspace_per_account(self):
         with store.connect(self.db_path) as conn:
@@ -193,10 +233,22 @@ class WorkspaceApiIsolationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual([row["id"] for row in response.json()], ["p1"])
 
-    def test_unauthenticated_and_self_service_membership_mutations_are_denied(self):
+    def test_personal_creation_is_explicit_and_official_membership_is_not_self_service(self):
         self.assertEqual(self.client.get("/api/v1/workspaces").status_code, 401)
-        response = self.client.post("/api/v1/workspaces", headers={"x-test-user": "u1"})
-        self.assertEqual(response.status_code, 405)
+        self.assertEqual(self.client.post("/api/v1/workspaces", json={}).status_code, 401)
+        headers = {"x-test-user": "u2", "Origin": "http://testserver"}
+        created = self.client.post("/api/v1/workspaces", headers=headers, json={})
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.json()["type"], "PERSONAL")
+        self.assertEqual(created.json()["role"], "owner")
+        self.assertEqual(created.headers["cache-control"], "private, no-store")
+        self.assertEqual(self.client.post("/api/v1/workspaces", headers=headers, json={}).status_code, 409)
+        self.assertEqual(
+            self.client.post(
+                "/api/v1/workspaces", headers={"x-test-user": "u1", "Origin": "https://attacker.example"}, json={}
+            ).status_code,
+            403,
+        )
 
 
 if __name__ == "__main__":
