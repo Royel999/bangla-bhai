@@ -769,16 +769,30 @@ def lk_code(request:Request):
     with _pc_db() as c:
         c.execute("delete from link_codes where exp<?",(now,))
         c.execute("insert or replace into link_codes values(?,?,0)",(hashlib.sha256(code.encode()).hexdigest(),now+600))
+    try:
+        with db() as c: c.execute("delete from ratelimit where k like 'claimfail:%'")  # owner issued a fresh code: reset failed-claim counters
+    except Exception: pass
     audit(ev="link_code_issued"); return {"code":code,"expires_in":600,"deeplink":"royallink://pair?code="+code}
 @app.post("/bb/link/claim")
 async def lk_claim(request:Request):
     if not FL.on("feat_devices"): return JSONResponse({"error":FL.OFF_MSG["feat_devices"]},403)
-    if not rate_ok("claim:"+cip(request),10,3600): return JSONResponse({"error":"rate limited"},429)
-    b=await request.json(); code=re.sub(r"\D","",str(b.get("code","")))[:6]
+    ip=cip(request)
+    def _fails(k,win):
+        try:
+            with db() as c: return c.execute("select count(*) from ratelimit where k=? and t>?",(k,time.time()-win)).fetchone()[0]
+        except Exception: return 0
+    # only FAILED claims count; per-IP 15 / 10 min, global 60 / 10 min (6-digit codes, 10-min life, one-time)
+    if _fails("claimfail:"+ip,600)>=15 or _fails("claimfail:*",600)>=60:
+        return JSONResponse({"error":"Too many wrong codes. Tap 'Pair this phone' on the site for a new code, then try again."},429)
+    try: b=await request.json()
+    except Exception: b={}
+    code=re.sub(r"\D","",str(b.get("code","")))[:6]
     h=hashlib.sha256(code.encode()).hexdigest()
     with _pc_db() as c:
         r=c.execute("select exp,used from link_codes where h=?",(h,)).fetchone()
-        if not r or int(r["used"]) or float(r["exp"])<time.time(): audit(ev="link_claim_bad"); return JSONResponse({"error":"Code wrong or expired — make a new one on the site"},400)
+        if not r or int(r["used"]) or float(r["exp"])<time.time():
+            rate_ok("claimfail:"+ip,10**6,600); rate_ok("claimfail:*",10**6,600)
+            audit(ev="link_claim_bad"); return JSONResponse({"error":"Code wrong or expired — make a new one on the site"},400)
         c.execute("update link_codes set used=1 where h=?",(h,))
     did,tok=AG.pair_request(str(b.get("name","phone"))[:60],"phone",{"client":"royal-link-a11y","via":"code"})
     AG.pair_decide(did,True)  # owner pre-approved by creating the code; each action still needs Approve (sentinel)
