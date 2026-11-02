@@ -26,3 +26,11 @@
 venv/bin/python scripts/smoke_device_hub.py
 python3 -m venv /tmp/rltest && /tmp/rltest/bin/pip install websocket-client websockets && /tmp/rltest/bin/python scripts/e2e_tray_reconnect.py
 ```
+
+## Phase C — live view (added)
+- **Frames stored as files**, not DB blobs: `data/live_frames/<device>/<uuid>.jpg|png` (JPEG/PNG magic checked, ≤600 KB, newest 60 per device kept, git-ignored). Served only via admin-only `GET /bb/link/frame/{device}/{file}` (no-store).
+- Frames are accepted only when the owner turned **Live frames ON** for that device (`POST /bb/api/devices/{id}/live {"on":true}`; default OFF, resets OFF on server restart, audited `link_live_toggle`). The server pushes `{"type":"live","on":..}` to the tray; the tray then sends 480px q40 frames every 3s **only while a job runs**. `BB_LIVE_FRAMES=1` on the PC still works as a local override.
+- Server adds a `thinking` step ("পাঠানো হলো / sent: action") on dispatch; screenshot results add a `screenshot` step with the image URL.
+- `GET /bb/link/steps?device=&since=` (admin-only now) → `{online, live, steps[{t,cid,phase,text,frame?}], latest_frame, now}`.
+- **Live view page:** `/bb/live` (admin-only) — device picker, Connected/Offline pill, Bengali+English step timeline, latest screen, live-frame toggle. Polls every 1.5s.
+- Permissions untouched: the toggle only controls frames; Ask/Always/Never still gate every action.

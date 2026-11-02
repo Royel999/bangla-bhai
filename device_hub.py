@@ -58,3 +58,27 @@ async def next_job(q,did):
         job=await q.get()
         if expired(job): _audit(ev="link_drop",device=did,cid=job.get("cid"),why="ttl"); continue
         return stamp(job)
+
+# ---- Phase C: live frames (owner opt-in per device, default OFF) ----
+import os, re, base64, uuid
+FRAME_DIR=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data","live_frames")
+FRAME_MAX=600*1024; FRAME_KEEP=60
+LIVE_ON=set()          # device ids where owner turned live frames on (memory; resets to OFF on restart)
+WS_SEND={}             # did -> async send_json of current session
+def save_frame(did,b64):
+    """Write a JPEG/PNG frame to data/live_frames/<did>/, keep newest FRAME_KEEP. Returns file name or None."""
+    if not re.fullmatch(r"[0-9a-zA-Z_-]{1,40}",did or ""): return None
+    try: data=base64.b64decode(b64,validate=False)
+    except Exception: return None
+    if len(data)>FRAME_MAX: return None
+    ext="jpg" if data.startswith(b"\xff\xd8\xff") else "png" if data.startswith(b"\x89PNG") else None
+    if not ext: return None
+    d=os.path.join(FRAME_DIR,did); os.makedirs(d,exist_ok=True)
+    fs=sorted((os.path.join(d,x) for x in os.listdir(d)),key=os.path.getmtime)
+    for old in fs[:max(0,len(fs)-FRAME_KEEP+1)]:
+        try: os.remove(old)
+        except OSError: pass
+    fn=uuid.uuid4().hex+"."+ext; open(os.path.join(d,fn),"wb").write(data); return fn
+def frame_path(did,fn):
+    if not re.fullmatch(r"[0-9a-zA-Z_-]{1,40}",did or "") or not re.fullmatch(r"[0-9a-f]{32}\.(jpg|png)",fn or ""): return None
+    p=os.path.join(FRAME_DIR,did,fn); return p if os.path.isfile(p) else None

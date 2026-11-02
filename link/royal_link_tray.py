@@ -13,6 +13,7 @@ KIND="laptop"
 STATUS={"text":"সংযোগ হচ্ছে… / Connecting…","live":None,"state":"connecting"}
 APP="The Royal Bengal Tiger"
 LIVE_FRAMES=os.environ.get("BB_LIVE_FRAMES")=="1"   # bandwidth-aware: default off
+LIVE_SRV=[False]   # owner toggle from server (/bb/live page), default off
 SEND=[None]   # current ws send fn for step events
 ST_TXT={"connected":"✅ সংযুক্ত / Connected","reconnecting":"🔄 আবার সংযোগ / Reconnecting","offline":"⛔ অফলাইন / Offline","connecting":"সংযোগ হচ্ছে… / Connecting…"}
 def set_state(st,extra=""):
@@ -61,7 +62,7 @@ def do(action,args):
             banner(f"শেল: {args.get('cmd','')[:80]}")
             p=subprocess.run(args["cmd"],shell=True,capture_output=True,text=True,timeout=60)
             return {"text":(p.stdout+p.stderr)[-4000:] or "(খালি)"}
-        if action=="screenshot":
+        if action=="screenshot":  # also streamed to live view as a step frame
             # on-demand, low-res (ngrok 1GB/mo) — max width 960
             banner("স্ক্রিনশট (কম রেজো)"); import mss
             from PIL import Image; import io
@@ -120,7 +121,7 @@ RESULTS={}   # cid -> last result, resent if the server re-delivers after a drop
 def run_job(job,send):
     cid=job["cid"]; stop=threading.Event()
     step(cid,"running",job.get("action",""))
-    if LIVE_FRAMES:  # low-res frame every 3s while this job runs; stops with the job
+    if LIVE_FRAMES or LIVE_SRV[0]:  # low-res frame every 3s while this job runs; stops with the job
         def frames():
             while not stop.wait(3):
                 try: send(json.dumps({"type":"step","cid":cid,"phase":"screenshot","text":"live","frame_b64":_grab_small()}))
@@ -147,7 +148,8 @@ def loop_ws(tok):
         except Exception: return
         ty=job.get("type")
         if ty=="ping": ws.send(json.dumps({"type":"pong","t":job.get("t")})); return
-        if ty in("hello","pong"): return
+        if ty in("hello","live"): LIVE_SRV[0]=bool(job.get("live" if ty=="hello" else "on")); return
+        if ty=="pong": return
         cid=job.get("cid")
         if not cid: return
         if cid in done:   # duplicate after resume: never re-run, just resend the result if we have it

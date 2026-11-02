@@ -30,3 +30,15 @@ async def main():
     assert any(e["ev"]=="link_requeue" for e in log) and any(e["ev"]=="link_drop" for e in log)
     print("OK device_hub smoke:",len(log),"audit events")
 asyncio.run(main())
+
+# Phase C: frames
+import tempfile,base64
+DH.FRAME_DIR=tempfile.mkdtemp()
+jpg=base64.b64encode(b"\xff\xd8\xff"+b"0"*100).decode()
+fn=DH.save_frame("dev1",jpg); assert fn and DH.frame_path("dev1",fn)
+assert DH.save_frame("../x",jpg) is None and DH.save_frame("dev1",base64.b64encode(b"MZhack").decode()) is None
+assert DH.frame_path("dev1","../../etc/passwd") is None
+DH.FRAME_KEEP=3
+for _ in range(6): DH.save_frame("dev1",jpg)
+assert len(os.listdir(os.path.join(DH.FRAME_DIR,"dev1")))==3
+print("OK frames")

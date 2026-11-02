@@ -1,0 +1,40 @@
+<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>লাইভ ভিউ · The Royal Bengal Tiger</title>
+<style>
+body{margin:0;font-family:system-ui,"Noto Sans Bengali",sans-serif;background:#0b1020;color:#e8ecf5}
+header{padding:12px 16px;background:#111a33;border-bottom:1px solid #26335c;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+h1{font-size:18px;margin:0 auto 0 0;color:#ffd54a}
+select,button{background:#1c2748;color:#e8ecf5;border:1px solid #33437a;border-radius:8px;padding:6px 10px;font-size:14px}
+.pill{padding:3px 10px;border-radius:99px;font-size:13px}.on{background:#14532d}.off{background:#3f3f46}
+main{display:grid;grid-template-columns:minmax(260px,1fr) 2fr;gap:12px;padding:12px}
+@media(max-width:800px){main{grid-template-columns:1fr}}
+.card{background:#111a33;border:1px solid #26335c;border-radius:12px;padding:12px}
+#tl{list-style:none;margin:0;padding:0;max-height:70vh;overflow:auto}
+#tl li{padding:6px 4px;border-bottom:1px solid #1d2747;font-size:14px}
+.ph{display:inline-block;min-width:92px;font-weight:600}
+.thinking{color:#93c5fd}.running{color:#fde047}.screenshot{color:#c4b5fd}.done{color:#86efac}.error{color:#fca5a5}
+#shot{width:100%;border-radius:8px;background:#000;min-height:200px;object-fit:contain}
+small{color:#93a0c4}
+</style></head><body>
+<header><h1>♛ লাইভ ভিউ · Live view</h1>
+<select id="dev"></select><span id="st" class="pill off">—</span>
+<label><input type="checkbox" id="live"> লাইভ ফ্রেম (কম রেজো) · Live frames</label></header>
+<main><section class="card"><b>ধাপগুলো · Steps</b><ul id="tl"></ul></section>
+<section class="card"><b>সর্বশেষ স্ক্রিন · Latest screen</b><br><img id="shot" alt="এখনো কোনো ছবি নেই / no frame yet"><br>
+<small>লাইভ ফ্রেম ডিফল্ট বন্ধ; শুধু কাজ চলার সময় পাঠানো হয়। অনুমতি (Ask/Always) বদলায় না। · Frames are off by default, only sent while a job runs; permissions are unchanged.</small></section></main>
+<script>
+const L={thinking:"ভাবছে",running:"চলছে",screenshot:"স্ক্রিন",done:"শেষ",error:"ত্রুটি"};
+let dev="",since=0;const tl=document.getElementById("tl");
+async function devices(){const r=await fetch("/bb/api/devices");const j=await r.json();const s=document.getElementById("dev");
+ s.innerHTML="";for(const d of j.devices){if(d.id==="box"||d.status!=="approved")continue;const o=document.createElement("option");o.value=d.id;o.textContent=d.name+(d.online?" ✅":" ⛔");s.appendChild(o)}
+ dev=s.value;s.onchange=()=>{dev=s.value;since=0;tl.innerHTML="";document.getElementById("shot").removeAttribute("src")}}
+async function poll(){if(!dev)return;try{const r=await fetch("/bb/link/steps?device="+encodeURIComponent(dev)+"&since="+since);if(!r.ok)return;const j=await r.json();
+ const st=document.getElementById("st");st.textContent=j.online?"সংযুক্ত · Connected":"অফলাইন · Offline";st.className="pill "+(j.online?"on":"off");
+ document.getElementById("live").checked=j.live;
+ for(const e of j.steps){since=Math.max(since,e.t);if(e.phase==="screenshot"&&e.text==="live")continue;
+  const li=document.createElement("li");const tm=new Date(e.t*1000).toLocaleTimeString("bn-BD");
+  li.innerHTML=`<span class="ph ${e.phase}">${L[e.phase]||e.phase}</span> <small>${tm} · ${e.cid}</small><br>`;li.append(document.createTextNode(e.text||""));tl.prepend(li)}
+ if(j.latest_frame){const im=document.getElementById("shot");if(im.dataset.src!==j.latest_frame){im.src=j.latest_frame;im.dataset.src=j.latest_frame}}}catch(e){}}
+document.getElementById("live").onchange=async e=>{if(!dev)return;await fetch("/bb/api/devices/"+dev+"/live",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({on:e.target.checked})})};
+devices().then(poll);setInterval(poll,1500);setInterval(devices,30000);
+</script></body></html>

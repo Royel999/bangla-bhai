@@ -31,3 +31,4 @@ logs/
 .persist_state.json*
 .standby_sync.json*
 data.db.*
+data/live_frames/

@@ -877,13 +877,14 @@ async def lk_ws(ws: WebSocket):
     if not d or d["status"]!="approved": await ws.close(code=4403); return
     did=d["id"]; sid=uuid.uuid4().hex[:8]
     q=AG.LINK_Q.setdefault(did,asyncio.Queue()); DH.open_session(did,sid); audit(ev="link_ws_open",device=did)
-    try: await ws.send_json({"type":"hello","hb":DH.HB_INTERVAL,"timeout":DH.HB_TIMEOUT,"resume":True})
+    DH.WS_SEND[did]=ws.send_json
+    try: await ws.send_json({"type":"hello","hb":DH.HB_INTERVAL,"timeout":DH.HB_TIMEOUT,"resume":True,"live":did in DH.LIVE_ON})
     except Exception: pass
     async def push():
         while DH.is_current(did,sid):
             job=await DH.next_job(q,did)
             if not DH.is_current(did,sid): q.put_nowait(job); return
-            DH.mark_sent(did,job); await ws.send_json(job)
+            DH.mark_sent(did,job); DH.add_step(did,{"phase":"thinking","cid":job["cid"],"text":"পাঠানো হলো / sent: "+str(job.get("action",""))}); await ws.send_json(job)
             audit(ev="link_dispatch",device=did,action=job["action"],via="ws",attempt=job["attempt"])
     async def heart():
         while True:
@@ -900,7 +901,14 @@ async def lk_ws(ws: WebSocket):
             if ty=="ping": await ws.send_json({"type":"pong","t":time.time()}); continue
             if ty in("pong","ack"): continue
             if ty=="step":
-                if rate_ok("linkstep:"+did,600,3600) and DH.add_step(did,b): audit(ev="link_step",device=did,phase=b.get("phase"))
+                fr=b.pop("frame_b64",None)
+                if not rate_ok("linkstep:"+did,1500,3600): continue
+                if fr and did in DH.LIVE_ON and isinstance(fr,str):
+                    fn=DH.save_frame(did,fr)
+                    if fn: b["frame"]=f"/bb/link/frame/{did}/{fn}"
+                e=DH.add_step(did,b)
+                if e and b.get("frame"): e["frame"]=b["frame"]
+                if e and e["phase"]!="screenshot": audit(ev="link_step",device=did,phase=e["phase"])
                 continue
             cid=b.get("cid"); f=AG.LINK_RES.get(cid); r=b.get("result") or {}
             if AG.LINK_OWN.get(cid) not in (None,did): continue
@@ -910,20 +918,45 @@ async def lk_ws(ws: WebSocket):
             try: save_shot(r)
             except ValueError as e: r={"error":str(e)}
             audit(ev="link_result",device=did,ok=not r.get("error"),via="ws")
+            if r.get("image"): DH.add_step(did,{"phase":"screenshot","cid":cid,"text":"স্ক্রিনশট / screenshot"}) and DH.steps(did)[-1].__setitem__("frame",r["image"])
             if f and not f.done(): f.set_result(r)
             AG.dev_by_token(tok)  # touch last_seen
     except (WebSocketDisconnect,RuntimeError): pass
     finally:
+        if DH.is_current(did,sid): DH.WS_SEND.pop(did,None)
         t.cancel(); h.cancel(); DH.close_session(did,sid,q); audit(ev="link_ws_close",device=did)
 
 @app.get("/bb/link/steps")
 def lk_steps(request:Request,device:str,since:float=0):
-    """Live step feed for the UI (owner only)."""
-    u=need(request)
-    if not is_owner_uid(u): return JSONResponse({"error":"forbidden"},403)
+    """Live step feed for the UI (admin/owner only): steps (+frame URLs) and the latest frame."""
+    need_admin(request)
     import device_hub as DH
-    return {"device":device,"online":DH.online(device),"steps":DH.steps(device,since)}
-
+    st=DH.steps(device,since); allst=DH.steps(device)
+    last=next((e["frame"] for e in reversed(allst) if e.get("frame")),None)
+    return {"device":device,"online":DH.online(device),"live":device in DH.LIVE_ON,"steps":st,"latest_frame":last,"now":time.time()}
+@app.get("/bb/link/frame/{did}/{fn}")
+def lk_frame(request:Request,did:str,fn:str):
+    need_admin(request)
+    import device_hub as DH
+    p=DH.frame_path(did,fn)
+    if not p: return Response(status_code=404)
+    return FileResponse(p,headers={"Cache-Control":"private, no-store"})
+@app.post("/bb/api/devices/{did}/live")
+async def dv_live(request:Request,did:str):
+    """Owner toggle for low-res live frames during jobs. Default OFF; only affects frames, never permissions."""
+    need_admin(request); b=await request.json(); on=bool(b.get("on"))
+    import device_hub as DH
+    (DH.LIVE_ON.add if on else DH.LIVE_ON.discard)(did); audit(ev="link_live_toggle",device=did,on=on)
+    f=DH.WS_SEND.get(did)
+    if f:
+        try: await f({"type":"live","on":on})
+        except Exception: pass
+    return {"ok":True,"live":on}
+app.router.routes.insert(0,app.router.routes.pop())  # must win over /bb/api/devices/{did}/{act}
+@app.get("/bb/live")
+def live_page(request:Request):
+    need_admin(request)
+    return FileResponse(BASE+"/static/live_view.html",headers={"Cache-Control":"no-store"})
 @app.get("/bb/link/{fn}")
 def lk_file(fn:str):
     if fn not in("royal_link.py","royal_link_termux.sh","royal_link_tray.py","install_termux.sh","README.md","SHIZUKU_BN.md"): return Response(status_code=404)
