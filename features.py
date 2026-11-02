@@ -22,11 +22,15 @@ def setup(app,H):
     async def mem_add(request:Request):
         u=need(request); b=await request.json()
         if not H["rate_ok"](f"mem:{u}",60,3600): return JSONResponse({"error":"Too many changes"},429)
-        i=await asyncio.to_thread(MEM.add,u,str(b.get("text",""))[:400],"note","manual")
+        k=str(b.get("kind") or "note"); i=await asyncio.to_thread(MEM.add,u,str(b.get("text",""))[:400],k if k in MEM.KINDS else "note","manual")
         return {"ok":bool(i),"id":i}
     @app.put("/bb/api/memory/{mid}")
     async def mem_upd(request:Request,mid:int):
-        u=need(request); b=await request.json(); ok=await asyncio.to_thread(MEM.update,u,mid,str(b.get("text",""))[:400])
+        u=need(request); b=await request.json()
+        if b.get("kind") and not b.get("text"):
+            ok=MEM.set_kind(u,mid,str(b["kind"])); return {"ok":ok} if ok else JSONResponse({"error":"not found"},404)
+        ok=await asyncio.to_thread(MEM.update,u,mid,str(b.get("text",""))[:400])
+        if ok and b.get("kind"): MEM.set_kind(u,mid,str(b["kind"]))
         return {"ok":ok} if ok else JSONResponse({"error":"not found"},404)
     @app.delete("/bb/api/memory/{mid}")
     def mem_del(request:Request,mid:int):

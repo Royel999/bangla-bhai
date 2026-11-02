@@ -59,8 +59,9 @@ def _backfill(c,u,limit=64):
 async def aembed(texts): return await asyncio.to_thread(embed,texts)
 def _words(t): return set(w for w in re.findall(r"\w+",(t or "").lower()) if len(w)>2)
 # ---------- CRUD (always scoped by user) ----------
+KINDS=("fact","preference","project","note")
 def list_(u):
-    with db() as c: return [dict(id=r["id"],text=r["text"],kind=r["kind"],created=r["created"],updated=r["updated"]) for r in c.execute("select id,text,kind,created,updated from memories where user=? order by updated desc",(u,))]
+    with db() as c: return [dict(id=r["id"],text=r["text"],kind=r["kind"],source=r["source"],created=r["created"],updated=r["updated"]) for r in c.execute("select id,text,kind,source,created,updated from memories where user=? order by updated desc",(u,))]
 def count(u):
     with db() as c: return c.execute("select count(*) n from memories where user=?",(u,)).fetchone()["n"]
 def add(u,text,kind="fact",source="manual"):
@@ -76,6 +77,9 @@ def add(u,text,kind="fact",source="manual"):
         import plans as _PL; cap=_PL.limit(u,"memory") or MAX_PER_USER*100
         if n>cap: c.execute("delete from memories where id in (select id from memories where user=? order by updated asc limit ?)",(u,n-cap))
         return cur.lastrowid
+def set_kind(u,mid,kind):
+    if kind not in KINDS: return False
+    with db() as c: return c.execute("update memories set kind=?,updated=? where id=? and user=?",(kind,time.time(),mid,u)).rowcount>0
 def update(u,mid,text):
     text=re.sub(r"\s+"," ",text or "").strip()[:400]
     if not text: return False
@@ -99,28 +103,35 @@ def _nearest(c,u,text,em,k,ce=None):
     q=_words(text); rows=c.execute("select id,text from memories where user=?",(u,)).fetchall()
     sc=sorted(((r["id"],1-len(q&_words(r["text"]))/max(1,len(q|_words(r["text"]))),r["text"]) for r in rows),key=lambda x:x[1])
     return sc[:k]
-def recall(u,query,k=6,maxd=0.75):
+def recall(u,query,k=6,maxd=0.75,detail=False):
     ce=cembed([query])[0] if query else None
     em=embed([query])[0] if (query and ce is None) else None
     with db() as c:
-        hits=[h for h in _nearest(c,u,query,em,k,ce) if h[1]<=maxd]
+        hits=[h for h in _nearest(c,u,query,em,k,ce) if h[1]<=maxd]; nrel=len(hits)
         if len(hits)<3:   # always include a few most recent profile facts
             seen={h[0] for h in hits}
             for r in c.execute("select id,text from memories where user=? order by updated desc limit 4",(u,)):
                 if r["id"] not in seen and len(hits)<k: hits.append((r["id"],0.99,r["text"]))
+    if detail: return {"texts":[h[2] for h in hits],"relevant":[h[2] for h in hits[:nrel]]}
     return [h[2] for h in hits]
-async def arecall(u,query): return await asyncio.to_thread(recall,u,query)
-EXTRACT=("You extract long-term memory about the USER from their latest message. Return JSON {\"facts\":[...]} with 0-3 short, "
- "durable third-person facts or preferences (name, job, location, family, goals, likes, how they want answers, projects). "
+async def arecall(u,query,detail=False): return await asyncio.to_thread(recall,u,query,6,0.75,detail)
+EXTRACT=("You extract long-term memory about the USER from their latest message. Return JSON {\"facts\":[{\"text\":...,\"kind\":...}]} with 0-3 short, "
+ "durable third-person facts. kind is one of: fact (name, job, location, family), preference (likes, how they want answers), project (ongoing goals or work). "
  "Ignore questions, one-off tasks, small talk, anything about the assistant, secrets, passwords, OTP codes, card or ID numbers. "
  "Write each fact in the same language the user used. If nothing durable, return {\"facts\":[]}.")
 SECRET=re.compile(r"(password|passwd|otp|pin\b|api[_ -]?key|token|পাসওয়ার্ড|\b\d{6}\b|\b\d{12,}\b)",re.I)
-async def extract(u,user_msg,complete):
+def _norm(f):
+    if isinstance(f,str): return f,"fact"
+    if isinstance(f,dict) and isinstance(f.get("text"),str): return f["text"],(f.get("kind") if f.get("kind") in KINDS else "fact")
+    return "",""
+async def extract(u,user_msg,complete,source="chat"):
+    """Learn durable, user-scoped facts from the user's OWN words (chat message or agent goal). Never from tool/web output."""
     if not user_msg or len(user_msg)<8: return []
     try:
         _,t,_=await complete([{"role":"system","content":EXTRACT},{"role":"user","content":user_msg[:2000]}],json_mode=True,timeout=30,tries=1)
-        j=json.loads(t[t.find("{"):t.rfind("}")+1]); facts=[f for f in j.get("facts",[]) if isinstance(f,str) and 4<len(f)<300 and not SECRET.search(f)][:3]
+        j=json.loads(t[t.find("{"):t.rfind("}")+1]); facts=[_norm(f) for f in j.get("facts",[])]
+        facts=[(x,k) for x,k in facts if 4<len(x)<300 and not SECRET.search(x)][:3]
     except Exception: return []
     ids=[]
-    for f in facts: ids.append(await asyncio.to_thread(add,u,f,"fact","chat"))
+    for f,k in facts: ids.append(await asyncio.to_thread(add,u,f,k,source))
     return ids

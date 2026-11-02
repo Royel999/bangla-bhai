@@ -596,9 +596,10 @@ async def stream(request:Request,cid:str):
             try: return await SJ.chat_schedule(u,q,st.get("lang","en"))
             except Exception: return None
         return None
+    MEMUSED=[]
     async def _mem():
         if not st.get("memory",True): return []
-        try: return await asyncio.wait_for(MEM.arecall(u,q),6)
+        try: r=await asyncio.wait_for(MEM.arecall(u,q,True),6); MEMUSED[:]=r["relevant"]; return r["texts"]
         except Exception: return []
     async def _gr():
         try:
@@ -653,6 +654,7 @@ async def stream(request:Request,cid:str):
             notes=[r for r in res if r]; advisors=[n for n,_ in notes]
             if notes: msgs2=msgs+[{"role":"system","content":"কাউন্সিলের পরামর্শদাতাদের মতামত (মিলিয়ে সেরা উত্তর দাও, তাদের কথা উল্লেখ করার দরকার নেই):\n\n"+"\n\n---\n".join(f"[{n}]\n{t[:2500]}" for n,t in notes)}]
             yield "event: advisors\ndata: "+json.dumps(advisors)+"\n\n"
+        if MEMUSED: yield "event: memory\ndata: "+json.dumps({"n":len(MEMUSED),"items":[m[:120] for m in MEMUSED[:3]]})+"\n\n"   # this user's own memories only
         full=""; name="none"; bn=st.get("lang")=="bn"
         try:
           try:
@@ -855,6 +857,12 @@ app.include_router(MD.router)
 import skills_jobs as SJ
 SJ.setup(app,dict(need=need,get_settings=get_settings,db=db,audit=audit,is_owner=is_owner_uid,rate_ok=rate_ok,AG=AG,sysx=lambda u:lang_rule(get_settings(u))+" "+addr_rule(u)+" Write the JSON 'thought' and 'final' fields in that language."))
 AG.ON_DONE.append(SJ.on_agent_done)
+def _mem_on_agent_done(tid):
+    """Personal Intelligence: learn from the goal the user typed (their own words), scoped to that user, if learning is on."""
+    t=AG.get_task(tid) or {}; u=t.get("user")
+    if not u or not get_settings(u).get("memory",True): return
+    asyncio.get_running_loop().create_task(MEM.extract(u,t.get("goal",""),RT.complete,"agent"))
+AG.ON_DONE.append(_mem_on_agent_done)
 # ---- plans/payments/admin dashboard + Telegram ----
 import biz as BZ, tg as TG, ocr as OC
 async def _tg_answer(u,text,ctx=""):

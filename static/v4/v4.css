@@ -273,3 +273,14 @@ input[type=checkbox].tg:checked{background:var(--blue2)}input[type=checkbox].tg:
 .appr.decided{opacity:.8}.appr details{margin-top:6px;font-size:12.5px}.appr details pre{max-height:140px;overflow:auto}
 .hist{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.hist:last-child{border:0}
 @media (prefers-reduced-motion:reduce){.hero .ava,.sealsm,.boot img,.sd.run{animation:none!important}.prog i{transition:none}}
+/* ===== Personal Intelligence ===== */
+.picard{display:flex;gap:12px;align-items:center;width:100%;text-align:left;margin:14px 0 4px;padding:14px;border-radius:18px;border:1px solid rgba(232,173,61,.3);color:#fff;font:inherit;cursor:pointer;background:radial-gradient(60% 120% at 95% 0%,rgba(195,0,3,.35),transparent 60%),linear-gradient(135deg,#006A4E,#002C1D);box-shadow:0 12px 28px -18px rgba(0,106,78,.9)}
+.picard.slim{margin-top:12px}.picard b{display:block;font-size:15px}.picard small{opacity:.85;font-size:12.5px}.picard .tag{background:rgba(255,255,255,.14);color:#fff}.picard .chev{opacity:.7;font-size:22px}
+.pib{width:44px;height:44px;flex:none;border-radius:14px;display:grid;place-items:center;font-size:22px;background:rgba(232,173,61,.18);box-shadow:inset 0 0 0 1px rgba(232,173,61,.4);animation:glow 3.6s ease-in-out infinite}
+.pihero{position:relative;overflow:hidden;display:flex;gap:12px;align-items:center;padding:16px 14px 14px;border-radius:18px;color:#fff;margin:6px 0 12px;background:radial-gradient(60% 120% at 95% 0%,rgba(195,0,3,.35),transparent 60%),linear-gradient(135deg,#006A4E,#002C1D)}
+.pihero .flagline{position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,#006A4E 0 50%,#C30003 50%)}.pihero b{font-size:16px}.pihero small{display:block;opacity:.85;font-size:12.5px;margin-top:2px}
+.mstats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}.mstats div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 6px;text-align:center}.mstats b{display:block;font-size:15px}.mstats span{font-size:11px;color:var(--mut)}
+.memi{display:flex;gap:10px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--line);animation:rise .3s var(--ease) both}.memi .mk{font-size:18px}.memi .mt{display:block;font-size:14px}.memi small{color:var(--mut);font-size:11.5px}
+.memcue{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;margin:0 0 6px;border-radius:999px;border:1px solid rgba(232,173,61,.35);background:rgba(232,173,61,.1);color:var(--gold);font:inherit;font-size:12px;font-weight:600;cursor:pointer;animation:rise .35s var(--ease) both}
+[data-theme=light] .memcue{color:#8a6410}
+@media (prefers-reduced-motion:reduce){.pib{animation:none!important}}
