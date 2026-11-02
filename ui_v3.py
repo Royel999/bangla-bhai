@@ -98,6 +98,17 @@ def setup(app,H):
         if request.cookies.get("bb_classic"): r.delete_cookie("bb_classic")
         r.set_cookie("bb_v3","1",max_age=365*86400,samesite="lax")   # lets the classic UI show a "✨ নতুন UI" link
         return r
+    STATIC4=os.path.join(os.path.dirname(STATIC),'v4')
+    def page4(request:Request):
+        # v4 redesign: owner always; everyone else only when feat_ui_v4 is on (default OFF)
+        u=H["user"](request)
+        if not u: return RedirectResponse("/login",303)
+        if not is_owner(u) and not FL.on("feat_ui_v4"): return RedirectResponse("/v3" if FL.on("feat_ui_v3") else "/app",303)
+        r=FileResponse(STATIC4+"/index.html",headers={"Cache-Control":"no-cache"})
+        if request.cookies.get("bb_classic"): r.delete_cookie("bb_classic")
+        return r
+    for p in ("/v4","/v4/skills","/v4/agents","/v4/agents/{aid}","/v4/activity"):
+        app.add_api_route(p,page4,methods=["GET"])
     for p in ("/v3","/v3/skills","/v3/agents","/v3/agents/{aid}","/v3/activity"):
         app.add_api_route(p,page,methods=["GET"])
     # ---- skills (user) ----
@@ -210,6 +221,7 @@ def setup(app,H):
         # one "back to chat" target for shared pages: v3 for v3 users, classic otherwise
         u=H["user"](request)
         if not u: return RedirectResponse("/login",303)
+        if FL.on("feat_ui_v4"): return RedirectResponse("/v4",303)
         return RedirectResponse("/v3" if (is_owner(u) or FL.on("feat_ui_v3")) else "/app",303)
     # ---- skills (owner) ----
     @app.get("/bb/admin/api/v3/skills")

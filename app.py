@@ -337,6 +337,7 @@ def home(request:Request):
         r=FileResponse(BASE+"/static/index.html",headers={"Cache-Control":"no-cache"})
         if cl=="1": r.set_cookie("bb_classic","1",max_age=30*86400,samesite="lax",httponly=True)
         return r
+    if FL.on("feat_ui_v4"): return RedirectResponse("/v4",303)
     if FL.on("feat_ui_v3"): return RedirectResponse("/v3",303)
     return FileResponse(BASE+"/static/index.html",headers={"Cache-Control":"no-cache"})
 @app.get("/pricing")
@@ -405,7 +406,7 @@ async def _ao(request,exc): return JSONResponse({"error":"owner only"},403)
 @app.get("/bb/health")
 def health():
     out={"ok":True,"node":os.environ.get("BB_NODE","box")}
-    try: out["ui"]="v3" if FL.on("feat_ui_v3") else "classic"
+    try: out["ui"]="v4" if FL.on("feat_ui_v4") else "v3" if FL.on("feat_ui_v3") else "classic"
     except Exception: pass
     try:
         c=sqlite3.connect(DB,timeout=3)
