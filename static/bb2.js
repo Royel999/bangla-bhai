@@ -62,7 +62,7 @@ async function openCam(){let st;try{st=await navigator.mediaDevices.getUserMedia
   c.toBlob(async b=>{toast(L('🖼️ Reading image...','🖼️ ছবি পড়ছি...'));const fd=new FormData();fd.append('file',b,'camera.jpg');const j=await fetch('/bb/api/upload',{method:'POST',body:fd}).then(r=>r.json());if(j.error)return toast(j.error);FILES.push(j);renderAtt();toast(j.note||'✓')},'image/jpeg',.85)}}
 // ---- permission center ----
 const MODEL={ask:L('Ask every time','প্রতিবার জিজ্ঞেস'),once:L('Allow once','একবার অনুমতি'),always:L('Always allow','সবসময় অনুমতি'),off:L('Off','বন্ধ')};
-function permCenter(){return `<div class=row style="display:block"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><b>${t('set.perm')}</b><button class="btn dan" onclick="revokeAll()">${t('set.revoke_all')}</button></div>
+function permCenter(){return `<div class=row style="display:block"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><b>${t('set.perm')}</b>${(typeof isOwner==='function'&&isOwner())?'<a class="btn" href="/bb/live" style="text-decoration:none">📡 লাইভ ভিউ · Live view</a>':''}<button class="btn dan" onclick="revokeAll()">${t('set.revoke_all')}</button></div>
 <p style="font-size:12.5px;color:var(--mut);margin:6px 0">${t('set.perm_d')}</p><div id=perms>${t('set.loading')}</div>
 <div class=pm><h4>➕ ${L('Add a new device (Royal Link)','নতুন ডিভাইস যুক্ত করুন (Royal Link)')}</h4><div style="font-size:12.5px;line-height:1.7">
 <b>${L('Laptop','ল্যাপটপ')} (Windows/Mac/Linux):</b><pre style="white-space:pre-wrap;font-size:11.5px">curl -fsSL ${BB_PUBLIC}/bb/link/royal_link.py -o royal_link.py && python3 royal_link.py</pre>
