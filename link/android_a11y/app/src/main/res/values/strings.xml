@@ -1,0 +1,4 @@
+<resources>
+  <string name="app_name">Royal Link</string>
+  <string name="a11y_desc">The Royal Bengal Tiger reads on-screen text ONLY when you ask it (each request shows an Approve card in the app first) and can type a drafted SMS into your SMS app. It never presses Send, never reads password fields, and stops when you turn this service off. স্ক্রিন পড়া ও SMS লেখা শুধু আপনার অনুমতিতে; Send আপনি নিজে চাপবেন।</string>
+</resources>

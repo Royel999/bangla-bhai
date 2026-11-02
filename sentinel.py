@@ -11,7 +11,7 @@ Multi-way: if audit DB write fails, auditdb still appends audit.jsonl; if both f
 import re
 try: import auditdb as _A
 except Exception: _A=None
-TOOL_CAT={"sms_send":"send","call_make":"send","settings_ctl":"account","app_stop":"account"}
+TOOL_CAT={"sms_send":"send","sms_fill":"send","call_make":"send","settings_ctl":"account","app_stop":"account"}
 _SEND=re.compile(r"(send|email|mail|message|reply|sms|whatsapp|telegram|dm\b|invite)",re.I)
 _POST=re.compile(r"(post|publish|tweet|upload|share|comment|schedule_post)",re.I)
 _PAY=re.compile(r"(pay|charge|checkout|purchase|transfer|refund|invoice|order)",re.I)

@@ -88,6 +88,8 @@ TOOLS={
  "keyevent":("screen","কীইভেন্ট (BACK/HOME/ENTER ইত্যাদি)",{"device":"id","key":"str"}),
  "swipe":("screen","সোয়াইপ",{"device":"id","x1":"int","y1":"int","x2":"int","y2":"int","ms":"int"}),
  "am_start":("full","অ্যাপ খোলা (am start)",{"device":"id","component":"str"}),
+ "screen_read":("screen","Accessibility দিয়ে সামনের স্ক্রিনের লেখা পড়া (Royal Link অ্যাপ; পাসওয়ার্ড ফিল্ড বাদ)",{"device":"id"}),
+ "sms_fill":("sms_send","SMS অ্যাপে নম্বর ও লেখা বসানো — Send বাটন ইউজার নিজে চাপবে (সবসময় অনুমতি কার্ড)",{"device":"id","number":"str","text":"str"}),
  "list_devices":(None,"সংযুক্ত ডিভাইসের তালিকা",{}),
 }
 import sentinel as SN
@@ -225,7 +227,7 @@ SYS="""তুমি 'বাংলা ভাই' — Royal Universe-এর আস
 - ল্যাপটপ/কম্পিউটার/বক্স না বললে এবং ফোন অনলাইন থাকলে শেল/স্ক্রিন/ক্যামেরা/মাইকের জন্য ফোন বেছে নাও।
 - shell টুল: args={{"device":"<id>","cmd":"..."}} — কখনো tool=none নয়।
 - প্রতি ধাপে শুধু একটা JSON:
-{{"thought":"সংক্ষিপ্ত বাংলা ভাবনা","alternatives":["বিকল্প ১","বিকল্প ২"],"action":{{"tool":"shell|web_search|browse|list_devices|screenshot|camera_photo|mic_record|sms_list|sms_send|call_make|call_control|call_log|contacts|notifications|battery|location|sensor|clipboard|settings_ctl|app_list|app_launch|app_stop|open_url|ui_dump|keyevent|click|type_text|swipe|am_start","args":{{...}}}},"why":"কেন"}}
+{{"thought":"সংক্ষিপ্ত বাংলা ভাবনা","alternatives":["বিকল্প ১","বিকল্প ২"],"action":{{"tool":"shell|web_search|browse|list_devices|screenshot|camera_photo|mic_record|sms_list|sms_send|call_make|call_control|call_log|contacts|notifications|battery|location|sensor|clipboard|settings_ctl|app_list|app_launch|app_stop|open_url|ui_dump|screen_read|sms_fill|keyevent|click|type_text|swipe|am_start","args":{{...}}}},"why":"কেন"}}
 - টুলের আসল ফলাফল পাওয়ার আগে final দিও না এবং কল্পিত uname/df আউটপুট লিখো না।
 - শেষ: {{"thought":"...","final":"রয়েলের জন্য বাংলা Markdown উত্তর"}}
 - টুল ব্যর্থ হলে রিপেয়ার করে অন্য পথ চেষ্টা করো। মালিক 'না' বললে সেই কাজ আর করবে না।
@@ -386,7 +388,7 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
         mode=get_perm(dev,cap) if cap else "always"
         if RX: mode="always" if (AUTO_OK and tool=="web_search") else "ask"   # owner's device perms never apply to users
         _sn=SN.category(tool,args)  # Sentinel: send/post/pay/account -> always a card + audit
-        force_card = bool(_sn) or tool in("sms_send","call_make") or (tool=="shell" and args.get("device","box")=="box") or AL.risk(tool,args)=="high"  # destructive/outgoing: always confirm  # outgoing + box shell: always confirm
+        force_card = bool(_sn) or tool in("sms_send","sms_fill","call_make") or (tool=="shell" and args.get("device","box")=="box") or AL.risk(tool,args)=="high"  # destructive/outgoing: always confirm  # outgoing + box shell: always confirm
         if mode=="off": d="no"; ev("blocked",text=f"{CAPS[cap]} এই ডিভাইসে বন্ধ (অনুমতি কেন্দ্র)")
         elif (mode=="always" and not force_card) or tool=="list_devices": d="yes"; cap and ev("auto",text=("নিরাপদ কাজ — অনুমতি ছাড়াই চালাচ্ছি (ওয়েব সার্চ)" if RX else f"'সবসময় অনুমতি' দেওয়া আছে — {CAPS[cap]}"))
         else:
