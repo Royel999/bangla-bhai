@@ -1,4 +1,4 @@
-/* বাংলা ভাই — viz helpers (CSS/SVG/vanilla JS, lightweight) */
+/* দ্য রয়্যাল বেঙ্গল টাইগার — viz helpers (CSS/SVG/vanilla JS, lightweight) */
 (function(){
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 

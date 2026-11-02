@@ -108,11 +108,11 @@ def verify_otp(email, code):
 
 def send_otp_email(email, code):
     """Returns (ok, method, detail). Uses Resend if key, else Gmail SMTP of agent inbox."""
-    subject=f"{code} — Bangla Bhai login code / বাংলা ভাই লগইন কোড"
-    body=(f"Your Bangla Bhai login code: {code}\n"
-          f"আপনার বাংলা ভাই লগইন কোড: {code}\n\n"
+    subject=f"{code} — The Royal Bengal Tiger login code / দ্য রয়্যাল বেঙ্গল টাইগার লগইন কোড"
+    body=(f"Your The Royal Bengal Tiger login code: {code}\n"
+          f"আপনার দ্য রয়্যাল বেঙ্গল টাইগার লগইন কোড: {code}\n\n"
           f"কোডটি ১০ মিনিটের জন্য বৈধ। কেউ চাইলে শেয়ার করবেন না।\n\n"
-          f"— বাংলা ভাই · Royal Universe")
+          f"— দ্য রয়্যাল বেঙ্গল টাইগার · Royal Universe")
     errs=[]
     # 0) Owner's connected Gmail (OAuth gmail.compose) — free, any recipient
     try:
@@ -125,7 +125,7 @@ def send_otp_email(email, code):
     if RESEND.get("RESEND_API_KEY"):
         try:
             import httpx
-            fr=RESEND.get("RESEND_FROM") or "Bangla Bhai <onboarding@resend.dev>"
+            fr=RESEND.get("RESEND_FROM") or "The Royal Bengal Tiger <onboarding@resend.dev>"
             r=httpx.post("https://api.resend.com/emails",
                 headers={"Authorization":"Bearer "+RESEND["RESEND_API_KEY"]},
                 json={"from":fr,"to":[email],"subject":subject,"text":body},timeout=30)
@@ -140,7 +140,7 @@ def send_otp_email(email, code):
     # Skip slow Gmail SMTP when BB_OTP_DEV=1 (local QA); still try Resend above
     if guser and gpw and CFG.get("BB_OTP_DEV")!="1":
         try:
-            msg=EmailMessage(); msg["Subject"]=subject; msg["From"]=f"বাংলা ভাই <{guser}>"; msg["To"]=email
+            msg=EmailMessage(); msg["Subject"]=subject; msg["From"]=f"দ্য রয়্যাল বেঙ্গল টাইগার <{guser}>"; msg["To"]=email
             msg.set_content(body)
             ctx=ssl.create_default_context()
             with smtplib.SMTP("smtp.gmail.com",587,timeout=3) as s:

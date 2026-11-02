@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Bangla Bhai — Royal Universe</title>
+<title>The Royal Bengal Tiger — Royal Universe</title>
 <link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0b1a33"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;650;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="/bb/static/icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="apple-touch-icon" href="/bb/static/icon-180.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/github-dark.min.css">
@@ -85,7 +85,7 @@ body:not(.is-owner) #agentT{display:none!important}
 </style><link rel="stylesheet" href="/bb/static/bb2.css"><link rel="stylesheet" href="/bb/static/viz.css"><script>window.BB_APP=1</script><script src="/bb/static/i18n.js"></script><style>.owner-only{display:none!important}body.is-owner .owner-only{display:flex!important}.abdg{position:fixed;top:8px;right:8px;z-index:50;background:#f4b400;color:#0b1a33;font:700 11px Inter,sans-serif;padding:3px 8px;border-radius:999px;letter-spacing:.06em}</style></head><body>
 <div id="app">
  <aside id="side">
-  <div class="brand"><div class="holo sm"><div class="holo-inner"></div><img src="/bb/static/logo.png" alt="Bangla Bhai"></div><img class="wm" src="/bb/static/wordmark.svg" alt="Bangla Bhai"></div>
+  <div class="brand"><div class="holo sm"><div class="holo-inner"></div><img src="/bb/static/logo.png" alt="The Royal Bengal Tiger"></div><img class="wm" src="/bb/static/wordmark.svg" alt="The Royal Bengal Tiger"></div>
   <button class="sbtn" onclick="newChat()">✚ <span data-i18n="app.new">New chat</span></button>
   <input class="srch" id="srch" data-i18n-ph="app.search" placeholder="🔍 Search chats..." oninput="loadChats()">
   <div class="sec"><span data-i18n="app.projects">Projects</span><button title="+" onclick="newProject()">＋</button></div>
@@ -123,7 +123,7 @@ body:not(.is-owner) #agentT{display:none!important}
   <div id="scroll"><div id="msgs"></div></div>
   <div id="comp"><div class="cbox">
    <div id="att"></div>
-   <textarea id="inp" rows="1" placeholder="Ask Bangla Bhai anything..."></textarea>
+   <textarea id="inp" rows="1" placeholder="Ask The Royal Bengal Tiger anything..."></textarea>
    <div class="crow">
     <button class="ib" title="Attach file (PDF/text/image)" onclick="document.getElementById('file').click()">📎</button>
     <input type="file" id="file" hidden multiple accept=".pdf,.txt,.md,.csv,.json,.html,.py,.js,image/*,text/*">
@@ -132,7 +132,7 @@ body:not(.is-owner) #agentT{display:none!important}
     <span class="sp"></span>
     <button id="send" onclick="sendOrStop()" title="Send (Enter)">➤</button>
    </div></div>
-   <div class="hint" data-i18n="app.hint">Bangla Bhai can make mistakes. Verify important information.</div>
+   <div class="hint" data-i18n="app.hint">The Royal Bengal Tiger can make mistakes. Verify important information.</div>
   </div>
  </main>
 </div>
@@ -140,8 +140,8 @@ body:not(.is-owner) #agentT{display:none!important}
 <div id="toast"></div>
 <script>
 const $=s=>document.querySelector(s);let S={},CH=null,CHATS=[],PROJ=[],FILES=[],ctrl=null,curProject=null;
-const T={bn:{new:"নতুন চ্যাট",projects:"প্রজেক্ট",chats:"চ্যাট",settings:"সেটিংস",pw:"পাসওয়ার্ড বদলান",logout:"লগআউট",council:"কাউন্সিল",ph:"বাংলা ভাইকে কিছু জিজ্ঞেস করুন..."},
- en:{new:"New chat",projects:"Projects",chats:"Chats",settings:"Settings",pw:"Change password",logout:"Log out",council:"Council",ph:"Ask Bangla Bhai anything..."}};
+const T={bn:{new:"নতুন চ্যাট",projects:"প্রজেক্ট",chats:"চ্যাট",settings:"সেটিংস",pw:"পাসওয়ার্ড বদলান",logout:"লগআউট",council:"কাউন্সিল",ph:"দ্য রয়্যাল বেঙ্গল টাইগারকে কিছু জিজ্ঞেস করুন..."},
+ en:{new:"New chat",projects:"Projects",chats:"Chats",settings:"Settings",pw:"Change password",logout:"Log out",council:"Council",ph:"Ask The Royal Bengal Tiger anything..."}};
 const api=async(u,o={})=>{const r=await fetch(u,{headers:{'Content-Type':'application/json'},...o});if(r.status===401){location.href='/login';throw 0}return r.headers.get('content-type')?.includes('json')?r.json():r.text()};
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2200)}
 marked.setOptions({breaks:true,gfm:true});
@@ -177,13 +177,13 @@ async function chatMenu(e,c){menu(e,[[c.pinned?L('📌 Unpin','📌 আনপি
  [L('⬇️ Export Markdown','⬇️ Markdown এক্সপোর্ট'),()=>location.href='/bb/api/chats/'+c.id+'/export.md'],
  [L('🗑️ Delete','🗑️ মুছে ফেলুন'),async()=>{if(await uiConfirm(L('Delete this chat?','এই চ্যাটটা মুছে ফেলবেন?'))){await api('/bb/api/chats/'+c.id,{method:'DELETE'});if(CH&&CH.id===c.id)newChat();loadChats();toast(L('Deleted','মুছে ফেলা হয়েছে'))}}]])}
 async function projMenu(e,p){menu(e,[[L('💬 New chat in this project','💬 এই প্রজেক্টে নতুন চ্যাট'),()=>{curProject=p.id;newChat()}],[L('✏️ Rename','✏️ নাম বদলান'),async()=>{const t=await uiPrompt(L('Name','নাম'),p.name);if(t){await api('/bb/api/projects/'+p.id,{method:'PATCH',body:JSON.stringify({name:t})});loadChats()}}],
- [L('📝 Project instructions','📝 প্রজেক্ট নির্দেশনা'),async()=>{const t=await uiPrompt(L('Instructions Bangla Bhai follows in every chat of this project:','এই প্রজেক্টের সব চ্যাটে বাংলা ভাই যা মেনে চলবে:'),p.instructions||'');if(t!==null){await api('/bb/api/projects/'+p.id,{method:'PATCH',body:JSON.stringify({instructions:t})});loadChats();toast(L('Saved','সেভ হয়েছে'))}}],
+ [L('📝 Project instructions','📝 প্রজেক্ট নির্দেশনা'),async()=>{const t=await uiPrompt(L('Instructions The Royal Bengal Tiger follows in every chat of this project:','এই প্রজেক্টের সব চ্যাটে দ্য রয়্যাল বেঙ্গল টাইগার যা মেনে চলবে:'),p.instructions||'');if(t!==null){await api('/bb/api/projects/'+p.id,{method:'PATCH',body:JSON.stringify({instructions:t})});loadChats();toast(L('Saved','সেভ হয়েছে'))}}],
  [L('🗑️ Delete project','🗑️ প্রজেক্ট মুছুন'),async()=>{if(await uiConfirm(L('Delete project? (chats are kept)','প্রজেক্ট মুছবেন? (চ্যাটগুলো থাকবে)'))){await api('/bb/api/projects/'+p.id,{method:'DELETE'});curProject=null;loadChats()}}]])}
 async function newProject(){const n=await uiPrompt(L('Project name','প্রজেক্টের নাম'));if(!n)return;const i=await uiPrompt(L('Instructions (optional)','নির্দেশনা (ঐচ্ছিক)'))||'';const r=await api('/bb/api/projects',{method:'POST',body:JSON.stringify({name:n,instructions:i})});curProject=r.id;loadChats();toast(L('📁 Project created','📁 প্রজেক্ট তৈরি হয়েছে'))}
 const SUGS=['agent','write','earn','code','tr'];
 function renderEmpty(){const L=bbLang();const nm=isOwner()?t('app.owner'):(BB_ME&&BB_ME.name&&BB_ME.role!=='owner'?BB_ME.name:'');
  const h=nm?t('app.greet',{name:nm}):t('app.greet_guest');
- $('#msgs').innerHTML=`<div id=empty><div class="holo xl"><div class="holo-inner"></div><img src="/bb/static/logo.png" alt="Bangla Bhai"></div><img class="wm big" src="/bb/static/wordmark.svg" alt="Bangla Bhai"><h1></h1><p></p><div class=sugs></div></div>`;
+ $('#msgs').innerHTML=`<div id=empty><div class="holo xl"><div class="holo-inner"></div><img src="/bb/static/logo.png" alt="The Royal Bengal Tiger"></div><img class="wm big" src="/bb/static/wordmark.svg" alt="The Royal Bengal Tiger"><h1></h1><p></p><div class=sugs></div></div>`;
  $('#empty h1').textContent=h;$('#empty p').textContent=t('app.welcome_sub');
  const g=$('.sugs');SUGS.forEach(k=>{const q=t('sug.'+k+'_q');const b=document.createElement('button');b.className='sug';b.innerHTML='<b></b>';b.firstChild.textContent=t('sug.'+k+'_t');b.append(q);b.onclick=()=>{$('#inp').value=q;send()};g.appendChild(b)})}
 function newChat(){CH=null;FILES=[];renderAtt();$('#ttl').textContent='';renderEmpty();renderList();$('#inp').focus()}

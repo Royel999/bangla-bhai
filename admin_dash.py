@@ -378,7 +378,7 @@ def setup(app,H):
             with db() as c: c.execute("insert or replace into nudge_optout values(?,?)",(u,time.time()))
             audit(ev="nudge_optout",user=u)
         msg="আপনাকে আর মনে করানোর মেইল পাঠানো হবে না। / You won't get reminder emails anymore." if ok else "লিংকটি সঠিক নয়। / Invalid link."
-        return HTMLResponse(f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>Bangla Bhai</title><body style='font-family:system-ui,sans-serif;background:#0a0b14;color:#eef;display:grid;place-items:center;min-height:90vh'><p style='max-width:420px;text-align:center'>{msg}</p></body>",status_code=200 if ok else 400)
+        return HTMLResponse(f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>The Royal Bengal Tiger</title><body style='font-family:system-ui,sans-serif;background:#0a0b14;color:#eef;display:grid;place-items:center;min-height:90vh'><p style='max-width:420px;text-align:center'>{msg}</p></body>",status_code=200 if ok else 400)
 
     # ---------- audit viewer ----------
     @app.get("/bb/admin/api/dash/audit")

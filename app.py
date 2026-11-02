@@ -65,7 +65,7 @@ def persona(st,proj_instr="",uid=None,mems=None):
     try:
         devs=AG.devices(); dlist=", ".join(f"{d['name']} ({d['id']}, {d['kind']}, {'online' if d.get('online') else 'offline'}, {d['status']})" for d in devs)
     except Exception: dlist="(not loaded)"
-    p=("You are 'Bangla Bhai', the real AI agent of Royal Universe — not just a chatbot. "+lang_rule(st)+" "+addr_rule(uid)+" "
+    p=("You are 'The Royal Bengal Tiger', the real AI agent of Royal Universe — not just a chatbot. "+lang_rule(st)+" "+addr_rule(uid)+" "
        "You have real tools (shell, browse, web_search, screenshot, camera, mic) and paired devices: "+dlist+". "
        "Never claim you cannot run commands on devices or have no tools — when an action is needed the system routes it to the agent loop. "
        "You CAN generate and edit images: when the user attaches a photo and asks to edit it (or asks for a new picture), the system runs a free image model (FLUX Kontext / FLUX.2 / Pollinations) and shows the result. Never say you cannot edit or create images; if an edit failed, ask them to resend the photo with the instruction. When editing a person's photo always keep their face and identity unchanged. "
@@ -89,6 +89,8 @@ async def call(mid,msgs,tries=1,timeout=45):
 HARD=re.compile(r"(পরিকল্পনা|plan|কোড|code|বিশ্লেষণ|analy|তুলনা|compare|সিদ্ধান্ত|decide|strategy|কৌশল)",re.I)
 # ---------- app ----------
 app=FastAPI(docs_url=None,redoc_url=None,openapi_url=None); app.add_middleware(SessionMiddleware,secret_key=CFG["BB_SESSION_SECRET"],https_only=os.environ.get("BB_INSECURE_COOKIE")!="1",same_site="lax",max_age=86400*30)
+@app.api_route("/bb/static/RoyalLink.apk",methods=["GET","HEAD"])
+def _old_royal_link_apk(): return RedirectResponse("/bb/static/RoyalBengalTiger.apk",302)
 app.mount("/bb/static",StaticFiles(directory=BASE+"/static"),name="static")
 import agent as AG
 AG.OWNER=CFG["BB_USER"]  # non-owner agent tasks run restricted (safe tools only)
@@ -168,7 +170,7 @@ body:before{content:"";position:fixed;left:0;right:0;top:0;height:4px;background
 .box a{color:#E8AD3D}.foot{color:#9A9CB0 !important}
 @media(prefers-reduced-motion:reduce){.box,.rbt .seal{animation:none}}</style>"""
 CSS=CSS+RBT_CSS
-BR_OLD='<div class=lhero><div class=holo><div class=holo-inner></div><img src=/bb/static/logo.png alt="Bangla Bhai"></div><img class=wmimg src=/bb/static/wordmark.svg alt="Bangla Bhai"></div>'
+BR_OLD='<div class=lhero><div class=holo><div class=holo-inner></div><img src=/bb/static/logo.png alt="The Royal Bengal Tiger"></div><img class=wmimg src=/bb/static/wordmark.svg alt="The Royal Bengal Tiger"></div>'
 BR='<div class=rbt><img class=seal src=/bb/static/v4/brand/RBT_seal_512_transparent.png alt="The Royal Bengal Tiger seal"><small>THE ROYAL BENGAL</small><b>TIGER</b></div>'
 def page(body,lang="en"): return HTMLResponse(f"<!doctype html><html lang={lang} dir={'rtl' if lang in ('ar','ur') else 'ltr'}><head><meta charset=utf-8><title>The Royal Bengal Tiger</title>{CSS}</head><body>{body}<script src=/bb/static/i18n.js></script><script src=/bb/static/viz.js></script><script src=/bb/static/install.js defer></script></body></html>")
 
@@ -315,29 +317,19 @@ def cp(request:Request,current_password:str=Form(""),new_password:str=Form(""),c
     audit(ev="password_changed"); return RedirectResponse("/change-password?m=ok",303)
 @app.get("/manifest.webmanifest")
 def manifest():
-    return JSONResponse({"name":"Bangla Bhai — Royal Universe","short_name":"Bangla Bhai","description":"Bangla Bhai — a multilingual, permission-first AI agent. Chat, run tools and control paired devices with your approval.","start_url":"/app?source=pwa","scope":"/","id":"/app","display":"standalone","background_color":"#0b1a33","theme_color":"#0b1a33",
+    return JSONResponse({"name":"The Royal Bengal Tiger","short_name":"Royal Tiger","description":"The Royal Bengal Tiger — a multilingual, permission-first AI agent. Chat, run tools and control paired devices with your approval.","start_url":"/app?source=pwa","scope":"/","id":"/app","display":"standalone","background_color":"#0b1a33","theme_color":"#0b1a33",
       "icons":[{"src":"/bb/static/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},{"src":"/bb/static/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},{"src":"/bb/static/icon-192-maskable.png","sizes":"192x192","type":"image/png","purpose":"maskable"},{"src":"/bb/static/icon-512-maskable.png","sizes":"512x512","type":"image/png","purpose":"maskable"}],"display_override":["standalone","window-controls-overlay"],"lang":"en","dir":"ltr","share_target":{"action":"/app","method":"GET","enctype":"application/x-www-form-urlencoded","params":{"title":"title","text":"text","url":"url"}},"shortcuts":[{"name":"New chat","url":"/app","icons":[{"src":"/bb/static/icon-192.png","sizes":"192x192"}]}]},media_type="application/manifest+json")
 @app.get("/.well-known/assetlinks.json")
 def assetlinks():
     try: return JSONResponse(json.load(open(BASE+"/deploy/assetlinks.json")),headers={"Cache-Control":"public, max-age=3600"})
     except Exception: return JSONResponse([])
-APK_URL="https://github.com/Royel999/bangla-bhai/releases/latest/download/bangla-bhai.apk"
-_APK_CACHE="/tmp/bangla-bhai.apk"
-async def _apk_file():
-    if os.path.exists(_APK_CACHE) and os.path.getsize(_APK_CACHE)>100000 and time.time()-os.path.getmtime(_APK_CACHE)<3600: return _APK_CACHE
-    try:
-        async with httpx.AsyncClient(follow_redirects=True,timeout=60) as c:
-            r=await c.get(APK_URL)
-        if r.status_code==200 and r.content[:2]==b"PK":
-            tmp=_APK_CACHE+".part"; open(tmp,"wb").write(r.content); os.replace(tmp,_APK_CACHE)
-    except Exception: pass
-    return _APK_CACHE if os.path.exists(_APK_CACHE) else None
+RBT_APK=BASE+"/static/RoyalBengalTiger.apk"
 @app.api_route("/download/bangla-bhai.apk",methods=["GET","HEAD"])
 @app.api_route("/download/android",methods=["GET","HEAD"])
-async def apk_dl():
-    p=await _apk_file()
-    if not p: return RedirectResponse(APK_URL,302)
-    return FileResponse(p,media_type="application/vnd.android.package-archive",filename="bangla-bhai.apk",headers={"Cache-Control":"public, max-age=600"})
+@app.api_route("/download/RoyalBengalTiger.apk",methods=["GET","HEAD"])
+def apk_dl():
+    # Only one Android app now: The Royal Bengal Tiger 1.0. Old names redirect here.
+    return RedirectResponse("/bb/static/RoyalBengalTiger.apk",302)
 @app.get("/sw.js")
 def sw():
     return FileResponse(BASE+"/static/sw.js",media_type="application/javascript",headers={"Cache-Control":"no-cache","Service-Worker-Allowed":"/"})
@@ -487,8 +479,8 @@ def del_chat(request:Request,cid:str):
     audit(ev="chat_deleted",chat=cid); return {"ok":True}
 @app.get("/bb/api/chats/{cid}/export.md")
 def export_md(request:Request,cid:str):
-    ch=get_chat(request,cid); out=f"# {ch['title']}\n\n_বাংলা ভাই · Royal Universe_\n\n"
-    for m in ch["messages"]: out+=("## 🧑 User\n\n" if m["role"]=="user" else f"## 🤖 Bangla Bhai ({m['model']})\n\n")+m["content"]+"\n\n"
+    ch=get_chat(request,cid); out=f"# {ch['title']}\n\n_দ্য রয়্যাল বেঙ্গল টাইগার · Royal Universe_\n\n"
+    for m in ch["messages"]: out+=("## 🧑 User\n\n" if m["role"]=="user" else f"## 🤖 The Royal Bengal Tiger ({m['model']})\n\n")+m["content"]+"\n\n"
     return Response(out,media_type="text/markdown; charset=utf-8",headers={"Content-Disposition":f'attachment; filename="bangla-bhai-{cid}.md"'})
 @app.get("/bb/api/projects")
 def lp(request:Request):
@@ -717,7 +709,7 @@ async def note(request:Request,cid:str):
     with db() as c:
         own(c,u,cid)
         if b.get("user"): c.execute("insert into messages(chat_id,role,content,created) values(?,?,?,?)",(cid,"user",b["user"],time.time()))
-        if b.get("assistant") is not None: c.execute("insert into messages(chat_id,role,content,model,created) values(?,?,?,?,?)",(cid,"assistant",b["assistant"],"বাংলা ভাই এজেন্ট",time.time()))
+        if b.get("assistant") is not None: c.execute("insert into messages(chat_id,role,content,model,created) values(?,?,?,?,?)",(cid,"assistant",b["assistant"],"দ্য রয়্যাল বেঙ্গল টাইগার এজেন্ট",time.time()))
         c.execute("update chats set updated=?, title=CASE WHEN title='নতুন চ্যাট' THEN ? ELSE title END where id=?",(time.time(),(b.get("user") or "")[:40] or "নতুন চ্যাট",cid))
     return {"ok":True}
 @app.post("/bb/api/intent")
@@ -794,7 +786,7 @@ async def lk_claim(request:Request):
         except Exception: return 0
     # only FAILED claims count; per-IP 15 / 10 min, global 60 / 10 min (6-digit codes, 10-min life, one-time)
     if _fails("claimfail:"+ip,600)>=15 or _fails("claimfail:*",600)>=60:
-        return JSONResponse({"error":"Too many wrong codes. Tap 'Pair this phone' on the site for a new code, then try again."},429)
+        return JSONResponse({"error":"Too many wrong codes. Wait a few minutes, then open The Royal Bengal Tiger app and log in again."},429)
     try: b=await request.json()
     except Exception: b={}
     code=_ascii_digits(b.get("code",""))[:6]
@@ -811,11 +803,11 @@ async def lk_claim(request:Request):
 @app.get("/link/pair")
 def lk_pair_page(code:str=""):
     c=re.sub(r"\D","",code)[:6]
-    html=f"""<!doctype html><meta name=viewport content="width=device-width,initial-scale=1"><title>Royal Link</title>
+    html=f"""<!doctype html><meta name=viewport content="width=device-width,initial-scale=1"><title>The Royal Bengal Tiger</title>
 <body style="font-family:sans-serif;background:#0D0D12;color:#fff;text-align:center;padding:40px 20px">
-<h2 style="color:#c9a227">📱 Royal Link</h2><p>Pairing code</p><div style="font-size:44px;letter-spacing:8px;font-weight:700">{c or '------'}</div>
-<p><a href="intent://pair?code={c}#Intent;scheme=royallink;package=org.royaltiger.link;end" style="display:inline-block;background:#006A4E;color:#fff;padding:16px 28px;border-radius:14px;text-decoration:none;font-size:18px">Open Royal Link app</a></p>
-<p style="opacity:.7">If the button does nothing, open the Royal Link app and type the code.</p></body>"""
+<h2 style="color:#c9a227">📱 The Royal Bengal Tiger</h2><p>Pairing code</p><div style="font-size:44px;letter-spacing:8px;font-weight:700">{c or '------'}</div>
+<p><a href="intent://pair?code={c}#Intent;scheme=royallink;package=org.royaltiger.link;end" style="display:inline-block;background:#006A4E;color:#fff;padding:16px 28px;border-radius:14px;text-decoration:none;font-size:18px">Open The Royal Bengal Tiger app</a></p>
+<p style="opacity:.7">If the button does nothing, open The Royal Bengal Tiger app and type the code.</p></body>"""
     return HTMLResponse(html)
 @app.get("/bb/link/status")
 def lk_status(token:str):

@@ -1,5 +1,5 @@
 const BB_PUBLIC=window.BB_PUBLIC||'https://banglabhai.dpdns.org';
-// ===== বাংলা ভাই v0.3 add-ons: modals, agent, voice, camera, permission center =====
+// ===== দ্য রয়্যাল বেঙ্গল টাইগার v0.3 add-ons: modals, agent, voice, camera, permission center =====
 let AGENT=localStorage.bbAgent==='1';
 const canAgent=()=>!window.BB_ME||(typeof isOwner==='function'&&isOwner());
 function dlg(html){return new Promise(res=>{const d=document.createElement('div');d.className='dlg';d.innerHTML=`<div class=card>${html}</div>`;document.body.appendChild(d);
@@ -15,7 +15,7 @@ function setAgent(v){if(v&&!canAgent()){v=false}AGENT=v;localStorage.bbAgent=v?'
 async function agentSend(){const inp=$('#inp');let t=inp.value.trim().replace(/^(এজেন্ট|Agent):\s*/i,'');if(!t)return;inp.value='';autoGrow();
  if(!CH){const r0=await api('/bb/api/chats',{method:'POST',body:JSON.stringify({project:curProject})});CH={id:r0.id,title:t.slice(0,40),messages:[]};$('#ttl').textContent=CH.title}
  addMsg({role:'user',content:'🤖 '+t});const w=addMsg({role:'assistant'});const c=w.querySelector('.content'),meta=w.querySelector('.meta');
- const box=document.createElement('div');box.className='steps';c.appendChild(box);setMeta(meta,L('Bangla Bhai agent','বাংলা ভাই এজেন্ট'),[]);
+ const box=document.createElement('div');box.className='steps';c.appendChild(box);setMeta(meta,L('The Royal Bengal Tiger agent','দ্য রয়্যাল বেঙ্গল টাইগার এজেন্ট'),[]);
  const r=await api('/bb/api/agent',{method:'POST',body:JSON.stringify({goal:t})});let n=0,end=false,final='';
  $('#send').classList.add('stop');$('#send').textContent='■';
  while(!end){const j=await api(`/bb/api/agent/${r.id}?since=${n}`);
@@ -75,5 +75,5 @@ async function loadPerms(){const j=await api('/bb/api/devices');const el=$('#per
   x.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{if(b.dataset.a!=='approve'&&!await uiConfirm(L('Disconnect this device?','এই ডিভাইসের সংযোগ বাতিল করবেন?')))return;await api(`/bb/api/devices/${d.id}/${b.dataset.a}`,{method:'POST'});loadPerms();toast('✓')});
   x.querySelectorAll('select').forEach(s=>s.onchange=async()=>{await api(`/bb/api/devices/${d.id}/perm`,{method:'POST',body:JSON.stringify({cap:s.dataset.c,mode:s.value})});toast(L('✓ Permission updated','✓ অনুমতি আপডেট'))});el.appendChild(x)})}
 async function revokeAll(){if(!await uiConfirm(L('All devices and permissions will be revoked now. Sure?','সব ডিভাইসের সংযোগ আর সব অনুমতি এখনই বাতিল হবে। নিশ্চিত?')))return;await api('/bb/api/revoke-all',{method:'POST'});loadPerms();toast(L('⛔ All permissions revoked','⛔ সব অনুমতি বাতিল'))}
-function aboutHTML(){return `<div class=row style="display:block"><b>${t('set.about')}</b><div class=about><div class="holo md" style="margin:0 auto"><div class="holo-inner"></div><img src="/bb/static/logo.png" alt=""></div><img class=wm src="/bb/static/wordmark.svg" alt="Bangla Bhai" style="margin-top:10px"><div class=byru>♛ by <b>Royal Universe</b></div><small>${t('set.about_d')}<br>© 2026 Royal Universe. All rights reserved.</small></div></div>`}
+function aboutHTML(){return `<div class=row style="display:block"><b>${t('set.about')}</b><div class=about><div class="holo md" style="margin:0 auto"><div class="holo-inner"></div><img src="/bb/static/logo.png" alt=""></div><img class=wm src="/bb/static/wordmark.svg" alt="The Royal Bengal Tiger" style="margin-top:10px"><div class=byru>♛ by <b>Royal Universe</b></div><small>${t('set.about_d')}<br>© 2026 Royal Universe. All rights reserved.</small></div></div>`}
 setTimeout(()=>setAgent(AGENT),300);setInterval(()=>{if($('#perms')&&$('#mset').classList.contains('on'))loadPerms()},8000);

@@ -1,4 +1,4 @@
-/* Bangla Bhai page i18n: English text is the key. Dicts in /bb/static/i18n/px_<lang>.json */
+/* The Royal Bengal Tiger page i18n: English text is the key. Dicts in /bb/static/i18n/px_<lang>.json */
 (function(){
   const LANGS={en:'English',bn:'বাংলা',hi:'हिन्दी',ar:'العربية',ur:'اردو',es:'Español',fr:'Français',zh:'中文'};
   const ck=(document.cookie.match(/(?:^|; )bb_lang=([^;]*)/)||[])[1];
@@ -15,5 +15,5 @@
     const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;
     while(n=w.nextNode()){const s=n.nodeValue.trim();if(s&&PX[s])n.nodeValue=n.nodeValue.replace(s,PX[s])}
     root.querySelectorAll('[placeholder],[title]').forEach(e=>{['placeholder','title'].forEach(a=>{const v=e.getAttribute(a);if(v&&PX[v])e.setAttribute(a,PX[v])})});
-    const t=document.title.split(' · ')[0];if(PX[t])document.title=PX[t]+' · Bangla Bhai'};
+    const t=document.title.split(' · ')[0];if(PX[t])document.title=PX[t]+' · The Royal Bengal Tiger'};
 })();

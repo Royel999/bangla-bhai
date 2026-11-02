@@ -2,7 +2,7 @@
  REAL: mic -> /bb/api/stt -> existing chat send() -> reply -> /bb/api/tts playback (loop "hands-free").
  REAL (permission-gated): "See my screen" uses getDisplayMedia (desktop/Chromium; one frame, user picks what to share) -> /bb/api/upload (OCR) -> attached to the next question.
  SMS: drafts text with the AI, then opens the phone's own SMS app via sms: link — the user presses Send (Sentinel: we never send silently).
- STUB: background screen reading on Android / direct SMS sending need the native Royal Link app; those go through the agent's sms_send/screenshot tools which ALWAYS raise an Approve card. */
+ STUB: background screen reading on Android / direct SMS sending need the native Royal Bengal Tiger app; those go through the agent's sms_send/screenshot tools which ALWAYS raise an Approve card. */
 (function(){
 const L=(b,e)=>{try{return T(b,e)}catch(_){return e}}, $=s=>document.querySelector(s);
 const css=`#rbtOrb{position:fixed;right:18px;bottom:96px;z-index:9990;transition:opacity .2s;width:62px;height:62px;border-radius:50%;border:2px solid #c9a227;background:radial-gradient(circle at 50% 45%,#0b7a5a,#006A4E 60%,#033b2c);box-shadow:0 0 0 0 rgba(218,41,28,.5),0 8px 24px rgba(0,0,0,.45);cursor:pointer;padding:0;animation:rbtPulse 3s infinite;touch-action:none}
@@ -70,7 +70,7 @@ async function say(text){if(!text)return S('','');S('speak',L('বলছি…',
   if('speechSynthesis' in window){await new Promise(ok=>{const u=new SpeechSynthesisUtterance(text.slice(0,800));u.onend=ok;u.onerror=ok;speechSynthesis.speak(u)})}}
  S('',L('আবার বলতে মাইক চাপুন','Tap the mic to talk again'))}
 $('#rbtScr').onclick=async()=>{
- if(!navigator.mediaDevices?.getDisplayMedia)return S('',L('এই ফোনের ব্রাউজার স্ক্রিন দিতে পারে না — Royal Link অ্যাপ দিয়ে এজেন্ট স্ক্রিনশট নেবে (Approve কার্ডসহ)','This browser can\'t share the screen — use the Royal Link app; the agent will ask Approve first'));
+ if(!navigator.mediaDevices?.getDisplayMedia)return S('',L('এই ফোনের ব্রাউজার স্ক্রিন দিতে পারে না — The Royal Bengal Tiger অ্যাপ দিয়ে এজেন্ট স্ক্রিনশট নেবে (Approve কার্ডসহ)','This browser can\'t share the screen — use The Royal Bengal Tiger app; the agent will ask Approve first'));
  try{const s=await navigator.mediaDevices.getDisplayMedia({video:true});const v=document.createElement('video');v.srcObject=s;v.muted=true;await v.play();await new Promise(r=>setTimeout(r,400));
   const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);s.getTracks().forEach(t=>t.stop());
   const blob=await new Promise(r=>c.toBlob(r,'image/png'));const fd=new FormData();fd.append('file',blob,'screen.png');S('think',L('স্ক্রিন পড়ছি…','Reading the screen…'));

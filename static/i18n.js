@@ -1,4 +1,4 @@
-/* বাংলা ভাই — tiny i18n. Default Bangla (v3 phase 5). Keys in /bb/static/i18n/<lang>.json */
+/* দ্য রয়্যাল বেঙ্গল টাইগার — tiny i18n. Default Bangla (v3 phase 5). Keys in /bb/static/i18n/<lang>.json */
 (function(){
   const LANGS={en:{n:'English'},bn:{n:'বাংলা'},hi:{n:'हिन्दी'},ar:{n:'العربية',rtl:1},ur:{n:'اردو',rtl:1},es:{n:'Español'},fr:{n:'Français'},zh:{n:'中文'}};
   const cache={};let D={},EN={},cur='en';
