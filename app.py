@@ -1,5 +1,5 @@
 from urllib.parse import quote
-import os, json, time, re, asyncio, hmac, httpx, sqlite3, uuid, io
+import os, json, time, re, asyncio, hmac, httpx, sqlite3, uuid, io, hashlib, secrets
 from fastapi import FastAPI, Request, Form, UploadFile, File, WebSocket
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -758,6 +758,40 @@ async def lk_pair(request:Request):
     b=await request.json(); info=b.get("info",{}) if isinstance(b.get("info"),dict) else {}
     if len(json.dumps(info))>4000: info={}
     did,tok=AG.pair_request(str(b.get("name","device"))[:60],str(b.get("kind","laptop"))[:20],info); return {"device":did,"token":tok}
+# ---- Royal Link one-tap pairing: owner makes a short code on the site, the phone claims it ----
+def _pc_db():
+    c=db(); c.execute("create table if not exists link_codes(h text primary key,exp real,used int default 0)"); return c
+@app.post("/bb/api/link/code")
+def lk_code(request:Request):
+    need_admin(request)
+    if not FL.on("feat_devices"): return JSONResponse({"error":FL.OFF_MSG["feat_devices"]},403)
+    code="".join(secrets.choice("23456789") for _ in range(6)); now=time.time()
+    with _pc_db() as c:
+        c.execute("delete from link_codes where exp<?",(now,))
+        c.execute("insert or replace into link_codes values(?,?,0)",(hashlib.sha256(code.encode()).hexdigest(),now+600))
+    audit(ev="link_code_issued"); return {"code":code,"expires_in":600,"deeplink":"royallink://pair?code="+code}
+@app.post("/bb/link/claim")
+async def lk_claim(request:Request):
+    if not FL.on("feat_devices"): return JSONResponse({"error":FL.OFF_MSG["feat_devices"]},403)
+    if not rate_ok("claim:"+cip(request),10,3600): return JSONResponse({"error":"rate limited"},429)
+    b=await request.json(); code=re.sub(r"\D","",str(b.get("code","")))[:6]
+    h=hashlib.sha256(code.encode()).hexdigest()
+    with _pc_db() as c:
+        r=c.execute("select exp,used from link_codes where h=?",(h,)).fetchone()
+        if not r or int(r["used"]) or float(r["exp"])<time.time(): audit(ev="link_claim_bad"); return JSONResponse({"error":"Code wrong or expired — make a new one on the site"},400)
+        c.execute("update link_codes set used=1 where h=?",(h,))
+    did,tok=AG.pair_request(str(b.get("name","phone"))[:60],"phone",{"client":"royal-link-a11y","via":"code"})
+    AG.pair_decide(did,True)  # owner pre-approved by creating the code; each action still needs Approve (sentinel)
+    audit(ev="link_claimed",device=did); return {"device":did,"token":tok}
+@app.get("/link/pair")
+def lk_pair_page(code:str=""):
+    c=re.sub(r"\D","",code)[:6]
+    html=f"""<!doctype html><meta name=viewport content="width=device-width,initial-scale=1"><title>Royal Link</title>
+<body style="font-family:sans-serif;background:#0D0D12;color:#fff;text-align:center;padding:40px 20px">
+<h2 style="color:#c9a227">📱 Royal Link</h2><p>Pairing code</p><div style="font-size:44px;letter-spacing:8px;font-weight:700">{c or '------'}</div>
+<p><a href="intent://pair?code={c}#Intent;scheme=royallink;package=org.royaltiger.link;end" style="display:inline-block;background:#006A4E;color:#fff;padding:16px 28px;border-radius:14px;text-decoration:none;font-size:18px">Open Royal Link app</a></p>
+<p style="opacity:.7">If the button does nothing, open the Royal Link app and type the code.</p></body>"""
+    return HTMLResponse(html)
 @app.get("/bb/link/status")
 def lk_status(token:str):
     d=AG.dev_by_token(token); return {"status":d["status"] if d else "unknown","perms":{k:AG.get_perm(d["id"],k) for k in AG.CAPS} if d else {}}

@@ -6,22 +6,29 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** SCAFFOLD. Same protocol as link/royal_link.py: pair -> owner approves in app -> poll -> result.
- *  Token kept in app-private SharedPreferences (MODE_PRIVATE); never logged. */
+/** Same protocol as link/royal_link.py. Token in MODE_PRIVATE prefs; never logged. */
 object LinkClient {
     private var job: Job? = null
     var base = "https://banglabhai.dpdns.org"
 
+    fun claim(ctx: Context, code: String): JSONObject {
+        val sp = ctx.getSharedPreferences("royal_link", Context.MODE_PRIVATE)
+        base = sp.getString("base", base)!!
+        val r = http("POST", "/bb/link/claim",
+            JSONObject().put("code", code).put("name", android.os.Build.MODEL)
+                .put("kind", "phone"))
+        if (r.has("error")) throw RuntimeException(r.getString("error"))
+        val tok = r.getString("token")
+        sp.edit().putString("token", tok).putString("device", r.getString("device")).apply()
+        return r
+    }
+
     fun start(ctx: Context) {
         val sp = ctx.getSharedPreferences("royal_link", Context.MODE_PRIVATE)
         base = sp.getString("base", base)!!
+        if (job?.isActive == true) return
         job = CoroutineScope(Dispatchers.IO).launch {
-            var tok = sp.getString("token", null)
-            if (tok == null) {
-                val r = http("POST", "/bb/link/pair", JSONObject().put("name", android.os.Build.MODEL)
-                    .put("kind", "phone").put("info", JSONObject().put("client", "royal-link-a11y").put("sdk", android.os.Build.VERSION.SDK_INT)))
-                tok = r.getString("token"); sp.edit().putString("token", tok).putString("device", r.getString("device")).apply()
-            }
+            var tok = sp.getString("token", null) ?: return@launch
             while (isActive) {
                 try {
                     val st = http("GET", "/bb/link/status?token=$tok", null).optString("status")
@@ -35,13 +42,15 @@ object LinkClient {
             }
         }
     }
-    fun stop() { job?.cancel() }
+    fun stop() { job?.cancel(); job = null }
 
     private fun http(m: String, path: String, body: JSONObject?): JSONObject {
         val c = URL(base + path).openConnection() as HttpURLConnection
         c.requestMethod = m; c.connectTimeout = 15000; c.readTimeout = 35000
-        c.setRequestProperty("Content-Type", "application/json"); c.setRequestProperty("User-Agent", "RoyalLinkA11y/0.1")
+        c.setRequestProperty("Content-Type", "application/json"); c.setRequestProperty("User-Agent", "RoyalLinkA11y/0.2")
         if (body != null) { c.doOutput = true; c.outputStream.use { it.write(body.toString().toByteArray()) } }
-        return JSONObject(c.inputStream.bufferedReader().readText())
+        val stream = if (c.responseCode in 200..299) c.inputStream else c.errorStream
+        val txt = stream?.bufferedReader()?.readText() ?: "{}"
+        return try { JSONObject(txt) } catch (_: Exception) { JSONObject().put("error", "HTTP ${c.responseCode}") }
     }
 }
