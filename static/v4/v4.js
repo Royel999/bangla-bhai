@@ -298,6 +298,7 @@ function openMe(){const t=localStorage.bbTheme||'dark';const own=ST.me.role==='o
  <span class=l>${T('থিম','Theme')}</span><div class=seg role=group aria-label="${T('থিম','Theme')}">${[['dark','🌙 '+T('ডার্ক','Dark')],['light','☀️ '+T('লাইট','Light')],['system','📱 '+T('সিস্টেম','System')]].map(([k,l])=>`<button aria-pressed="${t===k}" class="${t===k?'on':''}" onclick="setTheme('${k}');openMe()">${l}</button>`).join('')}</div>
  <span class=l>${T('ভাষা','Language')}</span><div class=seg role=group aria-label="${T('ভাষা','Language')}">${[['bn','বাংলা'],['en','English']].map(([k,l])=>`<button aria-pressed="${LANG===k}" class="${LANG===k?'on':''}" onclick="saveSet({lang:'${k}'})">${l}</button>`).join('')}</div>
  <button class=picard onclick="openMemory()"><span class=pib aria-hidden=true>🧠</span><span class=grow><b>${T('পার্সোনাল ইন্টেলিজেন্স','Personal Intelligence')}</b><small>${ST.set?.memory!==false?T('চালু · টাইগার আপনার চ্যাট ও কাজ থেকে শিখছে','On · the Tiger learns from your chats and tasks'):T('বন্ধ · নতুন কিছু শিখছে না','Off · not learning anything new')}</small></span><span class="tag ${ST.set?.memory!==false?'ok':''}">${ST.set?.memory!==false?T('চালু','On'):T('বন্ধ','Off')}</span></button>
+ <button class=picard onclick="openDevices()"><span class=pib aria-hidden=true>💻</span><span class=grow><b>${T('ডিভাইস ও অনুমতি','Devices & permissions')}</b><small>${T('ল্যাপটপ/ফোন Approve ও ক্ষমতা','Approve laptop/phone & powers')}</small></span><span class=chev aria-hidden=true>›</span></button>
  <button class=picard onclick="openRoyalLink()"><span class=pib aria-hidden=true>📱</span><span class=grow><b>${T('ফোন অ্যাপ · The Royal Bengal Tiger','Phone app · The Royal Bengal Tiger')}</b><small>${T('একটাই অ্যাপ — লগইন করলেই ফোন যুক্ত হয়, কোনো কোড লাগে না','One app — log in and your phone links itself, no codes')}</small></span><span class=chev aria-hidden=true>›</span></button>
  <div class=group>${row('⏰',T('শিডিউল','Schedules'),'/schedules')}${row('🔌',T('কানেকশন','Connections'),'/connections')}${row('🎨',T('স্টুডিও','Studio'),'/studio')}${row('🔑',T('নিজের API কী (BYOK)','My API keys (BYOK)'),'/studio#keys')}${row('💳',T('অ্যাকাউন্ট ও প্ল্যান','Account & plan'),'/account')}</div>
  <div class=group>${own?row('🛡️',`<b>${T('অ্যাডমিন ড্যাশবোর্ড','Admin dashboard')}</b>`,'/admin/dash',`<span class="tag warn">${T('মালিক','Owner')}</span>`):''}
@@ -349,6 +350,34 @@ async function openMemory(){let D;try{D=await api('/bb/api/memory')}catch(e){ret
      $('#mes',s2).onclick=async()=>{try{await api('/bb/api/memory/'+id,{method:'PUT',body:JSON.stringify({text:$('#met',s2).value,kind:k})});toast(T('সেভ হয়েছে','Saved'));openMemory()}catch(x){toast(x.message)}}},T('মেমরি','Memory'))}};
   $('#maddb',sh).onclick=async()=>{const t=$('#madd',sh).value.trim();if(!t)return toast(T('কিছু লিখুন','Type something first'));try{await api('/bb/api/memory',{method:'POST',body:JSON.stringify({text:t,kind:$('#mkind',sh).value})});toast(T('মনে রাখলাম','Remembered'));openMemory()}catch(x){toast(x.message)}};
   $('#mclr',sh).onclick=async()=>{if(!await confirmSheet(T('সব মেমরি মুছবেন?','Forget everything?'),T('টাইগার আপনার সম্পর্কে যা শিখেছে সব মুছে যাবে।','Everything the Tiger has learned about you will be deleted.'),T('সব মুছুন','Clear all')))return;try{await api('/bb/api/memory',{method:'DELETE'});toast(T('সব মুছে ফেলা হয়েছে','Memory cleared'))}catch(x){toast(x.message)}openMemory()}},T('মেমরি','Memory'))}
+
+
+/* ---------- All devices (PC + phone) · Approve pending ---------- */
+async function openDevices(){
+  if(ST.me.role!=='owner')return toast(T('শুধু মালিক','Owner only'));
+  let D;try{D=await api('/bb/api/devices')}catch(e){return toast(e.message)}
+  const caps=D.caps||{}; const list=(D.devices||[]).filter(d=>d.status!=='revoked'&&d.status!=='denied'&&d.id!=='box');
+  const MODE={ask:T('প্রতিবার জিজ্ঞেস','Ask every time'),once:T('একবার','Once'),always:T('সবসময়','Always'),off:T('বন্ধ','Off')};
+  const kindIcon=k=>/phone|android/i.test(k||'')?'📱':'💻';
+  openSheet(`<h3>🖥 ${T('ডিভাইস ও অনুমতি','Devices & permissions')}</h3>
+ <p class=sub>${T('ল্যাপটপ/ফোন পেয়ার করার পর এখানে Approve চাপুন।','After pairing a laptop or phone, tap Approve here.')}</p>
+ <div id=devlist class=group>${list.length?list.map(d=>`<div class=memi data-did="${esc(d.id)}" style="flex-wrap:wrap;align-items:flex-start">
+  <span class=ki aria-hidden=true>${kindIcon(d.kind)}</span>
+  <span class=grow><b>${esc(d.name)}</b><br><small class=mut>${esc(d.kind)} · ${esc(d.status)}${d.online?' · 🟢 online':' · ⚪ offline'} · id ${esc(d.id)}</small>
+  ${d.status==='approved'?`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">${Object.keys(caps).map(c=>`<span class="tag">${esc(caps[c]||c)}: ${esc(MODE[d.perms?.[c]]||d.perms?.[c]||'ask')}</span>`).join('')}</div>`:''}
+  </span>
+  ${d.status==='pending'?`<button class="btn pri" data-a=approve>✅ ${T('যুক্ত করুন','Approve')}</button><button class=btn data-a=deny>✕</button>`:
+    d.status==='approved'?`<button class=btn data-a=remove>${T('সংযোগ বাতিল','Disconnect')}</button>`:''}
+ </div>`).join(''):`<div class=empty style="padding:20px">${T('এখনো কোনো ডিভাইস নেই। Windows লিংক বা ফোন অ্যাপ চালু করুন।','No devices yet. Start the Windows link or phone app.')}</div>`}</div>
+ <div class=btns style="margin-top:12px"><button class="btn dan" id=devrev>${T('সব অনুমতি বাতিল','Revoke all')}</button><a class=btn href="/bb/live">📡 ${T('লাইভ ভিউ','Live view')}</a></div>`,sh=>{
+  $('#devlist',sh).onclick=async e=>{
+    const row=e.target.closest('[data-did]'); if(!row)return;
+    const a=e.target.closest('[data-a]')?.dataset.a; if(!a)return;
+    if(a!=='approve'&&!await confirmSheet(T('নিশ্চিত?','Sure?'),T('এই ডিভাইসের সংযোগ বদলাবে।','This changes the device link.'),a==='remove'?T('সংযোগ বাতিল','Disconnect'):T('ঠিক আছে','OK')))return;
+    try{await api('/bb/api/devices/'+row.dataset.did+'/'+a,{method:'POST'});toast('✓');openDevices()}catch(x){toast(x.message)}
+  };
+  $('#devrev',sh).onclick=async()=>{if(!await confirmSheet(T('সব বাতিল?','Revoke all?'),T('সব ডিভাইসের অনুমতি বন্ধ হবে।','All device permissions will be cleared.'),T('বাতিল করুন','Revoke')))return;try{await api('/bb/api/revoke-all',{method:'POST'});toast(T('বাতিল','Revoked'));openDevices()}catch(x){toast(x.message)}}
+ },T('ডিভাইস','Devices'))
 
 /* ---------- Phone app (The Royal Bengal Tiger 1.0) · Accessibility flow (screen + SMS) ---------- */
 const RLCAPS=()=>[['screen','🖥',T('স্ক্রিন পড়া','Read screen'),T('সামনের স্ক্রিনের লেখা; পাসওয়ার্ড ও ব্যাংক অ্যাপ বাদ','Visible text only; passwords & bank apps skipped')],
