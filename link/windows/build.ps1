@@ -4,6 +4,8 @@ $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 python -m pip install -U pip
 pip install -r requirements.txt pyinstaller
+python -m py_compile royal_link_tray.py
+if ($LASTEXITCODE -ne 0) { throw "royal_link_tray.py does not compile" }
 # icon: convert logo if available
 if (Test-Path ..\..\static\icon-256.png) {
   # optional: magick convert; else keep placeholder
@@ -12,7 +14,8 @@ if (-not (Test-Path icon.ico)) {
   python -c "from PIL import Image; Image.new('RGBA',(256,256),(29,78,216,255)).save('icon.ico', sizes=[(16,16),(32,32),(48,48),(256,256)])"
 }
 pyinstaller --noconfirm bangla_bhai.spec
-Write-Host "OK: dist\BanglaBhaiLink\BanglaBhaiLink.exe"
+Write-Host "OK: dist\BanglaBhaiLink\BanglaBhaiLink.exe  (The Royal Bengal Tiger · Royal Link)"
+Write-Host "Opt-in auto-start: dist\BanglaBhaiLink\BanglaBhaiLink.exe --install-autostart"
 if (Get-Command iscc -ErrorAction SilentlyContinue) {
   iscc installer.iss
   Write-Host "OK: dist_installer\BanglaBhaiLink-Setup-0.3.0.exe"

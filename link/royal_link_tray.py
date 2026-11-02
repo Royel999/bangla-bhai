@@ -1,14 +1,29 @@
 #!/usr/bin/env python3
-"""বাংলা ভাই · Royal Link — tray edition (Windows/Linux/macOS)
-WebSocket client (falls back to HTTP poll). On-demand low-res screenshots only.
-No hidden/covert mode. Tray icon + consent indicator.
+"""The Royal Bengal Tiger · Royal Link — tray edition (Windows/Linux/macOS), hub protocol v1
+WebSocket client (falls back to HTTP poll) with heartbeat + exponential-backoff reconnect.
+On-demand low-res screenshots; optional low-res live frames ONLY while a job runs
+(BB_LIVE_FRAMES=1, off by default). No hidden/covert mode. Tray icon + consent indicator.
+Auto-start is opt-in: run with --install-autostart / --remove-autostart (see windows/README.md).
 """
 import os,sys,json,time,base64,subprocess,tempfile,threading,queue,traceback
 CFG=os.path.expanduser("~/.bangla_bhai_link.json")
 BASE=os.environ.get("BB_URL","https://banglabhai.dpdns.org").rstrip("/")
 NAME=os.environ.get("BB_NAME") or (os.environ.get("COMPUTERNAME") or os.uname().nodename)
 KIND="laptop"
-STATUS={"text":"সংযোগ হচ্ছে…","live":None}
+STATUS={"text":"সংযোগ হচ্ছে… / Connecting…","live":None,"state":"connecting"}
+APP="The Royal Bengal Tiger"
+LIVE_FRAMES=os.environ.get("BB_LIVE_FRAMES")=="1"   # bandwidth-aware: default off
+LIVE_SRV=[False]   # owner toggle from server (/bb/live page), default off
+SEND=[None]   # current ws send fn for step events
+ST_TXT={"connected":"✅ সংযুক্ত / Connected","reconnecting":"🔄 আবার সংযোগ / Reconnecting","offline":"⛔ অফলাইন / Offline","connecting":"সংযোগ হচ্ছে… / Connecting…"}
+def set_state(st,extra=""):
+    STATUS["state"]=st
+    if not STATUS["live"]: STATUS["text"]=ST_TXT[st]+(" "+extra if extra else "")
+def step(cid,phase,text=""):
+    f=SEND[0]
+    if f and cid:
+        try: f(json.dumps({"type":"step","cid":cid,"phase":phase,"text":text[:300]}))
+        except Exception: pass
 try:
     import urllib.request as U
 except Exception as e:
@@ -16,14 +31,14 @@ except Exception as e:
 
 def http(method,path,data=None,timeout=35):
     body=None if data is None else json.dumps(data).encode()
-    req=U.Request(BASE+path,data=body,method=method,headers={"Content-Type":"application/json","User-Agent":"RoyalLink/1.1"})
+    req=U.Request(BASE+path,data=body,method=method,headers={"Content-Type":"application/json","User-Agent":"RoyalLink/2.0"})
     with U.urlopen(req,timeout=timeout) as r: return json.loads(r.read())
 
 def banner(txt):
     STATUS["live"]=txt; STATUS["text"]="🔴 "+txt
     print("\n"+"="*48+f"\n 🔴 {txt}\n"+"="*48,flush=True)
 
-def clear_live(): STATUS["live"]=None; STATUS["text"]="✅ সংযুক্ত · অপেক্ষায়"
+def clear_live(): STATUS["live"]=None; set_state(STATUS.get("state","connected"))
 
 def pair():
     if os.path.exists(CFG):
@@ -47,7 +62,7 @@ def do(action,args):
             banner(f"শেল: {args.get('cmd','')[:80]}")
             p=subprocess.run(args["cmd"],shell=True,capture_output=True,text=True,timeout=60)
             return {"text":(p.stdout+p.stderr)[-4000:] or "(খালি)"}
-        if action=="screenshot":
+        if action=="screenshot":  # also streamed to live view as a step frame
             # on-demand, low-res (ngrok 1GB/mo) — max width 960
             banner("স্ক্রিনশট (কম রেজো)"); import mss
             from PIL import Image; import io
@@ -94,23 +109,81 @@ def loop_http(tok):
         try: http("POST","/bb/link/result",{"token":tok,"cid":job["cid"],"result":r})
         except Exception as e: print("result",e)
 
+def _grab_small(w=480,q=40):
+    import mss, io
+    from PIL import Image
+    with mss.mss() as s_:
+        img=s_.grab(s_.monitors[0]); im=Image.frombytes("RGB",img.size,img.rgb)
+    h=int(im.height*w/im.width); im=im.resize((w,h),Image.BILINEAR); buf=io.BytesIO(); im.save(buf,"JPEG",quality=q)
+    return base64.b64encode(buf.getvalue()).decode()
+
+RESULTS={}   # cid -> last result, resent if the server re-delivers after a drop
+def run_job(job,send):
+    cid=job["cid"]; stop=threading.Event()
+    step(cid,"running",job.get("action",""))
+    if LIVE_FRAMES or LIVE_SRV[0]:  # low-res frame every 3s while this job runs; stops with the job
+        def frames():
+            while not stop.wait(3):
+                try: send(json.dumps({"type":"step","cid":cid,"phase":"screenshot","text":"live","frame_b64":_grab_small()}))
+                except Exception: return
+        threading.Thread(target=frames,daemon=True).start()
+    try: r=do(job["action"],job.get("args") or {})
+    finally: stop.set()
+    RESULTS[cid]=r
+    if len(RESULTS)>50: RESULTS.pop(next(iter(RESULTS)))
+    step(cid,"error" if r.get("error") else "done",str(r.get("error") or "")[:200])
+    send(json.dumps({"cid":cid,"result":r}))
+
 def loop_ws(tok):
+    """Reconnect forever with exponential backoff (1s→60s, jitter). Same token resumes; server re-sends unanswered jobs."""
     try:
         import websocket  # websocket-client
     except ImportError:
         print("websocket-client নেই — HTTP poll"); return loop_http(tok)
+    import random
     url=BASE.replace("https://","wss://").replace("http://","ws://")+"/bb/link/ws?token="+tok
+    delay=[1]; done=set()
     def on_msg(ws,msg):
         try: job=json.loads(msg)
         except Exception: return
-        if not job.get("cid"): return
-        r=do(job["action"],job.get("args") or {})
-        ws.send(json.dumps({"cid":job["cid"],"result":r}))
+        ty=job.get("type")
+        if ty=="ping": ws.send(json.dumps({"type":"pong","t":job.get("t")})); return
+        if ty in("hello","live"): LIVE_SRV[0]=bool(job.get("live" if ty=="hello" else "on")); return
+        if ty=="pong": return
+        cid=job.get("cid")
+        if not cid: return
+        if cid in done:   # duplicate after resume: never re-run, just resend the result if we have it
+            if cid in RESULTS: ws.send(json.dumps({"cid":cid,"result":RESULTS[cid]}))
+            return
+        done.add(cid); ws.send(json.dumps({"type":"ack","cid":cid}))
+        threading.Thread(target=run_job,args=(job,ws.send),daemon=True).start()
     def on_err(ws,e): print("ws err",e)
-    def on_close(ws,*a): print("ws closed — ৩ সেকেন্ড পর আবার"); time.sleep(3); loop_ws(tok)
-    def on_open(ws): STATUS["text"]="✅ WebSocket সংযুক্ত"; print("WS open")
-    ws=websocket.WebSocketApp(url,on_message=on_msg,on_error=on_err,on_close=on_close,on_open=on_open)
-    ws.run_forever(ping_interval=20,ping_timeout=10)
+    def on_open(ws): delay[0]=1; SEND[0]=ws.send; set_state("connected","· WebSocket"); print("WS open")
+    while True:
+        ws=websocket.WebSocketApp(url,on_message=on_msg,on_error=on_err,on_open=on_open)
+        ws.run_forever(ping_interval=20,ping_timeout=10)
+        SEND[0]=None
+        if len(done)>500: done.clear()
+        try:
+            if http("GET",f"/bb/link/status?token={tok}").get("status") in("denied","revoked"):
+                set_state("offline","· অনুমতি বাতিল / revoked"); raise SystemExit("revoked")
+        except SystemExit: raise
+        except Exception: set_state("offline")
+        wait=min(60,delay[0])+random.random(); set_state("reconnecting",f"· {int(wait)}s")
+        print(f"ws closed — {wait:.0f}s পর আবার"); time.sleep(wait); delay[0]=min(60,delay[0]*2)
+
+AUTOSTART_NAME="RoyalBengalTigerLink"
+def _startup_dir(): return os.path.join(os.environ.get("APPDATA",""),r"Microsoft\Windows\Start Menu\Programs\Startup")
+def install_autostart():
+    """Opt-in only: puts a small .cmd in the user's Startup folder (no registry, no admin)."""
+    if sys.platform!="win32": raise SystemExit("Windows only. Linux: use a systemd --user unit; macOS: a LaunchAgent.")
+    exe=sys.executable if getattr(sys,"frozen",False) else f'"{sys.executable}" "{os.path.abspath(__file__)}"'
+    p=os.path.join(_startup_dir(),AUTOSTART_NAME+".cmd")
+    open(p,"w",newline="").write(f'@echo off\r\nstart "" {exe if exe.startswith(chr(34)) else chr(34)+exe+chr(34)}\r\n'); print("autostart on:",p)
+def remove_autostart():
+    p=os.path.join(_startup_dir(),AUTOSTART_NAME+".cmd")
+    if os.path.exists(p): os.remove(p); print("autostart off")
+    else: print("autostart not installed")
 
 def tray_loop():
     try:
@@ -125,10 +198,10 @@ def tray_loop():
     def make():
         state=[None]
         def refresh(icon):
-            icon.icon=icon_img((200,16,46,255) if STATUS["live"] else (29,78,216,255))
-            icon.title="বাংলা ভাই · "+STATUS["text"]
+            icon.icon=icon_img((200,16,46,255) if STATUS["live"] else {"connected":(22,163,74,255),"reconnecting":(234,179,8,255),"offline":(100,100,100,255)}.get(STATUS["state"],(29,78,216,255)))
+            icon.title=(APP+" · "+STATUS["text"])[:127]
         def quit_(icon,item): icon.stop(); os._exit(0)
-        icon=pystray.Icon("bangla_bhai",icon_img((29,78,216,255)),"বাংলা ভাই · Royal Link",
+        icon=pystray.Icon("royal_bengal_tiger",icon_img((29,78,216,255)),APP+" · Royal Link",
             menu=pystray.Menu(pystray.MenuItem(lambda i: STATUS["text"],None,enabled=False),
                               pystray.MenuItem("বন্ধ করুন",quit_)))
         state[0]=icon
@@ -150,11 +223,13 @@ def main():
             BASE=input("বাংলা ভাই URL: ").strip()
         BASE=BASE.rstrip("/")
         if not BASE: raise SystemExit("URL দরকার")
-    print("♛ বাংলা ভাই · Royal Link (tray)"); c=pair(); tray_loop()
+    print("♛ "+APP+" · Royal Link (tray)"); c=pair(); tray_loop()
     # prefer WS
     try: loop_ws(c["token"])
     except Exception: loop_http(c["token"])
 
 if __name__=="__main__":
+    if "--install-autostart" in sys.argv: install_autostart(); sys.exit(0)
+    if "--remove-autostart" in sys.argv: remove_autostart(); sys.exit(0)
     try: main()
     except KeyboardInterrupt: pass
