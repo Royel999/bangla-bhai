@@ -1,7 +1,7 @@
 ; Inno Setup 6 script — build BanglaBhaiLink-Setup.exe for আব্বা's own PCs
 ; Compile on Windows after PyInstaller onedir output exists in dist\BanglaBhaiLink\
-#define MyAppName "বাংলা ভাই · Royal Link"
-#define MyAppVersion "0.3.0"
+#define MyAppName "The Royal Bengal Tiger · Royal Link"
+#define MyAppVersion "0.4.0"
 #define MyAppPublisher "Royal Universe"
 #define MyAppExeName "BanglaBhaiLink.exe"
 
