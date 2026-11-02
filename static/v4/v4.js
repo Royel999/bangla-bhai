@@ -1,4 +1,4 @@
-/* Bangla Bhai v4 — "Royal Court" redesign. Vanilla JS, same APIs as v3 (/bb/api/*, /bb/api/v3/*). Flag: feat_ui_v4. */
+/* The Royal Bengal Tiger (v4) — "Royal Court" redesign. Vanilla JS, same APIs as v3 (/bb/api/*, /bb/api/v3/*). Flag: feat_ui_v4. */
 'use strict';
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -25,7 +25,7 @@ async function api(u,o={}){const r=await fetch(u,{credentials:'same-origin',head
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2400)}
 function md(t){const h=window.marked&&window.DOMPurify?DOMPurify.sanitize(marked.parse(t||'')):esc(t).replace(/\n/g,'<br>');const d=document.createElement('div');d.innerHTML=h;d.querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});return d}
 const ago=ts=>{const s=Date.now()/1000-ts;if(s<60)return T('এইমাত্র','just now');if(s<3600)return num(Math.floor(s/60))+T(' মিনিট আগে','m ago');if(s<86400)return num(Math.floor(s/3600))+T(' ঘণ্টা আগে','h ago');return num(Math.floor(s/86400))+T(' দিন আগে','d ago')};
-const LOGO='/bb/static/logo.png';
+const LOGO='/bb/static/v4/brand/RBT_seal_512_transparent.png';
 const avatar=(c='')=>`<span class="ava ${c}"><img src="${LOGO}" alt="" width="40" height="40"></span>`;
 /* ---------- state & router ---------- */
 const ST={activeAgent:null,me:{},skills:[],cats:[],agents:[],canTools:false,chat:null,activeSkill:null,ctrl:null,files:[],approvals:0};
@@ -57,11 +57,11 @@ const shell=(title,body,right='')=>topbar(`<h1>${title}</h1>`,'',right||themeBtn
 /* =============== CHAT / HOME =============== */
 const TIERL=()=>({fast:T('দ্রুত','Fast'),auto:T('অটো','Auto'),deep:T('গভীর','Deep')});
 function pgChat(){const tier=localStorage.bbTier||'auto';$('#view').classList.add('chatpage');
- $('#view').innerHTML=topbar(`<div class="who ttl">${avatar()}<div><b>${T('বাংলা ভাই','Bangla Bhai')}</b><small>ROYAL UNIVERSE</small></div></div>`,
+ $('#view').innerHTML=topbar(`<div class="who ttl">${avatar()}<div class=wm><small>The Royal Bengal</small><b>TIGER</b></div></div>`,
   `<button class=ib aria-label="${T('চ্যাটের তালিকা','Chat list')}" onclick="openChats()">${svg('menu')}</button>`,
   `<button class=tier onclick="pickTier()" aria-label="${T('মডেল বেছে নিন','Choose model')}: ${TIERL()[tier]}"><i></i>${esc(TIERL()[tier])}</button><button class=ib aria-label="${T('নতুন চ্যাট','New chat')}" onclick="newChat()">${svg('edit')}</button>`)+
   `<div class=page id=chatPage><div class=wrap id=msgs></div></div>
-  <div id=composer><div class=ctx id=ctx></div><div class=cbox><div id=pillSlot></div><textarea id=inp rows=1 placeholder="${T('বাংলা ভাইকে কিছু জিজ্ঞেস করুন…','Ask Bangla Bhai anything…')}" aria-label="${T('মেসেজ','Message')}"></textarea>
+  <div id=composer><div class=ctx id=ctx></div><div class=cbox><div id=pillSlot></div><textarea id=inp rows=1 placeholder="${T('টাইগারকে কিছু জিজ্ঞেস করুন…','Ask the Tiger anything…')}" aria-label="${T('মেসেজ','Message')}"></textarea>
   <div class=crow><button class=ib aria-label="${T('স্কিল বেছে নিন','Pick a skill')}" onclick="pickSkill()">${svg('spark')}</button><button class=ib aria-label="${T('ফাইল যোগ করুন','Attach file')}" onclick="pickFile()">${svg('clip')}</button>
   <button class=ib id=micb aria-label="${T('ভয়েসে বলুন','Voice input')}" onclick="voice()">${svg('mic')}</button><span class=grow></span><button id=send aria-label="${T('পাঠান','Send')}" disabled>${svg('send')}</button></div></div></div>
   <input type=file id=fileIn hidden accept="image/*,.pdf,.txt,.md,.csv,.json" aria-label="${T('ফাইল','File')}">`;
@@ -73,8 +73,8 @@ function pgChat(){const tier=localStorage.bbTier||'auto';$('#view').classList.ad
 function canSend(){const b=$('#send');if(b)b.disabled=!ST.ctrl&&!$('#inp').value.trim()&&!ST.files.length}
 function greet(){const h=new Date().getHours();return h<5?T('শুভ রাত্রি','Good night'):h<12?T('শুভ সকাল','Good morning'):h<17?T('শুভ দুপুর','Good afternoon'):h<20?T('শুভ সন্ধ্যা','Good evening'):T('শুভ রাত্রি','Good night')}
 async function hello(){const cx=$('#ctx');if(cx)cx.hidden=true;const own=ST.me.role==='owner';const nm=own?T('জাহাঁপনা','Your Majesty'):(ST.me.name||'');const en=ST.skills.filter(s=>s.enabled&&s.available).slice(0,4);
- $('#msgs').innerHTML=`<section class=hero aria-label="${T('স্বাগতম','Welcome')}"><i class=stripe></i><div class=hi>${avatar()}<div><small>${greet()}${nm?', '+esc(nm):''} 👋</small><h2>${T('আসসালামু আলাইকুম! আজ কী করব?','Hello! What shall we do today?')}</h2></div></div>
- <p>${T('লিখুন, বলুন বা ছবি দিন — বাংলা ভাই সেরা ফ্রি AI মডেলগুলো দিয়ে উত্তর দেবে।','Type, talk or share a photo — Bangla Bhai answers with the best free AI models.')}</p></section>
+ $('#msgs').innerHTML=`<section class=hero aria-label="${T('স্বাগতম','Welcome')}"><i class=stripe></i><div class=hi>${avatar()}<div><small>${greet()}${nm?', '+esc(nm):''} 👋</small><div class=wm><small>The Royal Bengal</small><b>TIGER</b></div><h2>${T('আসসালামু আলাইকুম! আজ কী করব?','Hello! What shall we do today?')}</h2></div></div>
+ <p>${T('লিখুন, বলুন বা ছবি দিন — দ্য রয়্যাল বেঙ্গল টাইগার সেরা ফ্রি AI মডেলগুলো দিয়ে উত্তর দেবে।','Type, talk or share a photo — The Royal Bengal Tiger answers with the best free AI models.')}</p></section>
  ${en.length?`<div class=sec><h2>${T('দ্রুত শুরু','Quick start')}</h2><a href="/v4/skills">${T('সব স্কিল','All skills')} ›</a></div><div class=qrow>${en.map(s=>`<button class=q onclick="useSkill('${s.id}')"><span class=ic aria-hidden=true>${s.icon}</span><b>${esc(T(s.name_bn,s.name_en))}</b><span>${esc(T(s.desc_bn,s.desc_en))}</span></button>`).join('')}</div>`:''}
  <div id=recentBox></div>`;
  try{const L=(await api('/bb/api/chats')).slice(0,4);if(L.length&&$('#recentBox'))$('#recentBox').innerHTML=`<div class=sec><h2>${T('সাম্প্রতিক চ্যাট','Recent chats')}</h2><button onclick="openChats()">${T('সব দেখুন','See all')}</button></div><div class=recent>${L.map(c=>`<button class=li onclick="openChat('${esc(c.id)}')"><span class=ki aria-hidden=true>${c.pinned?'📌':'💬'}</span><span class="grow t">${esc(c.title)}</span><span class="small mut">${ago(c.updated)}</span></button>`).join('')}</div>`}catch(e){}}
@@ -143,7 +143,7 @@ async function run(body,sk){if(body.content)addMsg({role:'user',content:body.con
 /* =============== SKILLS =============== */
 let SKF={q:'',cat:'*'};
 function pgSkills(){const on=ST.skills.filter(s=>s.enabled&&s.available).length;
- $('#view').innerHTML=shell(T('স্কিল','Skills'),`<p class=sub>${T('বাংলা ভাইয়ের দক্ষতা। যেটা দরকার চালু রাখুন — চালু স্কিল চ্যাটে শর্টকাট হয়ে আসবে।','What Bangla Bhai can do. Turn on what you need — enabled skills appear as chat shortcuts.')}</p>
+ $('#view').innerHTML=shell(T('স্কিল','Skills'),`<p class=sub>${T('টাইগারের দক্ষতা। যেটা দরকার চালু রাখুন — চালু স্কিল চ্যাটে শর্টকাট হয়ে আসবে।','What the Tiger can do. Turn on what you need — enabled skills appear as chat shortcuts.')}</p>
  ${ST.skillsOff?`<div class=note role=status>⏸️ ${esc(ST.skillsOff)}</div>`:''}
  <div class=stats><div class=stat><b>${num(on)}</b><span>${T('চালু','On')}</span></div><div class=stat><b>${num(ST.skills.length)}</b><span>${T('মোট','Total')}</span></div><div class=stat><b>${num(ST.skills.filter(s=>s.perms?.length).length)}</b><span>${T('অনুমতি লাগে','Need approval')}</span></div></div>
  <div class=search>${svg('search')}<input class=fld id=skq placeholder="${T('স্কিল খুঁজুন…','Search skills…')}" aria-label="${T('স্কিল খুঁজুন','Search skills')}" value="${esc(SKF.q)}"></div>
@@ -256,7 +256,7 @@ async function pgActivity(){$('#view').innerHTML=shell(T('কার্যকল�
  const dayOf=ts=>{const d=new Date(ts*1000),n=new Date();const k=d.toDateString();if(k===n.toDateString())return T('আজ','Today');n.setDate(n.getDate()-1);if(k===n.toDateString())return T('গতকাল','Yesterday');return d.toLocaleDateString(LANG==='en'?'en-GB':'bn-BD',{day:'numeric',month:'long'})};
  ST.approvals=D.approvals?.length||0;paintNav();let lastDay='';
  $('#acw').innerHTML=(ST.approvals?`<div class=sec style="margin-top:4px"><h2>⏳ ${T('আপনার অনুমতির অপেক্ষায়','Waiting for your approval')} (${num(ST.approvals)})</h2></div>`+D.approvals.map(a=>`<div class=appr style="margin-bottom:10px"><div class=t>${svg('shield')} ${esc(a.tool)}</div><pre>${esc(a.args)}</pre><div class=btns><button class=btn onclick="dec('${esc(a.id)}',0)">🚫 ${T('না','No')}</button><button class="btn pri" onclick="dec('${esc(a.id)}',1)">✅ ${T('অনুমতি','Allow')}</button></div></div>`).join(''):'')+
- `<p class=sub>${T('আপনার হয়ে বাংলা ভাই যা যা করেছে, সব এখানে। কিছুই লুকানো নেই।','Everything Bangla Bhai did for you. Nothing hidden.')}</p>`+
+ `<p class=sub>${T('আপনার হয়ে টাইগার যা যা করেছে, সব এখানে। কিছুই লুকানো নেই।','Everything the Tiger did for you. Nothing hidden.')}</p>`+
  ((D.items||[]).slice(0,80).map(x=>{const dd=dayOf(x.ts);const h=dd!==lastDay?`<div class=day>${dd}</div>`:'';lastDay=dd;
   return h+`<div class=act><span class=ki aria-hidden=true>${KI[x.kind]||'•'}</span><div class=grow><div class=row style="gap:6px"><b class=grow>${esc(lbl(x))}</b><span class="tag ${x.ok?'ok':'red'}" aria-label="${x.ok?T('সফল','ok'):T('ব্যর্থ','failed')}">${x.ok?'✓':'✗'}</span></div><div class="small mut" style="word-break:break-word">${esc(String(x.input||'').slice(0,140))}</div><div class="small mut">${ago(x.ts)}</div></div></div>`}).join('')||`<div class=empty><div class=big>📋</div>${T('এখনো কিছু নেই','Nothing yet')}</div>`)}
 async function dec(id,ok){try{await api('/bb/api/approvals/'+id,{method:'POST',body:JSON.stringify({ok:!!ok})});toast(ok?T('অনুমতি দেওয়া হয়েছে','Approved'):T('বাতিল করা হয়েছে','Declined'))}catch(e){toast(e.message)}pgActivity()}
@@ -269,7 +269,7 @@ function openMe(){const t=localStorage.bbTheme||'dark';const own=ST.me.role==='o
  <div class=group>${row('🧠',T('মেমরি','Memory'),'/memory')}${row('⏰',T('শিডিউল','Schedules'),'/schedules')}${row('🔌',T('কানেকশন','Connections'),'/connections')}${row('🎨',T('স্টুডিও','Studio'),'/studio')}${row('🔑',T('নিজের API কী (BYOK)','My API keys (BYOK)'),'/studio#keys')}${row('💳',T('অ্যাকাউন্ট ও প্ল্যান','Account & plan'),'/account')}</div>
  <div class=group>${own?row('🛡️',`<b>${T('অ্যাডমিন ড্যাশবোর্ড','Admin dashboard')}</b>`,'/admin/dash',`<span class="tag warn">${T('মালিক','Owner')}</span>`):''}${row('🗂️',T('আগের ডিজাইন (v3)','Previous design (v3)'),'/v3')}${row('⚙️',T('ক্লাসিক UI ও পুরো সেটিংস','Classic UI & all settings'),'/app?classic=1')}
  <a class=li href="/logout"><span class=ki aria-hidden=true>↩︎</span><span class=grow style="color:var(--red2)">${T('লগআউট','Log out')}</span></a></div>
- <p class="small mut" style="text-align:center;margin-top:14px">বাংলা ভাই · Royal Universe</p>`,null,T('আমি','Me'))}
+ <p class="small mut" style="text-align:center;margin-top:14px"><span class=wmi>The Royal Bengal Tiger</span></p>`,null,T('আমি','Me'))}
 async function saveSet(p){try{ST.set=await api('/bb/api/settings',{method:'PUT',body:JSON.stringify(p)});if(p.lang){LANG=p.lang==='en'?'en':'bn';document.cookie='bb_lang='+LANG+';path=/;max-age=31536000;samesite=lax';localStorage.bbLang=LANG;document.documentElement.lang=LANG;
   $('#tabs').innerHTML=navHTML();$('.sidenav').innerHTML=navHTML();route()}toast(T('সংরক্ষণ হয়েছে','Saved'));openMe()}catch(e){toast(e.message)}}
 /* ---------- boot ---------- */

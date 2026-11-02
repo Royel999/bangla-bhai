@@ -1,0 +1,4 @@
+{"name":"The Royal Bengal Tiger","short_name":"Royal Tiger","description":"The Royal Bengal Tiger — বাংলা AI সহকারী","start_url":"/v4?source=pwa","scope":"/","id":"/v4","display":"standalone","background_color":"#0D0D12","theme_color":"#0D0D12","lang":"bn",
+"icons":[{"src":"/bb/static/v4/brand/RBT_icon_192_transparent.png","sizes":"192x192","type":"image/png","purpose":"any"},{"src":"/bb/static/v4/brand/RBT_icon_512_transparent.png","sizes":"512x512","type":"image/png","purpose":"any"},{"src":"/bb/static/v4/brand/RBT_icon_maskable_512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}],
+"share_target":{"action":"/v4","method":"GET","enctype":"application/x-www-form-urlencoded","params":{"title":"title","text":"text","url":"url"}},
+"shortcuts":[{"name":"New chat","url":"/v4","icons":[{"src":"/bb/static/v4/brand/RBT_icon_192_transparent.png","sizes":"192x192"}]}]}
