@@ -311,7 +311,7 @@ async function saveSet(p){try{ST.set=await api('/bb/api/settings',{method:'PUT',
  const [me,set,sk]=await Promise.allSettled([api('/bb/api/me'),api('/bb/api/settings'),api('/bb/api/v3/skills')]);
  if(me.status==='fulfilled')ST.me=me.value;if(set.status==='fulfilled'){ST.set=set.value;}
  if(sk.status==='fulfilled'){ST.skills=sk.value.skills||[];ST.cats=sk.value.categories||[];ST.skillsOff=sk.value.off||''}
- const q=new URLSearchParams(location.search);route();const sh=[q.get('title'),q.get('text'),q.get('url')].filter(Boolean).join('\n');if(sh&&$('#inp')){$('#inp').value=sh;$('#inp').dispatchEvent(new Event('input'))}
+ const q=new URLSearchParams(location.search);route();if(q.get('devices')||q.get('open')==='devices'){history.replaceState({},'',location.pathname);setTimeout(()=>openDevices(),400);}const sh=[q.get('title'),q.get('text'),q.get('url')].filter(Boolean).join('\n');if(sh&&$('#inp')){$('#inp').value=sh;$('#inp').dispatchEvent(new Event('input'))}
  try{const D=await api('/bb/api/activity');ST.approvals=D.approvals?.length||0;paintNav()}catch(e){}
  if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{})})();
 
