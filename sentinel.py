@@ -3,6 +3,7 @@ ONE place that classifies outgoing / irreversible actions:
   send    : sms_send, call_make, mcp tools that send/post/email/message, Telegram sends
   post    : mcp tools that publish/post/tweet/upload
   pay     : plan payment decisions, any tool mentioning pay/charge/transfer
+  control : click/tap/type_text/swipe/keyevent (Royal Link screen control)
   account : settings_ctl, plan changes, owner auth/password, connection add/remove
 Rules: gated actions ALWAYS need an explicit approval card (never 'always allow'), and every
 decision (asked / approved / denied / executed) is written to audit_events via auditdb (jsonl fallback).
@@ -11,7 +12,9 @@ Multi-way: if audit DB write fails, auditdb still appends audit.jsonl; if both f
 import re
 try: import auditdb as _A
 except Exception: _A=None
-TOOL_CAT={"sms_send":"send","sms_fill":"send","call_make":"send","settings_ctl":"account","app_stop":"account"}
+TOOL_CAT={"sms_send":"send","sms_fill":"send","call_make":"send","settings_ctl":"account","app_stop":"account",
+         # device control on a phone/PC (Royal Link Accessibility): every tap/type/swipe/key needs a card
+         "click":"control","tap":"control","type_text":"control","type":"control","swipe":"control","keyevent":"control"}
 _SEND=re.compile(r"(send|email|mail|message|reply|sms|whatsapp|telegram|dm\b|invite)",re.I)
 _POST=re.compile(r"(post|publish|tweet|upload|share|comment|schedule_post)",re.I)
 _PAY=re.compile(r"(pay|charge|checkout|purchase|transfer|refund|invoice|order)",re.I)

@@ -47,7 +47,7 @@ object LinkClient {
     private fun http(m: String, path: String, body: JSONObject?): JSONObject {
         val c = URL(base + path).openConnection() as HttpURLConnection
         c.requestMethod = m; c.connectTimeout = 15000; c.readTimeout = 35000
-        c.setRequestProperty("Content-Type", "application/json"); c.setRequestProperty("User-Agent", "RoyalLinkA11y/0.2")
+        c.setRequestProperty("Content-Type", "application/json"); c.setRequestProperty("User-Agent", "RoyalLinkA11y/0.3")
         if (body != null) { c.doOutput = true; c.outputStream.use { it.write(body.toString().toByteArray()) } }
         val stream = if (c.responseCode in 200..299) c.inputStream else c.errorStream
         val txt = stream?.bufferedReader()?.readText() ?: "{}"

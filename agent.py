@@ -371,7 +371,7 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
             if not cmd: cmd="uname -a && df -h" if re.search(r"uname|df\s*-h",goal,re.I) else "echo ok"
             args={"device":args.get("device") or "box","cmd":cmd}
         
-        alias={"bash":"shell","cmd":"shell","terminal":"shell","search":"web_search","open":"browse","navigate":"browse"}
+        alias={"bash":"shell","cmd":"shell","terminal":"shell","search":"web_search","open":"browse","navigate":"browse","tap":"click","type":"type_text","press":"keyevent","key":"keyevent"}
         tool=alias.get(tool,tool)
         if RX and tool not in SAFE_TOOLS:
             ev("blocked",text=f"'{tool}' এই এজেন্টের জন্য নেই — শুধু ওয়েব সার্চ ও ব্রাউজ"); audit(ev="agent_tool_blocked",task=tid,tool=str(tool)[:40])
