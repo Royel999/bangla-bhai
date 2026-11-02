@@ -34,7 +34,9 @@ def revoke_all():
 def devices():
     with db() as c: rows=[dict(r) for r in c.execute("select id,name,kind,status,created,last_seen,info from devices order by created")]
     out=[{"id":"box","name":"বাংলা ভাই সার্ভার (বক্স)","kind":"server","status":"approved","last_seen":time.time(),"online":True}]
-    for r in rows: r["online"]=bool(r["last_seen"] and time.time()-r["last_seen"]<40); out.append(r)
+    try: import device_hub as _DH
+    except Exception: _DH=None
+    for r in rows: r["online"]=_DH.online(r["id"],r["last_seen"]) if _DH else bool(r["last_seen"] and time.time()-r["last_seen"]<40); out.append(r)
     for d in out: d["perms"]={k:get_perm(d["id"],k) for k in CAPS}
     return out
 # ---------------- Royal Link ----------------

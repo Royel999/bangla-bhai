@@ -817,7 +817,8 @@ async def lk_poll(token:str):
     d=AG.dev_by_token(token)
     if not d or d["status"]!="approved": return JSONResponse({"status":d["status"] if d else "unknown"},403)
     q=AG.LINK_Q.setdefault(d["id"],asyncio.Queue())
-    try: job=await asyncio.wait_for(q.get(),25)
+    import device_hub as DH; DH.beat(d["id"])
+    try: job=await asyncio.wait_for(DH.next_job(q,d["id"]),25)
     except asyncio.TimeoutError: return {"job":None}
     audit(ev="link_dispatch",device=d["id"],action=job["action"]); return {"job":job}
 MAX_RES=12*1024*1024; MAX_IMG=8*1024*1024; MAX_SHOTS=500
@@ -868,26 +869,60 @@ async def lk_res(request:Request):
 
 @app.websocket("/bb/link/ws")
 async def lk_ws(ws: WebSocket):
+    """Royal Link hub v1: heartbeat, resume-on-reconnect, pending re-queue, live steps (see device_hub.py)."""
     from starlette.websockets import WebSocketDisconnect
+    import device_hub as DH
+    DH.set_audit(audit)
     await ws.accept(); tok=ws.query_params.get("token"); d=AG.dev_by_token(tok)
     if not d or d["status"]!="approved": await ws.close(code=4403); return
-    q=AG.LINK_Q.setdefault(d["id"],asyncio.Queue()); audit(ev="link_ws_open",device=d["id"])
+    did=d["id"]; sid=uuid.uuid4().hex[:8]
+    q=AG.LINK_Q.setdefault(did,asyncio.Queue()); DH.open_session(did,sid); audit(ev="link_ws_open",device=did)
+    try: await ws.send_json({"type":"hello","hb":DH.HB_INTERVAL,"timeout":DH.HB_TIMEOUT,"resume":True})
+    except Exception: pass
     async def push():
+        while DH.is_current(did,sid):
+            job=await DH.next_job(q,did)
+            if not DH.is_current(did,sid): q.put_nowait(job); return
+            DH.mark_sent(did,job); await ws.send_json(job)
+            audit(ev="link_dispatch",device=did,action=job["action"],via="ws",attempt=job["attempt"])
+    async def heart():
         while True:
-            job=await q.get(); await ws.send_json(job); audit(ev="link_dispatch",device=d["id"],action=job["action"],via="ws")
-    t=asyncio.create_task(push())
+            await asyncio.sleep(DH.HB_INTERVAL)
+            if not DH.is_current(did,sid) or time.time()-DH.LAST_BEAT.get(did,0)>DH.HB_TIMEOUT:
+                audit(ev="link_hb_timeout",device=did); await ws.close(code=4408); return
+            await ws.send_json({"type":"ping","t":time.time()})
+    t=asyncio.create_task(push()); h=asyncio.create_task(heart())
     try:
         while True:
-            b=await ws.receive_json(); f=AG.LINK_RES.get(b.get("cid")); r=b.get("result") or {}
-            if f is None or AG.LINK_OWN.get(b.get("cid")) not in (None,d["id"]) or not isinstance(r,dict): continue
-            if not rate_ok("linkres:"+d["id"],120,3600): continue
+            b=await ws.receive_json()
+            if not isinstance(b,dict): continue
+            DH.beat(did); ty=b.get("type")
+            if ty=="ping": await ws.send_json({"type":"pong","t":time.time()}); continue
+            if ty in("pong","ack"): continue
+            if ty=="step":
+                if rate_ok("linkstep:"+did,600,3600) and DH.add_step(did,b): audit(ev="link_step",device=did,phase=b.get("phase"))
+                continue
+            cid=b.get("cid"); f=AG.LINK_RES.get(cid); r=b.get("result") or {}
+            if AG.LINK_OWN.get(cid) not in (None,did): continue
+            DH.mark_done(did,cid)
+            if f is None or not isinstance(r,dict): continue
+            if not rate_ok("linkres:"+did,120,3600): continue
             try: save_shot(r)
             except ValueError as e: r={"error":str(e)}
-            audit(ev="link_result",device=d["id"],ok=not r.get("error"),via="ws")
+            audit(ev="link_result",device=did,ok=not r.get("error"),via="ws")
             if f and not f.done(): f.set_result(r)
             AG.dev_by_token(tok)  # touch last_seen
-    except WebSocketDisconnect: pass
-    finally: t.cancel(); audit(ev="link_ws_close",device=d["id"])
+    except (WebSocketDisconnect,RuntimeError): pass
+    finally:
+        t.cancel(); h.cancel(); DH.close_session(did,sid,q); audit(ev="link_ws_close",device=did)
+
+@app.get("/bb/link/steps")
+def lk_steps(request:Request,device:str,since:float=0):
+    """Live step feed for the UI (owner only)."""
+    u=need(request)
+    if not is_owner_uid(u): return JSONResponse({"error":"forbidden"},403)
+    import device_hub as DH
+    return {"device":device,"online":DH.online(device),"steps":DH.steps(device,since)}
 
 @app.get("/bb/link/{fn}")
 def lk_file(fn:str):
