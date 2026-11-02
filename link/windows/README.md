@@ -1,53 +1,67 @@
-# Windows · The Royal Bengal Tiger · Royal Link build
+# The Royal Bengal Tiger · Royal Link — Windows (BanglaBhaiLink.exe)
 
-## One clear path (on a Windows 10/11 PC, Python 3.11+ installed)
+এক পাতায় সব ধাপ · All steps on one page. কোনো অ্যাকাউন্ট খোলা হয় না, কোনো টাকা লাগে না · No accounts, free tools only.
+
+## ১. যা লাগবে · What you need (once)
+1. Windows 10/11 PC.
+2. **Python 3.11 বা 3.12** — https://www.python.org/downloads/ → ইনস্টলের সময় ✅ **"Add python.exe to PATH"** টিক দিন.
+3. (ঐচ্ছিক · optional) **Inno Setup 6** — https://jrsoftware.org/isdl.php → Setup.exe ইনস্টলার বানাতে. না থাকলেও ফোল্ডার চলবে.
+
+## ২. EXE বানানো · Build
+এই `windows` ফোল্ডারটা PC-তে কপি করুন (বা build pack zip খুলুন). ফোল্ডারে **Shift + Right-click → "Open PowerShell window here"**, তারপর:
 ```powershell
-cd link\windows
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
-Result: `dist\BanglaBhaiLink\BanglaBhaiLink.exe` (+ installer if Inno Setup is installed).
-The EXE/folder name stays `BanglaBhaiLink` for now so the existing installer/upgrade path doesn't break; the tray UI shows "The Royal Bengal Tiger · Royal Link".
+এটা নিজে করে · It does: pip install (requirements + PyInstaller) → syntax check → icon → PyInstaller → (Inno থাকলে) installer → SHA256.
 
-## Hub protocol v1 (this version)
-- Heartbeat: server pings every 20s, device answers pong; silent >60s ⇒ marked offline and socket closed.
-- Reconnect: exponential backoff 1s→60s with jitter, same token; the server re-sends jobs that were in flight (max 3 tries, 120s TTL). Duplicate jobs are ignored by cid.
-- Live steps: device sends `running` / `screenshot` / `done` / `error` events per job.
-- Tray tooltip: ✅ সংযুক্ত/Connected · 🔄 আবার সংযোগ/Reconnecting · ⛔ অফলাইন/Offline (icon green/yellow/grey, red while a job runs).
-- Live frames: `$env:BB_LIVE_FRAMES="1"` sends a 480px JPEG q40 every 3s **only while a job runs**. Off by default (bandwidth).
+ফলাফল · Output:
+- `dist\BanglaBhaiLink\BanglaBhaiLink.exe` — ফোল্ডারসহ চালান (onedir).
+- `dist_installer\BanglaBhaiLink-Setup-0.4.0.exe` — Inno থাকলে.
 
-## Auto-start (opt-in, nothing is changed silently)
+EXE-এর নাম `BanglaBhaiLink` রাখা হয়েছে যাতে পুরোনো ইনস্টল আপগ্রেড হয়; ট্রে-তে দেখাবে "The Royal Bengal Tiger · Royal Link".
+
+## ৩. ইনস্টল · Install
+- Setup.exe চালান → "Start with Windows" টিক দিলে অটো-স্টার্ট হবে.
+- SmartScreen "Windows protected your PC" দেখালে → **More info → Run anyway** (unsigned personal app; normal).
+
+## ৪. পেয়ার করা · Pair
+1. EXE চালান → ট্রে-তে আইকন আসবে; টুলটিপে লেখা: `⏳ অনুমোদন দরকার · id …`.
+2. অ্যাপে (ফোন/ব্রাউজার) **সেটিংস → অনুমতি কেন্দ্র** → নতুন ডিভাইস **Approve** করুন.
+3. টুলটিপ হবে `✅ সংযুক্ত / Connected`. টোকেন থাকে `%USERPROFILE%\.bangla_bhai_link.json` এ (কাউকে দেবেন না).
+- অন্য সার্ভার হলে · different server: `$env:BB_URL="https://…"` দিয়ে চালান.
+
+## ৫. স্ট্যাটাস · Tray status
+| আইকন | টুলটিপ |
+|---|---|
+| 🟢 সবুজ | ✅ সংযুক্ত / Connected |
+| 🟡 হলুদ | 🔄 আবার সংযোগ / Reconnecting (1s→60s backoff) |
+| ⚫ ধূসর | ⛔ অফলাইন / Offline |
+| 🔴 লাল | কাজ চলছে (কী কাজ লেখা থাকে) — no hidden mode |
+
+Heartbeat: সার্ভার প্রতি ২০ সেকেন্ডে ping, ৬০ সেকেন্ড চুপ থাকলে অফলাইন. নেট গেলে নিজে আবার যুক্ত হয়; অসমাপ্ত কাজ সার্ভার আবার পাঠায় (একই কাজ দুবার চলে না).
+
+## ৬. লাইভ ভিউ · Live frames
+- অ্যাপে মালিক হিসেবে **📡 লাইভ ভিউ** (`/bb/live`) → ডিভাইস বাছুন → **লাইভ ফ্রেম** টগল চালু.
+- তখন কাজ চলার সময়েই শুধু ৩ সেকেন্ডে একটা ছোট (480px) ছবি যায়. ডিফল্ট বন্ধ; সার্ভার রিস্টার্টে আবার বন্ধ.
+- PC-তে সবসময় চাইলে · local override: `$env:BB_LIVE_FRAMES="1"`.
+- অনুমতি (Ask/Always) বদলায় না.
+
+## ৭. অটো-স্টার্ট · Autostart (opt-in)
+- Installer-এর "Start with Windows" চেকবক্স, **অথবা**
 ```powershell
-.\dist\BanglaBhaiLink\BanglaBhaiLink.exe --install-autostart   # adds a .cmd to your Startup folder (no registry, no admin)
+.\dist\BanglaBhaiLink\BanglaBhaiLink.exe --install-autostart   # Startup ফোল্ডারে .cmd (no registry, no admin)
 .\dist\BanglaBhaiLink\BanglaBhaiLink.exe --remove-autostart
 ```
-The installer (`installer.iss`) can also offer a Startup shortcut checkbox.
 
-Deeplink scheme `royallink://` is unchanged.
-
-
-**No accounts are created by these scripts.** Packaging is for আব্বা's own PCs (sideload / unsigned).
-
-## Quick run (dev)
+## ৮. ডেভ রান · Dev run (EXE ছাড়া)
 ```powershell
 pip install -r requirements.txt
-$env:BB_URL="https://banglabhai.dpdns.org"
 python royal_link_tray.py
 ```
 
-## Release build (onedir, no UPX)
-```powershell
-.\build.ps1
-```
-Output: `dist\BanglaBhaiLink\` — zip that folder, or compile `installer.iss` with [Inno Setup 6](https://jrsoftware.org/isinfo.php) to get `BanglaBhaiLink-Setup-0.3.0.exe`.
-
-## Why onedir / no UPX
-PyInstaller onefile + UPX is often flagged by Windows Defender heuristics. Onedir + no UPX is the community mitigation. SmartScreen may still show "Windows protected your PC" until reputation builds — **More info → Run anyway** is fine for personal use.
-
-## Screen streams
-Screenshots are **on-demand, max width 960, JPEG q55** to stay under ngrok free 1 GB/month. No continuous stream on free ngrok.
-
-## Preferred mesh (later, needs approval)
-**Tailscale** is preferred over ngrok for device-to-device once আব্বা approves creating a Tailscale account. Do not create the account without his OK.
-
-## Phone control
-Android control APK = **personal sideload only** (never Play Store — Accessibility agent policy). See research note `2026-10-22_bangla_bhai_apps_research.md`. Mobile dashboard = PWA (current).
+## সমস্যা · Troubleshooting
+- Defender আটকালে: onedir + no-UPX ব্যবহার করা হয়েছে কম ফ্ল্যাগের জন্য; ফোল্ডারটা allow করুন.
+- `pip` না চিনলে: Python আবার ইনস্টল করে "Add to PATH" দিন.
+- ক্যামেরা/মাইক কাজ না করলে: Windows Settings → Privacy → Camera/Microphone → desktop apps allow.
+- `royallink://` deeplink scheme unchanged.
+- Tailscale (ngrok-এর বদলে) পরে, জাহাঁপনার অনুমতিতে.

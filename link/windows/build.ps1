@@ -18,7 +18,7 @@ Write-Host "OK: dist\BanglaBhaiLink\BanglaBhaiLink.exe  (The Royal Bengal Tiger 
 Write-Host "Opt-in auto-start: dist\BanglaBhaiLink\BanglaBhaiLink.exe --install-autostart"
 if (Get-Command iscc -ErrorAction SilentlyContinue) {
   iscc installer.iss
-  Write-Host "OK: dist_installer\BanglaBhaiLink-Setup-0.3.0.exe"
+  Write-Host "OK: dist_installer\BanglaBhaiLink-Setup-0.4.0.exe"
 } else {
   Write-Host "Inno Setup (iscc) not found — onedir folder is enough to zip and run."
 }
