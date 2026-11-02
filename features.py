@@ -95,9 +95,9 @@ def setup(app,H):
         try: need(request)
         except PermissionError: return RedirectResponse("/login",303)
         return shell_page("Activity","কার্যকলাপ",ACT_JS)
-PAGE="""<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=theme-color content="#0b1a33">
-<link rel=icon href=/bb/static/icon-192.png><title>{{T_EN}} · Bangla Bhai</title><style>
-:root{--bg:#0b1a33;--panel:#122442;--tx:#eef2f8;--mut:#8b98b0;--acc:#1e6fd9;--gold:#f4b400;--bd:#243a5c;--red:#e5484d;--ok:#3ecf8e}
+PAGE="""<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=theme-color content="#0D0D12">
+<link rel=icon href=/bb/static/v4/brand/RBT_icon_192_transparent.png><title>{{T_EN}} · The Royal Bengal Tiger</title><style>
+:root{--bg:#0D0D12;--panel:#17171F;--tx:#F3F4F8;--mut:#9A9CB0;--acc:#006A4E;--gold:#E8AD3D;--bd:#2A2A36;--red:#E0263C;--ok:#3CCB7F}body:before{content:"";position:fixed;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,#006A4E 50%,#C30003 50%);z-index:99}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 Inter,'Hind Siliguri','Noto Sans Bengali',system-ui,sans-serif}
 header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--bd);position:sticky;top:0;background:var(--bg)}
 header nav,header{flex-wrap:wrap}header img{width:34px;height:34px;border-radius:50%}header h1{font-size:18px;margin:0;flex:1}header a,.lang{color:var(--mut);text-decoration:none;font-size:13px;background:none;border:1px solid var(--bd);border-radius:8px;padding:6px 10px;cursor:pointer}
@@ -109,7 +109,7 @@ textarea,input,select{width:100%;background:#0b1a33;color:var(--tx);border:1px s
 .sw{position:relative;width:46px;height:26px;background:var(--bd);border-radius:99px;cursor:pointer;border:0}.sw.on{background:var(--acc)}.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}.sw.on::after{left:23px}
 .appr{border-color:var(--gold)}pre{white-space:pre-wrap;word-break:break-word;margin:6px 0;font-size:12.5px;color:#c9d4e6}.empty{color:var(--mut);text-align:center;padding:30px}
 .err{color:#ff9a9e}.okc{color:var(--ok)}</style></head><body>
-<header><img src=/bb/static/logo.png alt=""><h1 id=ttl></h1><span id=lb></span><a href=/skills id=nsk></a><a href=/schedules id=nsc></a><a href=/memory id=nm></a><a href=/activity id=na></a><a href=/team id=ntm></a><a href=/account id=nac></a><a href=/home id=nb></a></header>
+<header><img src=/bb/static/v4/brand/RBT_seal_512_transparent.png alt=""><h1 id=ttl></h1><span id=lb></span><a href=/skills id=nsk></a><a href=/schedules id=nsc></a><a href=/memory id=nm></a><a href=/activity id=na></a><a href=/team id=ntm></a><a href=/account id=nac></a><a href=/home id=nb></a></header>
 <main id=m></main><script src=/bb/static/px.js></script><script>
 const L=PXL;const T=TX;function setL(x){pxSetLang(x)}
 function hdr(){document.documentElement.lang=L;ttl.textContent=T('{{T_EN}}','{{T_BN}}');lb.innerHTML=pxSelect();document.title=T('{{T_EN}}','{{T_BN}}')+' · Bangla Bhai';ntm.textContent=T('Team','টিম');nm.textContent=T('Memory','মেমরি');na.textContent=T('Activity','কার্যকলাপ');nb.textContent=T('← App','← অ্যাপ');nsk.textContent=T('Skills','স্কিল');nsc.textContent=T('Schedules','শিডিউল');nac.textContent=T('Account','অ্যাকাউন্ট')}

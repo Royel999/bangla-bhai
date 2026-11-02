@@ -1,7 +1,7 @@
 <!doctype html><html lang=bn><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>রয়েল ড্যাশবোর্ড · বাংলা ভাই</title><meta name=robots content=noindex><meta name=theme-color content="#07080f"><link rel=icon href=/bb/static/icon-192.png>
+<title>Royal Dashboard · The Royal Bengal Tiger</title><meta name=robots content=noindex><meta name=theme-color content="#07080f"><link rel=icon href=/bb/static/icon-192.png>
 <style>
-:root{--bk:#07080f;--p1:#0f1222;--p2:#151a31;--bd:#252c4d;--tx:#eef1fb;--mu:#8f98b8;--bl:#2347d6;--bl2:#4a73ff;--rd:#b3133a;--rd2:#e23a5f;--gd:#d4af37;--ok:#2fbf71;--wa:#e8a33d}
+:root{--bk:#0D0D12;--p1:#17171F;--p2:#1E1E28;--bd:#2A2A36;--tx:#F3F4F8;--mu:#9A9CB0;--bl:#006A4E;--bl2:#3FBF8F;--rd:#C30003;--rd2:#E0263C;--gd:#E8AD3D;--ok:#2fbf71;--wa:#e8a33d}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bk);color:var(--tx);font:15px/1.45 'Hind Siliguri','Noto Sans Bengali',system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
 body{padding-bottom:calc(74px + env(safe-area-inset-bottom))}a{color:var(--bl2)}
 header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:12px 14px;background:linear-gradient(120deg,#0b1240 0%,#07080f 55%,#2a0712 100%);border-bottom:1px solid var(--bd)}
@@ -51,8 +51,8 @@ nav a.on{color:#fff}nav a.on i{filter:drop-shadow(0 0 6px var(--bl2))}nav a.on::
 .err{color:#ff9fb4}.empty{text-align:center;color:var(--mu);padding:24px 0}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--p2);border:1px solid var(--gd);padding:9px 14px;border-radius:12px;z-index:9;font-size:13.5px;box-shadow:0 8px 30px #000a}
 .cb{width:20px;height:20px;accent-color:var(--bl)}
-</style></head><body>
-<header><div class=cr>👑</div><div><h1>রয়েল ড্যাশবোর্ড</h1><div class=sub id=hs><span class=dot></span>লোড হচ্ছে…</div></div><div class=sp></div><button class=ib onclick=go(true) aria-label="রিফ্রেশ">⟳</button><a class=ib href=/admin/panel style="text-decoration:none">পুরনো প্যানেল</a></header>
+</style><link rel=icon href=/bb/static/v4/brand/RBT_icon_192_transparent.png><style>body:before{content:"";position:fixed;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,#006A4E 0 50%,#C30003 50% 100%);z-index:99}body{background:radial-gradient(900px 500px at 15% -10%,rgba(0,106,78,.28),transparent 60%),#0D0D12 !important}</style></head><body>
+<header><img src=/bb/static/v4/brand/RBT_seal_512_transparent.png alt="" style="width:40px;height:40px;border-radius:50%"><div><h1>Royal Dashboard <span style="color:#E8AD3D;font-family:Georgia,serif;font-size:.75em">· TIGER</span></h1><div class=sub id=hs><span class=dot></span>লোড হচ্ছে…</div></div><div class=sp></div><button class=ib onclick=go(true) aria-label="রিফ্রেশ">⟳</button><a class=ib href=/admin/panel style="text-decoration:none">Payments panel</a></header>
 <main id=m><div class=sk></div><div class=sk></div></main>
 <div id=skd style="display:none;position:fixed;inset:0;background:#000a;z-index:8;overflow:auto;padding:16px"></div>
 <nav id=nv>
@@ -197,7 +197,7 @@ async function setDev(v){try{await post('/bb/admin/api/dash/devmodel',{model:v})
 async function probe(id,el){el.disabled=true;el.textContent='…';try{const r=await post('/bb/admin/api/dash/models/probe',{id});toast(r.ok?('✅ '+bn(r.ms)+'ms'):('❌ '+(r.err||'ব্যর্থ')));fv()}catch(e){alert(e.message);el.disabled=false;el.textContent='টেস্ট'}}
 async function flip(k,el){const on=el.checked;if(!confirm((on?'চালু':'বন্ধ')+' করবেন?')){el.checked=!on;return}try{await post('/bb/admin/api/dash/flags',{key:k,on});toast(on?'চালু হয়েছে':'বন্ধ হয়েছে');fv()}catch(e){el.checked=!on;alert(e.message)}}
 /* ---------- nudge ---------- */
-let ND=14;const DEF_S='{name}, আপনাকে মিস করছি! 👋',DEF_B='আসসালামু আলাইকুম {name},\nঅনেকদিন বাংলা ভাইয়ের সাথে কথা হয়নি। নতুন কী আছে দেখে যান — প্রশ্ন করুন, ছবি বানান, কাজ সহজ করুন।\nhttps://banglabhai.dpdns.org/app\n\n— বাংলা ভাই';
+let ND=14;const DEF_S='{name}, আপনাকে মিস করছি! 👋',DEF_B='আসসালামু আলাইকুম {name},\nঅনেকদিন The Royal Bengal Tigerয়ের সাথে কথা হয়নি। নতুন কী আছে দেখে যান — প্রশ্ন করুন, ছবি বানান, কাজ সহজ করুন।\nhttps://banglabhai.dpdns.org/app\n\n— The Royal Bengal Tiger';
 async function nv(){sk();let C,B;try{[C,B]=await Promise.all([api('/bb/admin/api/dash/nudge/candidates?days='+ND),api('/bb/admin/api/dash/nudge/batches')])}catch(e){return fail(e)}
  const why={optout:'বন্ধ করেছেন',recent:'৩০ দিনে পাঠানো'};
  m.innerHTML=`<div class=card style="border-color:#d4af3766"><div class=sm>🔒 এখানে কিছু লিখলে <b>কিছুই পাঠানো হয় না</b>। ব্যাচ সারিতে থাকে, আপনি <b>“অনুমোদন ও পাঠান”</b> চাপলেই কেবল যায়।${B.dry_run?' <span class="tag wa">ড্রাই-রান মোড</span>':''}</div></div>

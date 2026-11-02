@@ -153,8 +153,24 @@ a{color:#8fb0ff}.lhero{text-align:center;margin-bottom:8px}
 .foot{text-align:center;color:var(--mut);font-size:12px;margin-top:20px}
 .tabs{display:flex;gap:8px;margin:12px 0 16px}.ton,.toff{flex:1;padding:10px;border-radius:10px;border:1px solid var(--bd);font-size:13px;cursor:pointer;font-family:inherit}
 .ton{background:var(--acc);color:#fff;border-color:var(--acc)}.toff{background:#0b1a33;color:var(--mut)}.err{color:#ff7a8a}.ok{color:#7dffa8}h3{margin:0 0 8px;font-weight:650;letter-spacing:-.01em}</style>"""
-BR='<div class=lhero><div class=holo><div class=holo-inner></div><img src=/bb/static/logo.png alt="Bangla Bhai"></div><img class=wmimg src=/bb/static/wordmark.svg alt="Bangla Bhai"></div>'
-def page(body,lang="en"): return HTMLResponse(f"<!doctype html><html lang={lang} dir={'rtl' if lang in ('ar','ur') else 'ltr'}><head><meta charset=utf-8><title>Bangla Bhai</title>{CSS}</head><body>{body}<script src=/bb/static/i18n.js></script><script src=/bb/static/viz.js></script><script src=/bb/static/install.js defer></script></body></html>")
+RBT_CSS="""<meta name=theme-color content="#0D0D12"><link rel=icon href=/bb/static/v4/brand/RBT_icon_192_transparent.png><link rel=apple-touch-icon href=/bb/static/v4/brand/apple-touch-icon_180.png>
+<link rel=preconnect href=https://fonts.googleapis.com><link rel=stylesheet href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400;600&display=swap">
+<style>:root{--bg:#0D0D12;--bd:#2A2A36;--mut:#9A9CB0;--acc:#006A4E;--gold:#E8AD3D;--red:#C30003;--tx:#F3F4F8}
+html,body{background:radial-gradient(900px 600px at 50% -10%,rgba(0,106,78,.45),transparent 60%),radial-gradient(520px 420px at 50% 112%,rgba(195,0,3,.28),transparent 70%),#0D0D12 !important;color:var(--tx) !important;font-family:'Inter','Hind Siliguri',system-ui,sans-serif !important;min-height:100%}
+body:before{content:"";position:fixed;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,#006A4E 0 50%,#C30003 50% 100%);z-index:9}
+.box{background:rgba(23,23,31,.86) !important;border:1px solid #2A2A36 !important;border-radius:22px !important;box-shadow:0 24px 70px rgba(0,0,0,.55),inset 0 1px 0 rgba(232,173,61,.12) !important;backdrop-filter:blur(14px);animation:rIn .6s cubic-bezier(.2,.8,.2,1) both}
+@keyframes rIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.rbt{display:grid;justify-items:center;gap:6px;margin:6px 0 14px}.rbt .seal{width:118px;height:118px;border-radius:50%;filter:drop-shadow(0 0 22px rgba(232,173,61,.35));animation:sGlow 3.2s ease-in-out infinite}
+@keyframes sGlow{0%,100%{filter:drop-shadow(0 0 14px rgba(0,106,78,.55))}50%{filter:drop-shadow(0 0 26px rgba(232,173,61,.55))}}
+.rbt small{font:700 11px/1 'Inter';letter-spacing:.32em;color:#C9CBD8}.rbt b{font:700 34px/1 'Cinzel Decorative',Georgia,serif;letter-spacing:.06em;background:linear-gradient(180deg,#F6D37A,#E8AD3D 55%,#B8862A);-webkit-background-clip:text;background-clip:text;color:transparent}
+.box input{background:#121219 !important;border:1px solid #2A2A36 !important;color:#F3F4F8 !important;border-radius:12px !important}.box input:focus{border-color:#3FBF8F !important;outline:none;box-shadow:0 0 0 3px rgba(63,191,143,.18)}
+.box button[type=submit]{background:linear-gradient(135deg,#006A4E,#0A8A66) !important;color:#fff !important;border:0 !important;border-radius:12px !important;font-weight:700 !important;transition:transform .15s,box-shadow .2s}.box button[type=submit]:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,106,78,.45)}
+.box a{color:#E8AD3D}.foot{color:#9A9CB0 !important}
+@media(prefers-reduced-motion:reduce){.box,.rbt .seal{animation:none}}</style>"""
+CSS=CSS+RBT_CSS
+BR_OLD='<div class=lhero><div class=holo><div class=holo-inner></div><img src=/bb/static/logo.png alt="Bangla Bhai"></div><img class=wmimg src=/bb/static/wordmark.svg alt="Bangla Bhai"></div>'
+BR='<div class=rbt><img class=seal src=/bb/static/v4/brand/RBT_seal_512_transparent.png alt="The Royal Bengal Tiger seal"><small>THE ROYAL BENGAL</small><b>TIGER</b></div>'
+def page(body,lang="en"): return HTMLResponse(f"<!doctype html><html lang={lang} dir={'rtl' if lang in ('ar','ur') else 'ltr'}><head><meta charset=utf-8><title>The Royal Bengal Tiger</title>{CSS}</head><body>{body}<script src=/bb/static/i18n.js></script><script src=/bb/static/viz.js></script><script src=/bb/static/install.js defer></script></body></html>")
 
 @app.get("/login")
 def login_page(request:Request, e:str="", m:str="", email:str="", lang:str=""):
@@ -182,16 +198,16 @@ def login_page(request:Request, e:str="", m:str="", email:str="", lang:str=""):
   <input name=code inputmode=numeric pattern="[0-9]{{6}}" maxlength=6 placeholder="123456" autocomplete=one-time-code>
   <button type=submit data-i18n="login.login">{T("login.login")}</button>
 </form>
-<button type=button data-install-btn style="display:none;align-items:center;justify-content:center;gap:8px;width:100%;margin:14px 0 4px;padding:12px;border-radius:10px;border:1px solid #f4b400;background:transparent;color:#f4b400;font-weight:700;font-size:15px;cursor:pointer">📲 <span data-i18n="app.install_btn">Install App</span></button>
+<button type=button data-install-btn style="display:none;align-items:center;justify-content:center;gap:8px;width:100%;margin:14px 0 4px;padding:12px;border-radius:10px;border:1px solid #E8AD3D;background:transparent;color:#E8AD3D;font-weight:700;font-size:15px;cursor:pointer">📲 <span data-i18n="app.install_btn">Install App</span></button>
 <p style="font-size:12px;opacity:.7;margin-top:10px" data-i18n="login.note">{T("login.note")}</p>
 <div class=foot><a href=/ data-i18n="nav.home">{T("nav.home")}</a> · <a href=/privacy data-i18n="nav.privacy">{T("nav.privacy")}</a> · ♛ © 2026 Royal Universe · <a href=/admin style="opacity:.45" data-i18n="admin.link">{T("admin.link")}</a></div>
 </div>""",L)
 
-ADMIN_CSS="""<style>.abox{border:1px solid #f4b400 !important;box-shadow:0 0 0 1px rgba(244,180,0,.25),0 20px 60px rgba(0,0,0,.5) !important}
-.abadge{display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 12px;color:#f4b400;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:13px}
-.abadge svg{width:22px;height:22px}.abox button[type=submit]{background:#f4b400 !important;color:#0b1a33 !important;font-weight:700}
-.abox input:focus{border-color:#f4b400 !important}.sep{display:flex;align-items:center;gap:10px;color:var(--mut);font-size:12px;margin:18px 0 8px}.sep:before,.sep:after{content:"";flex:1;height:1px;background:var(--bd)}</style>"""
-SHIELD='<svg viewBox="0 0 24 24" fill="none" stroke="#f4b400" stroke-width="2"><path d="M12 2l8 3v6c0 5-3.5 9.5-8 11-4.5-1.5-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg>'
+ADMIN_CSS="""<style>.abox{border:1px solid #E8AD3D !important;box-shadow:0 0 0 1px rgba(232,173,61,.25),0 20px 60px rgba(0,0,0,.5) !important}
+.abadge{display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 12px;color:#E8AD3D;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:13px}
+.abadge svg{width:22px;height:22px}.abox button[type=submit]{background:#E8AD3D !important;color:#0D0D12 !important;font-weight:700}
+.abox input:focus{border-color:#E8AD3D !important}.sep{display:flex;align-items:center;gap:10px;color:var(--mut);font-size:12px;margin:18px 0 8px}.sep:before,.sep:after{content:"";flex:1;height:1px;background:var(--bd)}</style>"""
+SHIELD='<svg viewBox="0 0 24 24" fill="none" stroke="#E8AD3D" stroke-width="2"><path d="M12 2l8 3v6c0 5-3.5 9.5-8 11-4.5-1.5-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg>'
 SAFE_NEXT=("/admin/login-requests","/admin/panel","/admin/dev")
 @app.get("/admin")
 @app.get("/admin/login")
@@ -221,7 +237,7 @@ def admin_page(request:Request, e:str="", m:str="", lang:str="", next:str=""):
   <label data-i18n="login.code">{T("login.code")}</label>
   <input name=code inputmode=numeric pattern="[0-9]{{6}}" maxlength=6 placeholder="123456" autocomplete=one-time-code>
   <button type=submit data-i18n="login.login">{T("login.login")}</button></form>
-<button type=button data-install-btn style="display:none;align-items:center;justify-content:center;gap:8px;width:100%;margin:14px 0 4px;padding:12px;border-radius:10px;border:1px solid #f4b400;background:transparent;color:#f4b400;font-weight:700;font-size:15px;cursor:pointer">📲 <span data-i18n="app.install_btn">Install App</span></button>
+<button type=button data-install-btn style="display:none;align-items:center;justify-content:center;gap:8px;width:100%;margin:14px 0 4px;padding:12px;border-radius:10px;border:1px solid #E8AD3D;background:transparent;color:#E8AD3D;font-weight:700;font-size:15px;cursor:pointer">📲 <span data-i18n="app.install_btn">Install App</span></button>
 <div class=foot><a href=/login data-i18n="admin.back">{T("admin.back")}</a> · ♛ Royal Universe</div>
 </div>""",L)
 
@@ -331,15 +347,8 @@ def landing(request:Request):
 @app.get("/app")
 def home(request:Request):
     if not user(request): return RedirectResponse("/login",303)
-    # Phase 7: v3 is the default UI when feat_ui_v3 is on; /app?classic=1 keeps the classic UI (remembered in a cookie, /v3 clears it)
-    cl=request.query_params.get("classic")
-    if cl=="1" or (cl is None and request.cookies.get("bb_classic")=="1"):
-        r=FileResponse(BASE+"/static/index.html",headers={"Cache-Control":"no-cache"})
-        if cl=="1": r.set_cookie("bb_classic","1",max_age=30*86400,samesite="lax",httponly=True)
-        return r
-    if FL.on("feat_ui_v4"): return RedirectResponse("/v4",303)
-    if FL.on("feat_ui_v3"): return RedirectResponse("/v3",303)
-    return FileResponse(BASE+"/static/index.html",headers={"Cache-Control":"no-cache"})
+    # RBT v4 is the only user UI (classic & v3 retired). Emergency rollback: git revert this commit.
+    r=RedirectResponse("/v4",303); r.delete_cookie("bb_classic"); return r
 @app.get("/pricing")
 def pricing(): return FileResponse(BASE+"/static/pricing.html",headers={"Cache-Control":"no-cache"})
 @app.get("/privacy")
@@ -406,7 +415,7 @@ async def _ao(request,exc): return JSONResponse({"error":"owner only"},403)
 @app.get("/bb/health")
 def health():
     out={"ok":True,"node":os.environ.get("BB_NODE","box")}
-    try: out["ui"]="v4" if FL.on("feat_ui_v4") else "v3" if FL.on("feat_ui_v3") else "classic"
+    try: out["ui"]="v4"
     except Exception: pass
     try:
         c=sqlite3.connect(DB,timeout=3)
