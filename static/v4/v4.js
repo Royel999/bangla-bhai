@@ -359,25 +359,21 @@ async function openDevices(){
   const caps=D.caps||{}; const list=(D.devices||[]).filter(d=>d.status!=='revoked'&&d.status!=='denied'&&d.id!=='box');
   const MODE={ask:T('প্রতিবার জিজ্ঞেস','Ask every time'),once:T('একবার','Once'),always:T('সবসময়','Always'),off:T('বন্ধ','Off')};
   const kindIcon=k=>/phone|android/i.test(k||'')?'📱':'💻';
-  openSheet(`<h3>🖥 ${T('ডিভাইস ও অনুমতি','Devices & permissions')}</h3>
- <p class=sub>${T('ল্যাপটপ/ফোন পেয়ার করার পর এখানে Approve চাপুন।','After pairing a laptop or phone, tap Approve here.')}</p>
- <div id=devlist class=group>${list.length?list.map(d=>`<div class=memi data-did="${esc(d.id)}" style="flex-wrap:wrap;align-items:flex-start">
-  <span class=ki aria-hidden=true>${kindIcon(d.kind)}</span>
-  <span class=grow><b>${esc(d.name)}</b><br><small class=mut>${esc(d.kind)} · ${esc(d.status)}${d.online?' · 🟢 online':' · ⚪ offline'} · id ${esc(d.id)}</small>
-  ${d.status==='approved'?`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">${Object.keys(caps).map(c=>`<span class="tag">${esc(caps[c]||c)}: ${esc(MODE[d.perms?.[c]]||d.perms?.[c]||'ask')}</span>`).join('')}</div>`:''}
-  </span>
-  ${d.status==='pending'?`<button class="btn pri" data-a=approve>✅ ${T('যুক্ত করুন','Approve')}</button><button class=btn data-a=deny>✕</button>`:
-    d.status==='approved'?`<button class=btn data-a=remove>${T('সংযোগ বাতিল','Disconnect')}</button>`:''}
- </div>`).join(''):`<div class=empty style="padding:20px">${T('এখনো কোনো ডিভাইস নেই। Windows লিংক বা ফোন অ্যাপ চালু করুন।','No devices yet. Start the Windows link or phone app.')}</div>`}</div>
- <div class=btns style="margin-top:12px"><button class="btn dan" id=devrev>${T('সব অনুমতি বাতিল','Revoke all')}</button><a class=btn href="/bb/live">📡 ${T('লাইভ ভিউ','Live view')}</a></div>`,sh=>{
-  $('#devlist',sh).onclick=async e=>{
-    const row=e.target.closest('[data-did]'); if(!row)return;
-    const a=e.target.closest('[data-a]')?.dataset.a; if(!a)return;
-    if(a!=='approve'&&!await confirmSheet(T('নিশ্চিত?','Sure?'),T('এই ডিভাইসের সংযোগ বদলাবে।','This changes the device link.'),a==='remove'?T('সংযোগ বাতিল','Disconnect'):T('ঠিক আছে','OK')))return;
-    try{await api('/bb/api/devices/'+row.dataset.did+'/'+a,{method:'POST'});toast('✓');openDevices()}catch(x){toast(x.message)}
-  };
-  $('#devrev',sh).onclick=async()=>{if(!await confirmSheet(T('সব বাতিল?','Revoke all?'),T('সব ডিভাইসের অনুমতি বন্ধ হবে।','All device permissions will be cleared.'),T('বাতিল করুন','Revoke')))return;try{await api('/bb/api/revoke-all',{method:'POST'});toast(T('বাতিল','Revoked'));openDevices()}catch(x){toast(x.message)}}
- },T('ডিভাইস','Devices'))
+  const rows=list.length?list.map(d=>{
+    const perms=d.status==='approved'?`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">${Object.keys(caps).map(c=>`<span class="tag">${esc(caps[c]||c)}: ${esc(MODE[(d.perms||{})[c]]||(d.perms||{})[c]||'ask')}</span>`).join('')}</div>`:'';
+    const acts=d.status==='pending'?`<button class="btn pri" data-a="approve">✅ ${T('যুক্ত করুন','Approve')}</button><button class="btn" data-a="deny">✕</button>`:(d.status==='approved'?`<button class="btn" data-a="remove">${T('সংযোগ বাতিল','Disconnect')}</button>`:'');
+    return `<div class="memi" data-did="${esc(d.id)}" style="flex-wrap:wrap;align-items:flex-start"><span class="ki" aria-hidden="true">${kindIcon(d.kind)}</span><span class="grow"><b>${esc(d.name)}</b><br><small class="mut">${esc(d.kind)} · ${esc(d.status)}${d.online?' · 🟢 online':' · ⚪ offline'} · id ${esc(d.id)}</small>${perms}</span>${acts}</div>`;
+  }).join(''):`<div class="empty" style="padding:20px">${T('এখনো কোনো ডিভাইস নেই। Windows লিংক বা ফোন অ্যাপ চালু করুন।','No devices yet. Start the Windows link or phone app.')}</div>`;
+  openSheet(`<h3>🖥 ${T('ডিভাইস ও অনুমতি','Devices & permissions')}</h3><p class="sub">${T('ল্যাপটপ/ফোন পেয়ার করার পর এখানে Approve চাপুন।','After pairing a laptop or phone, tap Approve here.')}</p><div id="devlist" class="group">${rows}</div><div class="btns" style="margin-top:12px"><button class="btn dan" id="devrev">${T('সব অনুমতি বাতিল','Revoke all')}</button><a class="btn" href="/bb/live">📡 ${T('লাইভ ভিউ','Live view')}</a></div>`,sh=>{
+    const listEl=$('#devlist',sh); if(listEl) listEl.onclick=async e=>{
+      const row=e.target.closest('[data-did]'); if(!row)return;
+      const btn=e.target.closest('[data-a]'); if(!btn)return; const a=btn.getAttribute('data-a');
+      if(a!=='approve'&&!await confirmSheet(T('নিশ্চিত?','Sure?'),T('এই ডিভাইসের সংযোগ বদলাবে।','This changes the device link.'),a==='remove'?T('সংযোগ বাতিল','Disconnect'):T('ঠিক আছে','OK')))return;
+      try{await api('/bb/api/devices/'+row.dataset.did+'/'+a,{method:'POST'});toast('✓');openDevices()}catch(x){toast(x.message)}
+    };
+    const rev=$('#devrev',sh); if(rev) rev.onclick=async()=>{if(!await confirmSheet(T('সব বাতিল?','Revoke all?'),T('সব ডিভাইসের অনুমতি বন্ধ হবে।','All device permissions will be cleared.'),T('বাতিল করুন','Revoke')))return;try{await api('/bb/api/revoke-all',{method:'POST'});toast(T('বাতিল','Revoked'));openDevices()}catch(x){toast(x.message)}};
+  },T('ডিভাইস','Devices'))
+}
 
 /* ---------- Phone app (The Royal Bengal Tiger 1.0) · Accessibility flow (screen + SMS) ---------- */
 const RLCAPS=()=>[['screen','🖥',T('স্ক্রিন পড়া','Read screen'),T('সামনের স্ক্রিনের লেখা; পাসওয়ার্ড ও ব্যাংক অ্যাপ বাদ','Visible text only; passwords & bank apps skipped')],
