@@ -761,18 +761,29 @@ async def lk_pair(request:Request):
 # ---- Royal Link one-tap pairing: owner makes a short code on the site, the phone claims it ----
 def _pc_db():
     c=db(); c.execute("create table if not exists link_codes(h text primary key,exp real,used int default 0)"); return c
+# Stateless codes: Render restores data.db from backup on every deploy/restart (and old+new instances overlap
+# during zero-downtime deploys), so a code row written on one instance was missing on the instance that got the
+# claim -> "Code wrong or expired". Codes are now HMAC(secret, 10-min window); valid for current + previous window.
+def _lk_totp(w):
+    k=(CFG.get("BB_SESSION_SECRET") or "bb-link").encode()
+    v=int.from_bytes(hmac.new(k,b"royal-link:%d"%w,hashlib.sha256).digest()[:8],"big")%900000+100000
+    return str(v)
+def _lk_valid(code):
+    w=int(time.time()//600); return any(hmac.compare_digest(code,_lk_totp(x)) for x in (w,w-1))
+def _ascii_digits(s):
+    import unicodedata; return "".join(str(unicodedata.digit(ch)) for ch in str(s) if ch.isdigit() and unicodedata.digit(ch,None) is not None)
 @app.post("/bb/api/link/code")
 def lk_code(request:Request):
     need_admin(request)
     if not FL.on("feat_devices"): return JSONResponse({"error":FL.OFF_MSG["feat_devices"]},403)
-    code="".join(secrets.choice("23456789") for _ in range(6)); now=time.time()
+    now=time.time(); code=_lk_totp(int(now//600))
     with _pc_db() as c:
-        c.execute("delete from link_codes where exp<?",(now,))
-        c.execute("insert or replace into link_codes values(?,?,0)",(hashlib.sha256(code.encode()).hexdigest(),now+600))
+        c.execute("delete from link_codes where exp<?",(now-1200,))
+        c.execute("insert or ignore into link_codes(h,exp,used) values(?,?,0)",(hashlib.sha256(code.encode()).hexdigest(),now+1200))
     try:
         with db() as c: c.execute("delete from ratelimit where k like 'claimfail:%'")  # owner issued a fresh code: reset failed-claim counters
     except Exception: pass
-    audit(ev="link_code_issued"); return {"code":code,"expires_in":600,"deeplink":"royallink://pair?code="+code}
+    audit(ev="link_code_issued"); return {"code":code,"expires_in":600+int(600-time.time()%600),"deeplink":"royallink://pair?code="+code}
 @app.post("/bb/link/claim")
 async def lk_claim(request:Request):
     if not FL.on("feat_devices"): return JSONResponse({"error":FL.OFF_MSG["feat_devices"]},403)
@@ -786,14 +797,14 @@ async def lk_claim(request:Request):
         return JSONResponse({"error":"Too many wrong codes. Tap 'Pair this phone' on the site for a new code, then try again."},429)
     try: b=await request.json()
     except Exception: b={}
-    code=re.sub(r"\D","",str(b.get("code","")))[:6]
+    code=_ascii_digits(b.get("code",""))[:6]
     h=hashlib.sha256(code.encode()).hexdigest()
-    with _pc_db() as c:
-        r=c.execute("select exp,used from link_codes where h=?",(h,)).fetchone()
-        if not r or int(r["used"]) or float(r["exp"])<time.time():
-            rate_ok("claimfail:"+ip,10**6,600); rate_ok("claimfail:*",10**6,600)
-            audit(ev="link_claim_bad"); return JSONResponse({"error":"Code wrong or expired — make a new one on the site"},400)
-        c.execute("update link_codes set used=1 where h=?",(h,))
+    ok=len(code)==6 and _lk_valid(code)
+    if not ok:
+        rate_ok("claimfail:"+ip,10**6,600); rate_ok("claimfail:*",10**6,600)
+        audit(ev="link_claim_bad",n=len(code)); return JSONResponse({"error":"Code wrong or expired — make a new one on the site"},400)
+    with _pc_db() as c:  # best-effort bookkeeping only; a re-tap of the same valid code re-pairs instead of failing
+        c.execute("insert or replace into link_codes(h,exp,used) values(?,?,1)",(h,time.time()+1200))
     did,tok=AG.pair_request(str(b.get("name","phone"))[:60],"phone",{"client":"royal-link-a11y","via":"code"})
     AG.pair_decide(did,True)  # owner pre-approved by creating the code; each action still needs Approve (sentinel)
     audit(ev="link_claimed",device=did); return {"device":did,"token":tok}
