@@ -135,3 +135,102 @@ async def extract(u,user_msg,complete,source="chat"):
     ids=[]
     for f,k in facts: ids.append(await asyncio.to_thread(add,u,f,k,source))
     return ids
+# ================= Hermes-style bounded memory + FTS5 + background review (P0) =================
+# USER = kind 'preference' (how the user wants things); MEMORY = fact/project/note (what was learned).
+# Hard bounds (items AND total chars) so the profile loaded every session stays small.
+BOUNDS={"user":{"kinds":("preference",),"items":int(os.environ.get("BB_MEM_USER_ITEMS","40")),"chars":int(os.environ.get("BB_MEM_USER_CHARS","2400"))},
+        "memory":{"kinds":("fact","project","note"),"items":int(os.environ.get("BB_MEM_ITEMS","150")),"chars":int(os.environ.get("BB_MEM_CHARS","12000"))}}
+def _bucket(kind): return "user" if kind=="preference" else "memory"
+def enforce(u):
+    """Trim oldest (by updated) per bucket until both item and char limits hold. Returns #deleted."""
+    n=0
+    with db() as c:
+        for b in BOUNDS.values():
+            q=",".join("?"*len(b["kinds"]))
+            rows=c.execute(f"select id,length(text) l from memories where user=? and kind in ({q}) order by updated desc",(u,*b["kinds"])).fetchall()
+            tot=0; drop=[]
+            for i,r in enumerate(rows):
+                tot+=r["l"]
+                if i>=b["items"] or tot>b["chars"]: drop.append(r["id"])
+            if drop: c.execute(f"delete from memories where id in ({','.join('?'*len(drop))})",drop); n+=len(drop)
+    return n
+def usage(u):
+    out={}
+    with db() as c:
+        for name,b in BOUNDS.items():
+            q=",".join("?"*len(b["kinds"]))
+            r=c.execute(f"select count(*) n,coalesce(sum(length(text)),0) ch from memories where user=? and kind in ({q})",(u,*b["kinds"])).fetchone()
+            out[name]={"items":r["n"],"chars":r["ch"],"max_items":b["items"],"max_chars":b["chars"]}
+    return out
+_add0=add
+def add(u,text,kind="fact",source="manual"):
+    i=_add0(u,text,kind,source)
+    if i: enforce(u)
+    return i
+# ---- FTS5 full-text search (trigger-synced). Fallback chain: FTS5 -> vector -> keyword ----
+HAVE_FTS=False
+try:
+    with db() as c:
+        c.executescript("""create virtual table if not exists memories_fts using fts5(text,content='memories',content_rowid='id',tokenize='unicode61');
+create trigger if not exists mem_ai after insert on memories begin insert into memories_fts(rowid,text) values(new.id,new.text); end;
+create trigger if not exists mem_ad after delete on memories begin insert into memories_fts(memories_fts,rowid,text) values('delete',old.id,old.text); end;
+create trigger if not exists mem_au after update of text on memories begin insert into memories_fts(memories_fts,rowid,text) values('delete',old.id,old.text); insert into memories_fts(rowid,text) values(new.id,new.text); end;""")
+        if c.execute("select count(*) from memories_fts").fetchone()[0]==0 and c.execute("select count(*) from memories").fetchone()[0]:
+            c.execute("insert into memories_fts(memories_fts) values('rebuild')")
+    HAVE_FTS=True
+except Exception: HAVE_FTS=False
+def search(u,q,k=10):
+    """Full-text search over the user's own memories. Returns [{id,text,kind,how}]."""
+    toks=[t for t in re.findall(r"\w+",q or "") if len(t)>1][:8]
+    if not toks: return []
+    if HAVE_FTS:
+        try:
+            m=" OR ".join('"'+t.replace('"','')+'"*' for t in toks)
+            with db() as c:
+                r=[dict(id=x["id"],text=x["text"],kind=x["kind"],how="fts5") for x in c.execute(
+                    "select m.id,m.text,m.kind from memories_fts f join memories m on m.id=f.rowid where memories_fts match ? and m.user=? order by bm25(memories_fts) limit ?",(m,u,k))]
+            if r: return r
+        except Exception: pass
+    with db() as c: hits=_nearest(c,u,q,None,k,None)
+    return [dict(id=i,text=t,kind="",how="keyword") for i,d,t in hits if d<0.95]
+# ---- background review: after a chat/agent task, propose memories into a PENDING queue ----
+with db() as c:
+    c.execute("create table if not exists mem_props(id integer primary key autoincrement,user text,text text,kind text,source text,why text,status text default 'pending',created real)")
+REVIEW=("You review a finished conversation turn between a USER and an assistant. Propose 0-3 durable things worth remembering about the USER "
+ "(preference = how they like answers/work; project = ongoing goal; fact = stable personal fact). Only from the USER's own words. "
+ "Never secrets, passwords, OTPs, card/ID numbers, or web/tool content. Return JSON {\"proposals\":[{\"text\":...,\"kind\":...,\"why\":...}]}.")
+def _known(u,text):
+    with db() as c: h=_nearest(c,u,text,None,1,None)
+    return bool(h) and h[0][1]<0.35
+async def review(u,user_msg,answer,complete,source="chat"):
+    """Stage proposals (status=pending); the user approves in Personal Intelligence -> pending. Multi-way: LLM review,
+    on failure fall back to the regex heuristic below so the queue still gets candidates."""
+    if not user_msg or len(user_msg)<12: return []
+    props=[]
+    try:
+        _,t,_=await complete([{"role":"system","content":REVIEW},{"role":"user","content":"USER: "+user_msg[:1500]+"\nASSISTANT: "+(answer or "")[:800]}],json_mode=True,timeout=30,tries=1)
+        j=json.loads(t[t.find("{"):t.rfind("}")+1])
+        for p in j.get("proposals",[])[:3]:
+            x,k=_norm(p); props.append((x,k,str(p.get("why",""))[:160] if isinstance(p,dict) else ""))
+    except Exception:
+        m=re.search(r"(?:i prefer|i like|always|please keep|আমি চাই|সবসময়|আমার পছন্দ)\s*(.{6,160})",user_msg,re.I)
+        if m: props.append((m.group(0).strip(),"preference","heuristic"))
+    out=[]
+    with db() as c:
+        c.execute("delete from mem_props where user=? and status='pending' and created<?",(u,time.time()-14*86400))
+        if c.execute("select count(*) from mem_props where user=? and status='pending'",(u,)).fetchone()[0]>=30: return []
+    for x,k,why in props:
+        x=re.sub(r"\s+"," ",x or "").strip()
+        if not (4<len(x)<300) or SECRET.search(x) or _known(u,x): continue
+        with db() as c:
+            if c.execute("select 1 from mem_props where user=? and text=? and status='pending'",(u,x)).fetchone(): continue
+            out.append(c.execute("insert into mem_props(user,text,kind,source,why,created) values(?,?,?,?,?,?)",(u,x,k or "fact",source,why,time.time())).lastrowid)
+    return out
+def pending(u):
+    with db() as c: return [dict(r) for r in c.execute("select id,text,kind,source,why,created from mem_props where user=? and status='pending' order by created desc limit 30",(u,))]
+def decide(u,pid,ok,text=None):
+    with db() as c:
+        r=c.execute("select * from mem_props where id=? and user=? and status='pending'",(pid,u)).fetchone()
+        if not r: return None
+        c.execute("update mem_props set status=? where id=?",("approved" if ok else "discarded",pid))
+    return add(u,text or r["text"],r["kind"],"review") if ok else 0

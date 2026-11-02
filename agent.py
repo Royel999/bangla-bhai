@@ -90,6 +90,7 @@ TOOLS={
  "am_start":("full","অ্যাপ খোলা (am start)",{"device":"id","component":"str"}),
  "list_devices":(None,"সংযুক্ত ডিভাইসের তালিকা",{}),
 }
+import sentinel as SN
 import shutil as _sh, ipaddress as _ip, socket as _so
 from urllib.parse import urlparse as _up
 SECRETS_DIR=os.path.expanduser("~/.secrets")
@@ -384,12 +385,14 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
             dev="box"
         mode=get_perm(dev,cap) if cap else "always"
         if RX: mode="always" if (AUTO_OK and tool=="web_search") else "ask"   # owner's device perms never apply to users
-        force_card = tool in("sms_send","call_make") or (tool=="shell" and args.get("device","box")=="box") or AL.risk(tool,args)=="high"  # destructive/outgoing: always confirm  # outgoing + box shell: always confirm
+        _sn=SN.category(tool,args)  # Sentinel: send/post/pay/account -> always a card + audit
+        force_card = bool(_sn) or tool in("sms_send","call_make") or (tool=="shell" and args.get("device","box")=="box") or AL.risk(tool,args)=="high"  # destructive/outgoing: always confirm  # outgoing + box shell: always confirm
         if mode=="off": d="no"; ev("blocked",text=f"{CAPS[cap]} এই ডিভাইসে বন্ধ (অনুমতি কেন্দ্র)")
         elif (mode=="always" and not force_card) or tool=="list_devices": d="yes"; cap and ev("auto",text=("নিরাপদ কাজ — অনুমতি ছাড়াই চালাচ্ছি (ওয়েব সার্চ)" if RX else f"'সবসময় অনুমতি' দেওয়া আছে — {CAPS[cap]}"))
         else:
             d=await ask(tid,tool,args,j.get("why",""),cap)
             if mode=="once" and d=="yes" and not RX: set_perm(dev,cap,"ask")
+        if _sn: SN.log("approved" if d=="yes" else "denied",_sn,TASKS[tid].get("user"),task=tid,tool=tool)
         if d!="yes":
             msgs.append({"role":"user","content":f"{'ইউজার' if RX else 'মালিক'} এই কাজের অনুমতি দেননি ({d})। এটা করবে না; বিকল্প বা চূড়ান্ত উত্তর দাও।"}); continue
         for attempt in range(2):

@@ -17,7 +17,7 @@ def setup(app,H):
     # ---------- memory ----------
     @app.get("/bb/api/memory")
     def mem_list(request:Request):
-        u=need(request); st=H["get_settings"](u); return {"enabled":bool(st.get("memory",True)),"items":MEM.list_(u)}
+        u=need(request); st=H["get_settings"](u); return {"enabled":bool(st.get("memory",True)),"items":MEM.list_(u),"usage":MEM.usage(u),"pending":len(MEM.pending(u))}
     @app.post("/bb/api/memory")
     async def mem_add(request:Request):
         u=need(request); b=await request.json()
@@ -38,6 +38,18 @@ def setup(app,H):
     @app.delete("/bb/api/memory")
     def mem_clear(request:Request):
         u=need(request); return {"ok":True,"deleted":MEM.clear(u)}
+    @app.get("/bb/api/memory/search")
+    def mem_search(request:Request,q:str=""):
+        u=need(request); return {"items":MEM.search(u,q[:200]),"fts":MEM.HAVE_FTS}
+    @app.get("/bb/api/memory/pending")
+    def mem_pending(request:Request):
+        u=need(request); return {"items":MEM.pending(u),"usage":MEM.usage(u)}
+    @app.post("/bb/api/memory/pending/{pid}")
+    async def mem_decide(request:Request,pid:int):
+        u=need(request); b=await request.json(); ok=b.get("action")=="approve"
+        r=await asyncio.to_thread(MEM.decide,u,pid,ok,(str(b.get("text"))[:400] if b.get("text") else None))
+        if r is None: return JSONResponse({"error":"not found"},404)
+        H["audit"](ev="memory_proposal_"+("approved" if ok else "discarded"),user=u,pid=pid); return {"ok":True,"id":r}
     # ---------- activity & approvals ----------
     @app.get("/bb/api/activity")
     def act_list(request:Request,kind:str=""):

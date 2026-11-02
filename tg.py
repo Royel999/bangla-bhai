@@ -44,6 +44,9 @@ DOCS={}   # tg_id -> (text, name, ts) last uploaded document for follow-up quest
 HELP=("👋 Bangla Bhai / বাংলা ভাই\n\nTo connect: open the app → Account → Telegram → 'Get link code', then send here:\n/link 123456\n\n"
       "অ্যাপে Account → Telegram থেকে কোড নিয়ে এখানে /link 123456 লিখুন।\n\nAfter linking: send text, voice notes, photos or PDFs. /plan · /unlink · /help")
 async def _api(c,tok,method,**kw):
+    if method.startswith("send"):
+        try: import sentinel as SN; SN.log("executed","send",None,channel="telegram",method=method)  # replies to the owner's own bot chat
+        except Exception: pass
     r=await c.post(f"https://api.telegram.org/bot{tok}/{method}",**kw); return r.json()
 async def _send(c,tok,chat,text):
     for i in range(0,max(1,len(text)),3900):

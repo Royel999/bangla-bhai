@@ -129,6 +129,8 @@ def submit_payment(u,plan,method,trxid,sender,amount):
         c.execute("insert into payments(id,user,plan,method,trxid,sender,amount,status,created) values(?,?,?,?,?,?,?,'pending',?)",(pid,u,plan,method,trxid,sender,amount,time.time()))
     return pid
 def decide_payment(pid,approve,note="",months=1):
+    try: import sentinel as SN; SN.log("approved" if approve else "denied","pay",None,payment=pid,months=months)
+    except Exception: pass
     with db() as c:
         p=c.execute("select * from payments where id=?",(pid,)).fetchone()
         if not p: raise ValueError("not found")
@@ -142,6 +144,8 @@ def decide_payment(pid,approve,note="",months=1):
             c.execute("insert or replace into subs values(?,?,?,?)",(p["user"],p["plan"],exp,time.time()))
     return dict(p),exp
 def set_plan(u,plan,days):
+    try: import sentinel as SN; SN.log("executed","account",u,plan=plan,days=days)
+    except Exception: pass
     if plan not in PLANS: raise ValueError("bad plan")
     with db() as c:
         if plan=="free": c.execute("delete from subs where user=?",(u,))

@@ -672,6 +672,7 @@ async def stream(request:Request,cid:str):
             full=RT.friendly(st.get("lang","en")); yield "data: "+json.dumps({"d":full})+"\n\n"
           elif st.get("memory",True) and b.get("content"):
             asyncio.create_task(MEM.extract(u,b["content"],RT.complete))
+            asyncio.create_task(MEM.review(u,b["content"],full,RT.complete,"chat"))  # background review -> pending
         finally:
           save(full or "_(থামানো হয়েছে)_",name,advisors)
         yield "event: done\ndata: "+json.dumps({"model":name})+"\n\n"
@@ -862,6 +863,8 @@ def _mem_on_agent_done(tid):
     t=AG.get_task(tid) or {}; u=t.get("user")
     if not u or not get_settings(u).get("memory",True): return
     asyncio.get_running_loop().create_task(MEM.extract(u,t.get("goal",""),RT.complete,"agent"))
+    fin=next((e.get("text","") for e in reversed(t.get("events",[])) if e.get("type")=="final"),"")
+    asyncio.get_running_loop().create_task(MEM.review(u,t.get("goal",""),fin,RT.complete,"agent"))
 AG.ON_DONE.append(_mem_on_agent_done)
 # ---- plans/payments/admin dashboard + Telegram ----
 import biz as BZ, tg as TG, ocr as OC
