@@ -3,7 +3,7 @@ import android.app.*;import android.content.*;import android.graphics.PixelForma
 /* Floating notebook bubble that roams the whole screen (bounces off edges). Touch = stops; tap = quick note; long-press = clips.
    Roaming toggle: pref "roam" (app button or notification action). Low CPU: ~30 fps only while roaming, nothing while paused. */
 public class BubbleService extends Service{WindowManager wm;ImageView v;WindowManager.LayoutParams lp;final Handler h=new Handler(Looper.getMainLooper());
- float x,y,vx,vy;long holdUntil=0;boolean touching=false;int sz;
+ float x,y,vx,vy;int fr=0;static final int[] BIRD={R.drawable.bird0,R.drawable.bird1,R.drawable.bird2,R.drawable.bird3,R.drawable.bird4,R.drawable.bird5};long holdUntil=0;boolean touching=false;int sz;
  public IBinder onBind(Intent i){return null;}
  boolean roam(){return Link.p(this).getBoolean("roam",true);}
  public int onStartCommand(Intent i,int f,int id){
@@ -20,10 +20,11 @@ public class BubbleService extends Service{WindowManager wm;ImageView v;WindowMa
    float sp=Link.p(BubbleService.this).getInt("roam_speed",2);x+=vx*sp;y+=vy*sp;
    if(x<0){x=0;vx=Math.abs(vx);}if(x>W){x=W;vx=-Math.abs(vx);}if(y<0){y=0;vy=Math.abs(vy);}if(y>H){y=H;vy=-Math.abs(vy);}
    if(Math.random()<0.01){vx+=(float)(Math.random()-.5);vy+=(float)(Math.random()-.5);float s=(float)Math.hypot(vx,vy);if(s>0){vx=vx/s*1.5f;vy=vy/s*1.5f;}}
-   lp.x=(int)x;lp.y=(int)y;try{wm.updateViewLayout(v,lp);}catch(Exception e){}
-   v.setScaleX(1f+0.06f*(float)Math.sin(SystemClock.uptimeMillis()/300.0));v.setScaleY(v.getScaleX());}
+   lp.x=(int)x;lp.y=(int)(y+12*Math.sin(SystemClock.uptimeMillis()/350.0));v.setScaleX(vx<0?-1f:1f);try{wm.updateViewLayout(v,lp);}catch(Exception e){}
+  }
+  if(++fr%3==0)v.setImageResource(BIRD[(fr/3)%6]);
   h.postDelayed(this,33);}};
- void show(){wm=getSystemService(WindowManager.class);ImageView iv=new ImageView(this);iv.setImageResource(R.drawable.seal);sz=(int)(56*getResources().getDisplayMetrics().density);
+ void show(){wm=getSystemService(WindowManager.class);ImageView iv=new ImageView(this);iv.setImageResource(R.drawable.bird0);sz=(int)(64*getResources().getDisplayMetrics().density);
   lp=new WindowManager.LayoutParams(sz,sz,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,PixelFormat.TRANSLUCENT);
   lp.gravity=Gravity.TOP|Gravity.START;SharedPreferences p=Link.p(this);lp.x=p.getInt("bx",0);lp.y=p.getInt("by",400);x=lp.x;y=lp.y;double a=Math.random()*6.28;vx=(float)Math.cos(a)*1.5f;vy=(float)Math.sin(a)*1.5f;
   iv.setOnTouchListener(new View.OnTouchListener(){float sx,sy;int ox,oy;long t0;
