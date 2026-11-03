@@ -4,12 +4,14 @@ const H={'Content-Type':'application/json','x-bb-notes':'1'},esc=s=>String(s??''
 const dev=(/Android/i.test(navigator.userAgent)?'Android':/iPhone|iPad/i.test(navigator.userAgent)?'iPhone':/Windows/i.test(navigator.userAgent)?'Windows':'Web')+' ব্রাউজার';
 const api=(u,o={})=>fetch(u,{credentials:'same-origin',...o,headers:{...H,...(o.headers||{})}}).then(async r=>{const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||r.status);return j});
 const send=(content,kind='text')=>content&&content.trim()&&localStorage.rbtClipPause!=='1'?api('/bb/api/clips',{method:'POST',body:JSON.stringify({content,kind,device:dev})}).catch(()=>{}):Promise.resolve();
-const st=document.createElement('style');st.textContent=`#rbtF{position:fixed;z-index:99999;width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#ff8c1a,#d4af37);box-shadow:0 6px 20px #0006;display:flex;align-items:center;justify-content:center;font-size:26px;cursor:grab;touch-action:none;user-select:none}
+const st=document.createElement('style');st.textContent=`#rbtF{position:fixed;z-index:99999;width:54px;height:54px;cursor:grab;filter:drop-shadow(0 4px 6px #0005);touch-action:none;user-select:none}
+#rbtF i{display:block;width:64px;height:64px;margin:-5px;background:url(/bb/static/notes/bird.png?v=1) 0 0/384px 64px no-repeat;animation:rbtFlap .5s steps(6) infinite}#rbtF.l i{transform:scaleX(-1)}#rbtF.rest i{animation-duration:1.4s}
+@keyframes rbtFlap{to{background-position:-384px 0}}
 #rbtP{position:fixed;z-index:99999;width:min(340px,92vw);max-height:70vh;overflow:auto;background:#11264a;color:#eef2fb;border:1px solid #d4af37;border-radius:16px;padding:12px;box-shadow:0 10px 30px #0008;font:14px/1.5 "Noto Sans Bengali",system-ui,sans-serif}
 #rbtP textarea{width:100%;height:90px;background:#172f5a;color:inherit;border:1px solid #24406f;border-radius:10px;padding:8px;font:inherit;box-sizing:border-box}
 #rbtP button{background:#172f5a;color:inherit;border:1px solid #24406f;border-radius:9px;padding:5px 9px;margin:3px 2px;cursor:pointer;font:inherit}#rbtP .g{background:#ff8c1a;border:0;color:#fff}
 #rbtP .c{font-size:12px;padding:6px;border-radius:8px;background:#0b1a33;margin:4px 0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#rbtP small{color:#9fb0cf}`;document.head.appendChild(st);
-const b=document.createElement('div');b.id='rbtF';b.title='রয়েল নোটবুক';b.textContent='🐯';document.body.appendChild(b);
+const b=document.createElement('div');b.id='rbtF';b.title='রয়েল নোটবুক';b.innerHTML='<i></i>';document.body.appendChild(b);
 const pos=JSON.parse(localStorage.rbtFpos||'null')||{x:innerWidth-70,y:innerHeight-150};const place=()=>{pos.x=Math.max(4,Math.min(innerWidth-58,pos.x));pos.y=Math.max(4,Math.min(innerHeight-58,pos.y));b.style.left=pos.x+'px';b.style.top=pos.y+'px'};place();addEventListener('resize',place);
 let drag=null,moved=false;b.addEventListener('pointerdown',e=>{drag={dx:e.clientX-pos.x,dy:e.clientY-pos.y};moved=false;b.setPointerCapture(e.pointerId)});
 b.addEventListener('pointermove',e=>{if(!drag)return;const nx=e.clientX-drag.dx,ny=e.clientY-drag.dy;if(Math.abs(nx-pos.x)+Math.abs(ny-pos.y)>3)moved=true;pos.x=nx;pos.y=ny;place()});
@@ -23,8 +25,8 @@ function roam(t){const dt=Math.min(50,t-(lt||t));lt=t;const sp=(+localStorage.rb
   pos.x+=vx*sp*dt;pos.y+=vy*sp*dt;const W=innerWidth-58,H=innerHeight-58;
   if(pos.x<4){pos.x=4;vx=Math.abs(vx)}if(pos.x>W){pos.x=W;vx=-Math.abs(vx)}if(pos.y<4){pos.y=4;vy=Math.abs(vy)}if(pos.y>H){pos.y=H;vy=-Math.abs(vy)}
   if(Math.random()<0.01){ang=Math.atan2(vy,vx)+(Math.random()-.5)*1.2;vx=Math.cos(ang);vy=Math.sin(ang)}
-  b.style.left=pos.x+'px';b.style.top=pos.y+'px'}
- b.style.boxShadow=`0 0 ${14+8*Math.sin(t/400)}px #ff8c1aaa,0 6px 20px #0006`;requestAnimationFrame(roam)}
+  b.style.left=pos.x+'px';b.style.top=(pos.y+5*Math.sin(t/350))+'px';b.classList.toggle('l',vx<0);b.classList.remove('rest')}else b.classList.add('rest');
+ requestAnimationFrame(roam)}
 requestAnimationFrame(roam);
 let P=null;
 async function toggle(){if(P){P.remove();P=null;return}P=document.createElement('div');P.id='rbtP';document.body.appendChild(P);
