@@ -1,0 +1,1 @@
+{"walk": {"fps": 12, "n": 72}, "wave": {"fps": 12, "n": 72}, "ball": {"fps": 12, "n": 96}, "snack": {"fps": 10, "n": 60}, "water": {"fps": 10, "n": 80}, "watch": {"fps": 8, "n": 64}, "sleep": {"fps": 8, "n": 64}, "read": {"fps": 8, "n": 64}, "draw": {"fps": 8, "n": 64}, "blocks": {"fps": 10, "n": 80}}

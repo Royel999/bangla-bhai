@@ -256,3 +256,38 @@ def register(app, dev_ok, owner, db, RT, RL):
             nid = save_note('🛡 PC হেলথ রিপোর্ট ' + time.strftime('%Y-%m-%d', time.gmtime(time.time() + 21600)), rep) if j.get('save') else None
             return {'report': rep, 'note': nid}
         return JSONResponse({'error': 'unknown op'}, 400)
+
+
+ASSIST_SYS = ('তুমি "মামণি" — অফিসে কাজ করা আব্বুর পাশে বসা ছোট্ট সহকারী। আব্বু এখন কোন অ্যাপে কী করছেন (জানালার শিরোনাম) দেখে '
+              'একটি মাত্র ছোট, কাজের, নির্দিষ্ট বাংলা পরামর্শ দাও (সর্বোচ্চ ২ বাক্য, ১৬০ অক্ষর)। Excel হলে প্রাসঙ্গিক সূত্র/শর্টকাট (সূত্র ইংরেজিতে লিখবে), '
+              'ইমেইল হলে ভদ্র উত্তরের একটি লাইন, ব্রাউজার/ডকুমেন্ট হলে দরকারি শর্টকাট। পাসওয়ার্ড বা ব্যক্তিগত তথ্য কখনো চাইবে না। শুধু JSON: {"tip":"..."}')
+TYPO_SYS = ('নিচের লেখায় স্পষ্ট বানান/টাইপো ভুল থাকলে সর্বোচ্চ ৩টি ঠিক করে দাও। ভুল না থাকলে fixes খালি। শুধু JSON: {"fixes":[{"from":"..","to":".."}]}')
+
+
+def register_assist(app, dev_ok, RT, RL):
+    """/bb/link/assist — contextual Bangla work tips for the desktop companion (title/app only; typo check on copied text)."""
+    from fastapi import Request
+    @app.post('/bb/link/assist')
+    async def lassist(request: Request):
+        j = await request.json(); d = dev_ok(j.get('token'), request)
+        if not d: return JSONResponse({'error': 'unauthorized'}, 403)
+        k = 'as:' + d['id']; L = [t for t in RL.get(k, []) if time.time() - t < 3600]
+        if len(L) >= 30: return JSONResponse({'error': 'rate'}, 429)
+        RL[k] = L + [time.time()]
+        kind = j.get('kind') or 'tip'
+        if kind == 'typo':
+            txt = str(j.get('text') or '')[:1200]
+            if len(txt) < 12: return {'fixes': []}
+            msgs = [{'role': 'system', 'content': TYPO_SYS}, {'role': 'user', 'content': txt}]
+        else:
+            app_ = str(j.get('app') or '')[:60]; title = str(j.get('title') or '')[:160]
+            if re.search(r'pass|login|log in|sign.?in|otp|পাসওয়ার্ড|bank', title, re.I): return {'tip': ''}
+            msgs = [{'role': 'system', 'content': ASSIST_SYS}, {'role': 'user', 'content': f'অ্যাপ: {app_}\nশিরোনাম: {title}\nকতক্ষণ: {int(j.get("mins") or 0)} মিনিট'}]
+        try:
+            _, t, _ = await RT.complete(msgs, json_mode=True, timeout=40, tries=2)
+            t = re.sub(r'<think>.*?</think>', '', t or '', flags=re.S); m = re.search(r'\{.*\}', t, re.S); o = json.loads(m.group(0)) if m else {}
+        except Exception: return JSONResponse({'error': 'busy'}, 503)
+        if kind == 'typo':
+            fx = [f for f in (o.get('fixes') or [])[:3] if isinstance(f, dict) and f.get('from') and f.get('to') and f['from'] != f['to']]
+            return {'fixes': [{'from': str(f['from'])[:40], 'to': str(f['to'])[:40]} for f in fx]}
+        return {'tip': str(o.get('tip') or '')[:200]}

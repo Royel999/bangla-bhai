@@ -17,8 +17,37 @@ const GIRL=localStorage.rbtMascot!=='doyel',D=GIRL?'/bb/static/notes/girl2/':'/b
 b.style.width=b.style.height=im.style.width=im.style.height=SZ+'px';
 (GIRL?['stand0','blink0','look0','wave0','wave1','jump0','squat0','sit0','sleep0','carry0','clap0','walk0','walk1','walk2','walk3','walk4','walk5','run0','run1','run2','run3','skip0','climb0','dance0','dance1','read0','chase0','giggle0','think0','peek0','kick0','surprise0','kiss0']:['fly0','fly1','fly2','fly3','fly4','fly5','fly6','fly7','glide0','perch0','cock0','cock1','look0','preen0','sing0','down0','hop0','hop1','walk0','walk1','walk2','peck0','peck1','drink0','sleep0','shake0'])
  .forEach(p=>(GIRL?['']:['','_L']).forEach(s=>{const i=new Image();i.src=D+p+s+'.png';cache[p+s]=i.src}));
-let face=-1,pose='perch0';const GA={perch0:'stand0',shake0:'stand0',cock0:'look0',cock1:'look0',down0:'squat0',peck0:'squat0',peck1:'squat0',sing0:'wave0',preen0:'blink0',glide0:'jump0',hop0:'squat0',hop1:'jump0',drink0:'squat0'};
-const show=p=>{if(GIRL){p=p.startsWith('fly')?'carry0':GA[p]||p}pose=p;if(GIRL){im.style.transform=face<0?'scaleX(-1)':'';if(im.dataset.k!==p){im.dataset.k=p;im.src=cache[p]}return}const k=p+(face<0?'_L':'');if(im.dataset.k!==k){im.dataset.k=k;im.src=cache[k]}};
+let face=-1,pose='perch0',arc=null;const GA={perch0:'stand0',shake0:'stand0',cock0:'look0',cock1:'look0',down0:'squat0',peck0:'squat0',peck1:'squat0',sing0:'wave0',preen0:'blink0',glide0:'jump0',hop0:'squat0',hop1:'jump0',drink0:'squat0'};
+const show=p=>{if(GIRL){p=p.startsWith('fly')?'carry0':GA[p]||p}if(GIRL&&M3&&V2M[p]&&pre3[V2M[p][0]]){show3(...V2M[p]);pose=p;return}pose=p;if(GIRL){im.style.transform=face<0?'scaleX(-1)':'';if(im.dataset.k!==p){im.dataset.k=p;im.src=cache[p]}return}const k=p+(face<0?'_L':'');if(im.dataset.k!==k){im.dataset.k=k;im.src=cache[k]}};
+
+/* ---- মামণি v3: 600px video frames, long story routines, eased walk ---- */
+const G3='/bb/static/notes/girl3/',L3={walk:[36,64],read:[40,60],draw:[30,64],sleep:[46,60],watch:[14,27],blocks:[60,80],wave:[10,27]},
+ V2M={stand0:['watch',14],blink0:['watch',20],look0:['watch',40],think0:['watch',50],sit0:['read',44],read0:['read',48],squat0:['blocks',4],sleep0:['sleep',52],wave0:['wave',14],wave1:['wave',22],carry0:['ball',4],kick0:['ball',40]},pre3={};
+let M3=null,cq=[],rt=[],cqT=0,wph=0,vel=0;
+const f3=(c,i)=>G3+c+'/'+String(i).padStart(3,'0')+'.webp';
+const load3=c=>{if(pre3[c]||!M3)return;pre3[c]=[];for(let i=0;i<M3[c].n;i++){const x=new Image();x.decoding='async';x.src=f3(c,i);pre3[c].push(x)}};
+if(GIRL&&!matchMedia('(prefers-reduced-data: reduce)').matches)fetch(G3+'manifest.json').then(r=>r.json()).then(m=>{M3=m;['watch','walk','wave'].forEach(load3)}).catch(()=>{});
+const show3=(c,i)=>{pose='v3';im.style.transform=face<0?'scaleX(-1)':'';const k=c+i;if(im.dataset.k!==k){im.dataset.k=k;im.src=f3(c,i)}};
+function seg(c,mode='once',secs=0,x={}){load3(c);const n=M3[c].n,[a,bb]=L3[c]||[0,n];let fr=[];if(mode==='once')for(let i=0;i<n;i++)fr.push(i);else if(mode==='in')for(let i=0;i<a;i++)fr.push(i);else if(mode==='out')for(let i=a-1;i>=0;i--)fr.push(i);
+ else while(fr.length<secs*M3[c].fps)for(let i=a;i<bb;i++)fr.push(i);return Object.assign({c,fr,fps:M3[c].fps},x)}
+const RU=(a,b)=>a+Math.random()*(b-a),RI=(a,b)=>Math.floor(RU(a,b+1));
+function routine(k){const D=(...x)=>['do',x];
+ rt={read:[['go','far'],D(seg('read','in',0,{say:'read'}),seg('read','loop',RU(35,70)),seg('read','loop',RU(30,60)),seg('read','out'),seg('wave',0,0,{fm:1,say:'hi'}))],
+  draw:[['go','far'],D(seg('draw','in',0,{say:'draw'}),seg('draw','loop',RU(40,100)),seg('draw','out',0,{say:'show'}),seg('wave',0,0,{fm:1}))],
+  play:[['go','far'],D(...Array.from({length:RI(3,5)},(_,i)=>seg('ball','once',0,i?{}:{say:'play'}))),['go','near'],D(seg('blocks','once',0,{say:'blocks'}),seg('blocks','loop',RU(10,25)),seg('blocks','out'))],
+  snack:[['go','far'],D(seg('snack','once',0,{say:'snack'}),...Array.from({length:RI(1,3)},()=>seg('snack')),seg('watch','loop',RU(15,30)))],
+  garden:[['go','far'],D(seg('water','once',0,{say:'water'}),seg('water'),seg('watch','loop',RU(10,20)),seg('water')),['go','near'],D(seg('ball'))],
+  nap:[['go','near'],['sleep',RU(120,240)]],
+  stroll:[['go','far'],D(seg('watch','loop',RU(6,12))),['go','far'],D(seg('wave',0,0,{fm:1})),['go','far'],D(seg('watch','loop',RU(8,15)))],
+  help:[['go','mouse'],D(seg('watch','loop',RU(40,90)),seg('wave',0,0,{fm:1}))]}[k]||[]}
+function play3(t){if(cq.length){if(t<cqT)return true;const s=cq[0];if(s.say){say(s.say);s.say=0}if(s.fm){s.fm=0;face=mp.x>pos.x+SZ/2?1:-1}
+  if(!s.fr.length){cq.shift();return true}const i=s.fr.shift();show3(s.c,i);if(s.prop&&i%4===0)props(s.prop);cqT=t+1000/s.fps;return true}
+ if(rt.length&&(state==='perch'||state==='pinned')){const st=rt.shift();
+  if(st[0]==='do'){cq=st[1];return true}
+  if(st[0]==='sleep'){go('sleep',st[1]*1000);say('sleep');cq=[seg('sleep','in'),seg('sleep','loop',st[1],{prop:'zzz'})];return true}
+  if(st[0]==='go'&&state!=='pinned'){if(st[1]==='mouse')pick(true,{x:mp.x,y:mp.y+200});else if(st[1]==='near')pick(true,{x:pos.x+SZ,y:pos.y+FOOT});else{let best=null;for(let k=0;k<4;k++){pick(true);if(!best||Math.abs(tgt.x-pos.x)>best.d)best={d:Math.abs(tgt.x-pos.x),tgt,perchEl,edge,perchOff}}({tgt,perchEl,edge,perchOff}=best)}
+   go('fly',300000);arc=null;vel=0}return true}
+ if(state==='perch'&&t<until&&M3&&pre3.watch){cq=[seg('watch','loop',Math.min(8,(until-t)/1000))];return true}return false}
 const pos=JSON.parse(localStorage.rbtFpos||'null')||{x:innerWidth-110,y:innerHeight-FOOT-4};
 const clampP=()=>{pos.x=Math.max(0,Math.min(innerWidth-SZ,pos.x));pos.y=Math.max(-10,Math.min(innerHeight-FOOT,pos.y))};
 const place=(bob=0)=>{b.style.transform=`translate(${pos.x}px,${pos.y+bob}px)`};clampP();place();addEventListener('resize',()=>{clampP();place()});
@@ -45,8 +74,8 @@ function spots(){const s=[{x:Math.random()*(innerWidth-SZ),y:innerHeight,el:null
 function pick(perch,near){if(GIRL)perch=true;if(perch){let s=spots();if(near)s=s.sort((p,q)=>Math.hypot(p.x-near.x,p.y-near.y)-Math.hypot(q.x-near.x,q.y-near.y)).slice(0,3);const c=s.length>1&&Math.random()<.75?s[1+Math.floor(Math.random()*(s.length-1))]:s[0];
   perchEl=c.el;tgt={x:Math.max(0,Math.min(innerWidth-SZ,c.x)),y:c.y-FOOT,perch:1};edge={a:c.a-SZ/2+10,b:c.b-SZ/2-10};if(c.el)perchOff=tgt.x-c.el.getBoundingClientRect().left}
  else{perchEl=null;edge=null;tgt=near?{x:near.x-SZ/2,y:near.y-SZ-10,perch:0}:{x:Math.random()*(innerWidth-SZ),y:Math.random()*(innerHeight*.7),perch:0}}}
-const go=(s,d)=>{state=s;seq=[];props(null);until=performance.now()+(d!=null?d:s==='fly'?8000+Math.random()*12000:GIRL?2000+Math.random()*4000:4000+Math.random()*6000)};
-const SAY={hi:['আব্বু!','আব্বু, দেখো!','হাই!'],play:['খেলবে?','চলো খেলি!','বল খেলবে?'],happy:['হি হি!','ইয়ে!','কী মজা!'],love:['তোমাকে ভালোবাসি!','আব্বু ❤'],read:['গল্প পড়ছি…','এটা কী লেখা?'],type:['কী লিখছো?','আমিও লিখবো!'],click:['ওমা!','কী হলো?'],think:['হুমম…','ভাবছি…'],sleep:['ঘুম পাচ্ছে…']};
+const go=(s,d)=>{if(s==='fly'&&typeof cq!=='undefined')cq=[];state=s;seq=[];props(null);until=performance.now()+(d!=null?d:s==='fly'?8000+Math.random()*12000:GIRL?2000+Math.random()*4000:4000+Math.random()*6000)};
+const SAY={draw:['ছবি আঁকছি…','রং কোনটা দেবো?'],show:['দেখো আব্বু, ছবি আঁকলাম!'],snack:['মজার নাস্তা!','ইয়াম ইয়াম!'],water:['গাছে পানি দিই','গাছটা বড় হবে!'],blocks:['উঁচু টাওয়ার বানাবো!'],wake:['শুভ সকাল!','উঠে গেছি!'],sleep:['ঘুম পাচ্ছে…'],hi:['আব্বু!','আব্বু, দেখো!','হাই!'],play:['খেলবে?','চলো খেলি!','বল খেলবে?'],happy:['হি হি!','ইয়ে!','কী মজা!'],love:['তোমাকে ভালোবাসি!','আব্বু ❤'],read:['গল্প পড়ছি…','এটা কী লেখা?'],type:['কী লিখছো?','আমিও লিখবো!'],click:['ওমা!','কী হলো?'],think:['হুমম…','ভাবছি…'],sleep:['ঘুম পাচ্ছে…']};
 let bub=null;function say(k){if(!GIRL)return;const a=SAY[k]||[k],t=a[Math.floor(Math.random()*a.length)];if(!bub){bub=document.createElement('div');Object.assign(bub.style,{position:'fixed',zIndex:100001,background:'#fff',color:'#333',font:'bold 15px sans-serif',padding:'6px 12px',borderRadius:'14px',boxShadow:'0 2px 8px #0004',pointerEvents:'none',transition:'opacity .3s',whiteSpace:'nowrap'});document.body.appendChild(bub)}
  bub.textContent=t;bub.style.opacity=1;bub.style.left=Math.max(4,Math.min(innerWidth-160,pos.x+SZ*.35))+'px';bub.style.top=Math.max(4,pos.y-6)+'px';clearTimeout(say.t);say.t=setTimeout(()=>bub.style.opacity=0,2200)}
 function act(k){const R=Math.random,S=[];const P=(p,d,dx=0,pr=null)=>S.push([p,d,dx,pr]);
@@ -85,7 +114,8 @@ function act(k){const R=Math.random,S=[];const P=(p,d,dx=0,pr=null)=>S.push([p,d
  else if(k==='curious'){pick(true,mp);go('fly',30000);mood='curious';return}
  else if(k==='fly'){pick(R()<.3);go('fly');tFly=performance.now();return}
  seq=S;seqT=0}
-function choose(t){if(GIRL){const h=hourBD(),night=h>=22||h<5,onE=edge&&edge.b-edge.a>2*SZ,near=t-tMouse<15000&&Math.hypot(mp.x-pos.x-SZ/2,mp.y-pos.y-SZ/2)<900;
+function choose(t){if(GIRL&&M3&&Math.random()<.85){const h=hourBD(),night=h>=22||h<5,w={read:3,draw:3,play:2.5,snack:2,garden:2,stroll:roamOn()?2.5:0,nap:night?25:.6,help:t-tMouse<20000?1.5:.3};let r=Math.random()*Object.values(w).reduce((a,b)=>a+b,0);for(const k in w){if((r-=w[k])<=0){routine(k);until=t+2000;return}}}
+ if(GIRL){const h=hourBD(),night=h>=22||h<5,onE=edge&&edge.b-edge.a>2*SZ,near=t-tMouse<15000&&Math.hypot(mp.x-pos.x-SZ/2,mp.y-pos.y-SZ/2)<900;
   const w={idle:1,walk:onE?3:0,run:onE?2.5:0,skip:onE?2:0,dance:3,fly:net===null||!roamOn()?0:3,chase:onE?2:0,ball:2,read:1,peek:pos.x<SZ||pos.x>innerWidth-2*SZ?2:.5,hi:near?2.5:.5,giggle:1.5,kiss:.8,think:1,jump:1.5,flower:1.5,clap:1,sit:.8,look:1,curious:near?2:0,sleep:night?20:0};
   let r=Math.random()*Object.values(w).reduce((a,b)=>a+b,0);for(const k in w){if((r-=w[k])<=0)return act(k)}return act('idle')}
  const h=hourBD(),night=h>=22||h<5,morning=h>=5&&h<9,noon=h>=12&&h<15,onEdge=edge&&edge.b-edge.a>160;
@@ -105,8 +135,8 @@ function roam(t){const dt=Math.min(50,t-(lt||t));lt=t;const reduce=matchMedia('(
  if(busy&&state!=='fly'&&state!=='pinned'&&mood!=='busy'){pick(true);mood='busy';go('fly',30000)}
  if(drag||document.hidden){}
  else if(state!=='fly'){
-  if(state==='sleep'){show('sleep0');if(GIRL&&!b.querySelector('.pr'))props('zzz');const h=hourBD();if(t>until||(h>=5&&h<22&&until===Infinity)){go('perch',2000);show('shake0')}}
-  else if(!stepSeq(t)){if(state==='pinned'){if(t>until)pin(false);else act(['idle','look','cock','preen','walk','forage','sing','hop','idle'][Math.floor(Math.random()*9)])}
+  if(state==='sleep'){if(!(GIRL&&M3&&play3(t)))show('sleep0');if(GIRL&&!b.querySelector('.pr'))props('zzz');const h=hourBD();if(t>until||(h>=5&&h<22&&until===Infinity)){go('perch',2000);show('shake0');if(GIRL&&M3){rt=[];cq=[seg('sleep','out',0,{say:'wake'}),seg('wave',0,0,{fm:1})]}}}
+  else if(!(GIRL&&M3&&!seq.length&&play3(t))&&!stepSeq(t)){if(state==='pinned'){if(t>until)pin(false);else act(['idle','look','cock','preen','walk','forage','sing','hop','idle'][Math.floor(Math.random()*9)])}
    else if(busy&&mood==='busy')seq=[['peck1',200,0,null],['peck0',150,0,null],['look0',600,0,null],['perch0',500,0,null]];
    else if(t>until&&!P&&!reduce){until=t+(GIRL?200+Math.random()*600:500+Math.random()*1500);choose(t)}else show('perch0')}
   if(state==='perch'&&perchEl){const r=perchEl.getBoundingClientRect();if(r.top<0||r.top>innerHeight||!r.width)act('fly');else{pos.y=r.top-FOOT;pos.x=r.left+perchOff;place(pose==='hop1'?-9:0)}}
@@ -128,15 +158,17 @@ function roam(t){const dt=Math.min(50,t-(lt||t));lt=t;const reduce=matchMedia('(
  badge.textContent=localStorage.rbtClipPause==='1'?'⏸':state==='pinned'?'📌':busy?'⚙':state==='sleep'?'💤':'';requestAnimationFrame(roam)}
 requestAnimationFrame(roam);
 /* মামণি: walks along the same edge; squat → jump arc between edges; waves on arrival after a copy */
-let arc=null;function girlMove(t,dt){if(P){show('stand0');return}
+function girlMove(t,dt){if(P){show('stand0');return}
  if(follow&&t-(girlMove.f||0)>2000){girlMove.f=t;pick(true,mp);until=t+1e9}
  const sp=sp0()*Math.max(.4,net||.5)*(mood==='visit'?2.2:1);
  if(arc){const u=Math.min(1,(t-arc.t0)/arc.T);pos.x=arc.sx+(tgt.x-arc.sx)*u;pos.y=arc.sy+(tgt.y-arc.sy)*u-arc.h*4*u*(1-u);show(u<.15?'squat0':'jump0');place();if(u>=1){arc=null;girlLand()}return}
- const dx=tgt.x-pos.x;if(Math.abs(tgt.y-pos.y)<=4){if(Math.abs(dx)<3){pos.x=tgt.x;girlLand();return}face=dx>0?1:-1;const fr=Math.abs(dx)>3*SZ;pos.x+=face*Math.min(Math.abs(dx),(fr?.16:.07)*KZ*sp*dt);
+ const dx=tgt.x-pos.x;if(M3&&pre3.walk&&Math.abs(tgt.y-pos.y)<=4){if(Math.abs(dx)<3){pos.x=tgt.x;vel=0;girlLand();return}face=dx>0?1:-1;const H=SZ*.8,vm=H*.42*Math.max(.6,Math.min(1.6,sp0()/ (sp0()||1)))*(mood==='visit'?1.7:1),s=dt/1000;
+  vel=Math.min(vm,vel+vm*s/.6,Math.sqrt(2*(vm/.8)*Math.abs(dx))+4);pos.x+=face*Math.min(Math.abs(dx),vel*s);wph=(wph+s*12*vel/(H*.42))%28;show3('walk',36+Math.floor(wph));place();until=Math.max(until,t+5000);return}
+ if(Math.abs(tgt.y-pos.y)<=4){if(Math.abs(dx)<3){pos.x=tgt.x;girlLand();return}face=dx>0?1:-1;const fr=Math.abs(dx)>3*SZ;pos.x+=face*Math.min(Math.abs(dx),(fr?.16:.07)*KZ*sp*dt);
   if(t-(girlMove.w||0)>(fr?80:105)){girlMove.w=t;wing=(wing+1)%6;show(fr?'run'+wing%4:'walk'+wing)}place()}
  else{face=dx>0?1:-1;const d=Math.hypot(dx,tgt.y-pos.y);show('squat0');arc={sx:pos.x,sy:pos.y,t0:t+180,T:Math.min(1600,550+d*.7)/Math.max(.6,Math.min(1.6,sp)),h:60+Math.max(0,pos.y-tgt.y)*.6+d*.05}}
  if(t>until&&!follow){pos.x=tgt.x;pos.y=tgt.y;place();girlLand()}}
-function girlLand(){go('perch');const vis=mood==='visit'||mood==='curious';mood=mood==='busy'?'busy':null;seq=[['squat0',200,0,null],['stand0',300,0,null]];
+function girlLand(){go('perch');if(M3&&rt.length){seq=[];mood=null;return}const vis=mood==='visit'||mood==='curious';mood=mood==='busy'?'busy':null;seq=[['squat0',200,0,null],['stand0',300,0,null]];
  if(GIRL&&Math.random()<.3)seq.push(['wave0',300,0,null],['stand0',200,0,null]);if(vis){say('hi');face=mp.x>pos.x+SZ/2?1:-1;for(let i=0;i<3;i++)seq.push(['wave0',300,0,'heart'],['wave1',300,0,null]);seq.push(['stand0',1000,0,null])}}
 b.addEventListener('contextmenu',e=>{e.preventDefault();if(confirm(GIRL?'দোয়েল পাখিকে ফিরিয়ে আনবেন?':'মামণিকে আনবেন?'))cmd('mascot',GIRL?'doyel':'girl')});
 const pin=on=>{if(on){go('pinned',(GIRL?25000:30000)+Math.random()*(GIRL?65000:90000));perchEl=null;edge={a:pos.x-60,b:pos.x+60};localStorage.rbtFpos=JSON.stringify(pos);if(GIRL)act('sit')}else{pick(false);go('fly',GIRL?120000:undefined);arc=null;tFly=performance.now()}};

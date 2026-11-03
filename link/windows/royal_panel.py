@@ -160,10 +160,40 @@ def save_image(b64, name):
     name = re.sub(r'[^\w.\-]', '_', name)[:80] or 'design.png'
     d = _path('Downloads'); d = d if os.path.isdir(d) else os.path.expanduser('~')
     fp = os.path.join(d, name); open(fp, 'wb').write(base64.b64decode(b64)); return fp
+LDIR = os.path.expanduser('~/.rbt_learn')
+def _lcfg():
+    try: return json.load(open(os.path.join(LDIR, 'settings.json')))
+    except Exception: return {}
+def learn_state():
+    import collections
+    o = {'settings': _lcfg(), 'apps': [], 'tips': [], 'insights': [], 'n': 0}
+    try:
+        L = [json.loads(x) for x in open(os.path.join(LDIR, 'apps.jsonl'), encoding='utf-8')]; o['n'] = len(L)
+        day = time.strftime('%Y-%m-%d'); c = collections.Counter()
+        for r in L:
+            if time.strftime('%Y-%m-%d', time.localtime(r['t0'])) == day: c[r['app']] += (r['t1'] - r['t0']) / 60
+        o['apps'] = [(a, int(m)) for a, m in c.most_common(6) if m >= 1]
+    except Exception: pass
+    try: o['tips'] = [json.loads(x) for x in open(os.path.join(LDIR, 'tips.jsonl'), encoding='utf-8')][-6:][::-1]
+    except Exception: pass
+    try: o['insights'] = json.load(open(os.path.join(LDIR, 'insights.json'), encoding='utf-8'))[:10]
+    except Exception: pass
+    return json.dumps(o, ensure_ascii=False)
+def learn_set(k, v):
+    if k not in ('pause', 'quiet', 'gap'): return False
+    os.makedirs(LDIR, exist_ok=True); c = _lcfg(); c[k] = v; json.dump(c, open(os.path.join(LDIR, 'settings.json'), 'w')); return True
+def learn_delete():
+    for f in ('apps.jsonl', 'switch.jsonl', 'tips.jsonl', 'copies.json', 'insights.json'):
+        try: os.remove(os.path.join(LDIR, f))
+        except Exception: pass
+    return True
 class Api:
     def token(self): return CFG['token']
     def bird(self, cmd, arg=''): out({'bird': cmd, 'arg': arg}); return True
     def status(self): return STATUS
+    def learn_state(self): return learn_state()
+    def learn_set(self, k, v): return learn_set(k, v)
+    def learn_delete(self): return learn_delete()
     def sec_health(self): return json.dumps(sec_health(), ensure_ascii=False)
     def save_image(self, b64, name):
         try: return save_image(b64, name)

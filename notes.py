@@ -376,7 +376,7 @@ security{check: pc|url|file|site|breach|password, target: URL/ডোমেইন
         if not steps: steps = [{'action': 'say', 'args': {'text': str(o.get('reply') or 'বুঝতে পারিনি, আরেকটু খুলে বলবেন?')}, 'say': 'উত্তর', 'risky': False}]
         return {'reply': str(o.get('reply') or '')[:300], 'steps': steps}
     try:
-        import design_sec as _DS; _DS.register(app, dev_ok, owner, db, RT, _ASKT)
+        import design_sec as _DS; _DS.register(app, dev_ok, owner, db, RT, _ASKT); _DS.register_assist(app, dev_ok, RT, _ASKT)
     except Exception as _e: print('design_sec failed', _e)
     @app.get('/bb/link/hub')
     def lhub(request: Request, token: str = ''):
