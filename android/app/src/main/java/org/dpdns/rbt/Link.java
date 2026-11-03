@@ -23,9 +23,13 @@ public class Link{
   if(sensitive(s)){if(loud)h.post(()->Toast.makeText(a,"🔒 গোপন তথ্য মনে হলো — রাখা হলো না",0).show());return;}
   if(s.equals(last)&&!loud)return;last=s;String t=s;
   new Thread(()->{String m;try{JSONObject r=post("/bb/link/clip",new JSONObject().put("token",tok(a)).put("kind",t.matches("^https?://\\S+$")?"url":"text").put("content",t));
-   m=r.has("error")?"রাখা যায়নি: "+r.optString("error"):r.has("skipped")?"🔒 রাখা হলো না":r.optBoolean("dup")?"আগেই রাখা আছে ✓":"🐯 রয়েল নোটবুকে রাখা হলো";if(!r.has("error")&&!r.has("skipped"))h.post(()->{if(BubbleService.I!=null)BubbleService.I.cmd("happy","");});}catch(Exception e){m="সংযোগ নেই — রাখা যায়নি";}
+   m=r.has("error")?"রাখা যায়নি: "+r.optString("error"):r.has("skipped")?"🔒 রাখা হলো না":r.optBoolean("dup")?"আগেই রাখা আছে ✓":"🐯 রয়েল নোটবুকে রাখা হলো";if(!r.has("error")&&!r.has("skipped")){GirlService.copied(t);h.post(()->mascotCmd("happy",""));}}catch(Exception e){m="সংযোগ নেই — রাখা যায়নি";}
    String mm=m;h.post(()->Toast.makeText(a,mm,0).show());}).start();}
  public static void note(Context c,String body){Context a=c.getApplicationContext();Handler h=new Handler(Looper.getMainLooper());new Thread(()->{String m;try{JSONObject r=post("/bb/link/note",new JSONObject().put("token",tok(a)).put("body",body));m=r.has("error")?"নোট রাখা যায়নি":"📒 নোট রাখা হলো";}catch(Exception e){m="সংযোগ নেই";}String mm=m;h.post(()->Toast.makeText(a,mm,0).show());}).start();}
  public static void start(Context c){Intent i=new Intent(c,LinkService.class);try{c.startForegroundService(i);}catch(Exception e){}
-  if(p(c).getBoolean("bubble",false)&&android.provider.Settings.canDrawOverlays(c))try{c.startForegroundService(new Intent(c,BubbleService.class));}catch(Exception e){}}
+  if(p(c).getBoolean("bubble",false)&&android.provider.Settings.canDrawOverlays(c))startMascot(c);}
+ public static boolean girl(Context c){return !"doyel".equals(p(c).getString("mascot","girl"));}
+ public static void startMascot(Context c){try{if(girl(c)){c.stopService(new Intent(c,BubbleService.class));c.startForegroundService(new Intent(c,GirlService.class));}else{c.stopService(new Intent(c,GirlService.class));c.startForegroundService(new Intent(c,BubbleService.class));}}catch(Exception e){}}
+ public static void stopMascots(Context c){c.stopService(new Intent(c,BubbleService.class));c.stopService(new Intent(c,GirlService.class));}
+ public static void mascotCmd(String c,String a){if(GirlService.I!=null)GirlService.I.cmd(c,a);else if(BubbleService.I!=null)BubbleService.I.cmd(c,a);}
 }

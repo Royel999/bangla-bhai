@@ -42,6 +42,7 @@ public class BubbleService extends Service{static BubbleService I;boolean sleepF
    case "roam":p.edit().putBoolean("roam",!roam()).apply();break;case "pause":p.edit().putBoolean("paused",!Link.paused(this)).apply();break;
    case "speed":try{p.edit().putInt("roam_speed",Integer.parseInt(a.isEmpty()?"2":a)).apply();}catch(Exception e){}break;
    case "hide":p.edit().putBoolean("bubble",false).apply();stopSelf();break;
+   case "mascot":p.edit().putString("mascot",a.equals("doyel")?"doyel":"girl").apply();if(!a.equals("doyel")){Link.startMascot(this);stopSelf();}break;
    case "happy":if(state!=0){g++;nextF=t+rep(R.drawable.doyel_cock0,R.drawable.doyel_cock1,3,180)+rep(R.drawable.doyel_sing0,R.drawable.doyel_cock1,2,400);}break;
    case "think":case "sad":if(state!=0){g++;set(R.drawable.doyel_look0);nextF=t+1500;}break;
    default:android.widget.Toast.makeText(this,"🐦 "+c+": এই ফোনে নেই",0).show();}}
