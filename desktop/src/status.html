@@ -1,0 +1,8 @@
+<!doctype html><meta charset=utf-8><title>Royal Link</title><style>body{margin:0;font-family:'Segoe UI','Nirmala UI',sans-serif;background:#006A4E;color:#fff;text-align:center}
+img{width:120px;margin-top:24px}h2{color:#D4AF37;margin:8px}.c{background:#fff;color:#123;margin:18px;border-radius:14px;padding:16px;border-top:5px solid #F42A41}
+.s{font-size:20px;font-weight:600}button{background:#F42A41;color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:14px;margin-top:12px;cursor:pointer}</style>
+<img src=logo.png><h2>The Royal Bengal Tiger</h2><div>Royal Link · Desktop</div>
+<div class=c><div class=s id=s>…</div><div id=d style="margin-top:8px;color:#555"></div><div id=h style="margin-top:8px;font-size:13px"></div>
+<button onclick="rbt.open('devices')">ডিভাইস ও অনুমতি খুলুন</button></div>
+<script>function r(s){document.getElementById('s').textContent=s.txt+(s.extra?' · '+s.extra:'');document.getElementById('d').textContent='Device: '+(s.device||'—')+' · '+s.base;
+document.getElementById('h').textContent=s.state==='pending'?'অ্যাপের "ডিভাইস ও অনুমতি" থেকে Approve করুন।':''}rbt.getStatus().then(r);rbt.onStatus(r)</script>

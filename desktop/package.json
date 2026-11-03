@@ -1,0 +1,22 @@
+{
+  "name": "royal-bengal-tiger",
+  "productName": "The Royal Bengal Tiger",
+  "version": "1.0.0",
+  "description": "The Royal Bengal Tiger — desktop app & Royal Link agent",
+  "main": "src/main.js",
+  "author": "S.K Shofikul Islam Badol",
+  "license": "UNLICENSED",
+  "scripts": { "start": "electron .", "dist": "electron-builder --win nsis --x64" },
+  "dependencies": { "ws": "^8.18.0" },
+  "devDependencies": { "electron": "^33.2.0", "electron-builder": "^25.1.8" },
+  "build": {
+    "appId": "org.dpdns.banglabhai.rbt",
+    "productName": "The Royal Bengal Tiger",
+    "directories": { "output": "dist" },
+    "files": ["src/**", "package.json"],
+    "win": { "target": "nsis", "icon": "build/icon.ico", "signAndEditExecutable": false },
+    "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true, "shortcutName": "The Royal Bengal Tiger",
+      "installerIcon": "build/icon.ico", "uninstallerIcon": "build/icon.ico", "runAfterFinish": true }
+  }
+}

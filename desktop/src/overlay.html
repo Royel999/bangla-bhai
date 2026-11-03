@@ -1,0 +1,6 @@
+<!doctype html><meta charset=utf-8><style>html,body{margin:0;background:transparent;font-family:'Segoe UI','Nirmala UI',sans-serif;overflow:hidden}
+.p{margin:8px;display:flex;align-items:center;gap:12px;padding:12px 18px;border-radius:40px;background:rgba(0,40,28,.88);color:#fff;border:2px solid #D4AF37;box-shadow:0 6px 24px rgba(0,0,0,.4);opacity:0;transform:translateY(-10px);transition:.35s}
+.p.on{opacity:1;transform:none}.orb{width:38px;height:38px;border-radius:50%;background:conic-gradient(#006A4E,#F42A41,#D4AF37,#006A4E);animation:s 1.2s linear infinite;flex:none;box-shadow:0 0 18px #F42A41}
+@keyframes s{to{transform:rotate(360deg)}}.t{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.k{font-size:11px;color:#D4AF37}</style>
+<div class=p id=p><div class=orb></div><div><div class=k>🐯 Royal Bengal Tiger AI</div><div class=t id=t>…</div></div></div>
+<script>rbt.onLive(t=>{const p=document.getElementById('p');if(t){document.getElementById('t').textContent=t;p.classList.add('on')}else p.classList.remove('on')})</script>
