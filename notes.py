@@ -1,6 +1,6 @@
 """Royal Notes: editable notebook for logged-in users (per-user). Stored in data.db (backed up by persist).
 Tables: notes, note_versions, note_files. API under /bb/api/notes; UI at /notes (static/notes/)."""
-import json, time, uuid, re, os
+import json, time, uuid, re, os, base64
 from fastapi import Request, UploadFile, File
 from fastapi.responses import JSONResponse, Response, FileResponse, RedirectResponse
 D = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'notes')
@@ -301,6 +301,74 @@ def setup_clips(app, HH):
         nid = uuid.uuid4().hex[:12]; now = time.time(); title = str(j.get('title') or body.strip().split('\n')[0][:60])
         with db() as c: c.execute("insert into notes(id,user,title,body,folder,tags,created,updated) values(?,?,?,?,?,?,?,?)", (nid, owner, title, body, 'দ্রুত নোট', '[]', now, now))
         return {'id': nid}
+    # ---- bird panel (device token): AI ask / translate / summarise / screen, today hub, note search ----
+    MODES = {'ask': 'তুমি রয়েল নোটবুকের সহকারী। সংক্ষেপে, প্রশ্নের ভাষায় (ডিফল্ট বাংলা) উত্তর দাও।',
+             'translate': 'Translate the text: Bangla→English, any other language→Bangla. Output only the translation.',
+             'summarise': 'নিচের লেখাটির ৩-৫ বুলেটে বাংলায় সারাংশ দাও।',
+             'explain': 'নিচের লেখা/কোড সহজ বাংলায় ব্যাখ্যা করো, সংক্ষেপে।',
+             'screen': 'ব্যবহারকারীর স্ক্রিনের লেখা (OCR) ও প্রশ্ন দেওয়া হলো। স্ক্রিনে কী আছে বুঝে প্রশ্নের উত্তর দাও, সংক্ষেপে বাংলায়।'}
+    _ASKT = {}
+    def dev_ok(tok, request=None):
+        d = AG.dev_by_token(tok or '') if tok else None
+        if d and d['status'] == 'approved': return d
+        if request is not None and U(request) == owner and (request.method == 'GET' or request.headers.get('x-bb-notes') == '1'): return {'id': 'web', 'name': 'ওয়েব', 'status': 'approved'}
+        return None
+    @app.post('/bb/link/ask')
+    async def lask(request: Request):
+        j = await request.json(); d = dev_ok(j.get('token'), request)
+        if not d: return JSONResponse({'error': 'unauthorized'}, 403)
+        L = [t for t in _ASKT.get(d['id'], []) if time.time() - t < 3600]
+        if len(L) >= 60: return JSONResponse({'error': 'ঘণ্টায় ৬০টির সীমা'}, 429)
+        _ASKT[d['id']] = L + [time.time()]
+        mode = j.get('mode') if j.get('mode') in MODES else 'ask'; q = str(j.get('q') or '')[:4000]; text = str(j.get('text') or '')[:20000]
+        if mode == 'screen' and j.get('image_b64'):
+            try:
+                import ocr, asyncio
+                data = base64.b64decode(j['image_b64'])[:8 * 1024 * 1024]
+                text = (await asyncio.to_thread(ocr.cloud_image_text, data, 'image/png'))[:16000] or text
+            except Exception as e: text = text or ('(স্ক্রিন পড়া যায়নি: %s)' % str(e)[:80])
+        if not (q or text).strip(): return JSONResponse({'error': 'empty'}, 400)
+        user = text if not q else (q + (('\n\n---\n' + text) if text else ''))
+        try:
+            _, t, _ = await RT.complete([{'role': 'system', 'content': MODES[mode]}, {'role': 'user', 'content': user}], timeout=60, tries=2)
+            return {'answer': re.sub(r'<think>.*?</think>', '', t or '', flags=re.S).strip()}
+        except Exception: return JSONResponse({'error': 'AI এখন ব্যস্ত, একটু পরে চেষ্টা করুন'}, 503)
+    @app.get('/bb/link/hub')
+    def lhub(request: Request, token: str = ''):
+        d = dev_ok(token, request)
+        if not d: return JSONResponse({'error': 'unauthorized'}, 403)
+        today = time.strftime('%Y-%m-%d', time.gmtime(time.time() + 6 * 3600)); tasks = []
+        with db() as c:
+            for r in c.execute('select id,title,body from notes where user=? and trashed=0 and archived=0', (owner,)):
+                for ln in (r['body'] or '').split('\n'):
+                    m = TASK.match(ln)
+                    if m and m.group(1) == ' ':
+                        dm = DUE.search(m.group(2)); due = dm.group(1) if dm else None
+                        if due and due <= today: tasks.append({'note': r['id'], 'text': DUE.sub('', m.group(2)).strip()[:120], 'due': due, 'late': due < today})
+            nn = c.execute('select count(*) from notes where user=? and trashed=0', (owner,)).fetchone()[0]
+            nc = c.execute('select count(*) from clips where user=?', (owner,)).fetchone()[0]
+        busy = 0
+        try:
+            import device_hub as DH
+            if d['id'] == 'web': busy = sum(len(v) for v in DH.INFLIGHT.values()); online = True
+            else: busy = len(DH.INFLIGHT.get(d['id'], {})); online = DH.online(d['id'])
+        except Exception: online = True
+        return {'today': today, 'tasks': sorted(tasks, key=lambda t: t['due'])[:15], 'notes': nn, 'clips': nc, 'device': {'name': d['name'], 'online': online, 'busy': busy}}
+    @app.get('/bb/link/search')
+    def lsearch(request: Request, q: str, token: str = ''):
+        if not dev_ok(token, request): return JSONResponse({'error': 'unauthorized'}, 403)
+        w, a = ['user=? and trashed=0'], [owner]
+        for t in q.split()[:6]: w.append('(title like ? or body like ?)'); a += ['%' + t + '%'] * 2
+        with db() as c: rs = c.execute('select id,title,substr(body,1,160) body from notes where ' + ' and '.join(w) + ' order by updated desc limit 12', a).fetchall()
+        return {'notes': [dict(r) for r in rs]}
+    @app.post('/bb/link/stt')
+    async def lstt(request: Request, token: str = '', file: UploadFile = File(...)):
+        d = dev_ok(token, request)
+        if not d: return JSONResponse({'error': 'unauthorized'}, 403)
+        data = await file.read(10_000_001)
+        if len(data) > 10_000_000: return JSONResponse({'error': 'too large'}, 413)
+        try: t, _ = await AG.stt(data, file.content_type); return {'text': t}
+        except Exception as e: return JSONResponse({'error': str(e)[:200]}, 502)
     @app.get('/bb/api/clips')
     def cget(request: Request, q: str = '', cat: str = '', limit: int = 100):
         u = U(request)

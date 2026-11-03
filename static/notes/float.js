@@ -1,73 +1,121 @@
-/* Floating Royal Notebook bubble (v4 + any page). Draggable; quick note + clipboard. Web can read clipboard only on user action / focus with permission. */
-(()=>{'use strict';if(window.__rbtFloat)return;window.__rbtFloat=1;
-const H={'Content-Type':'application/json','x-bb-notes':'1'},esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* Royal doyel for the web (v4 + any page): a realistic oriental magpie-robin with a behaviour brain.
+   Flies, lands on the page bottom / tops of elements, walks along edges, forages (pecks crumbs/insects), drinks, sings (optional soft chirp),
+   bathes & shakes, preens, naps at night (Dhaka time), startles when the mouse rushes at it, approaches a still cursor, flies to new copies,
+   shows ⚙ while a device AI job runs. Drag & drop = sits there 30–120s then leaves. Click = animated glass panel (panel.html in an iframe). */
+(()=>{'use strict';if(window.__rbtFloat||window.top!==window)return;window.__rbtFloat=1;
+const H={'Content-Type':'application/json','x-bb-notes':'1'};
 const dev=(/Android/i.test(navigator.userAgent)?'Android':/iPhone|iPad/i.test(navigator.userAgent)?'iPhone':/Windows/i.test(navigator.userAgent)?'Windows':'Web')+' ব্রাউজার';
 const api=(u,o={})=>fetch(u,{credentials:'same-origin',...o,headers:{...H,...(o.headers||{})}}).then(async r=>{const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||r.status);return j});
-const send=(content,kind='text')=>content&&content.trim()&&localStorage.rbtClipPause!=='1'?api('/bb/api/clips',{method:'POST',body:JSON.stringify({content,kind,device:dev})}).catch(()=>{}):Promise.resolve();
-const st=document.createElement('style');st.textContent=`#rbtF{position:fixed;z-index:99999;width:96px;height:96px;cursor:grab;filter:drop-shadow(0 3px 3px #0004);touch-action:none;user-select:none;-webkit-user-select:none}
-#rbtF img{width:96px;height:96px;display:block;pointer-events:none;-webkit-user-drag:none}#rbtF b{position:absolute;left:4px;top:2px;font-size:11px}
-#rbtP{position:fixed;z-index:99999;width:min(340px,92vw);max-height:70vh;overflow:auto;background:#11264a;color:#eef2fb;border:1px solid #d4af37;border-radius:16px;padding:12px;box-shadow:0 10px 30px #0008;font:14px/1.5 "Noto Sans Bengali",system-ui,sans-serif}
-#rbtP textarea{width:100%;height:90px;background:#172f5a;color:inherit;border:1px solid #24406f;border-radius:10px;padding:8px;font:inherit;box-sizing:border-box}
-#rbtP button{background:#172f5a;color:inherit;border:1px solid #24406f;border-radius:9px;padding:5px 9px;margin:3px 2px;cursor:pointer;font:inherit}#rbtP .g{background:#ff8c1a;border:0;color:#fff}
-#rbtP .c{font-size:12px;padding:6px;border-radius:8px;background:#0b1a33;margin:4px 0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#rbtP small{color:#9fb0cf}`;document.head.appendChild(st);
-const b=document.createElement('div');b.id='rbtF';b.title='রয়েল নোটবুক · ক্লিক = নোট · টেনে বসান = পিন · ডাবল-ক্লিক = উড়ে যাও';b.innerHTML='<img alt=""><b></b>';document.body.appendChild(b);
-/* realistic doyel (oriental magpie-robin): flies → lands on page bottom / tops of elements → idle fidgets → takes off. Speed follows internet speed. */
+const send=(content,kind='text')=>content&&content.trim()&&localStorage.rbtClipPause!=='1'?api('/bb/api/clips',{method:'POST',body:JSON.stringify({content,kind,device:dev})}).then(()=>react('clip')).catch(()=>{}):Promise.resolve();
+const st=document.createElement('style');st.textContent=`#rbtF{position:fixed;z-index:99999;width:96px;height:96px;cursor:grab;filter:drop-shadow(0 3px 3px #0004);touch-action:none;user-select:none;-webkit-user-select:none;left:0;top:0}
+#rbtF img{width:96px;height:96px;display:block;pointer-events:none;-webkit-user-drag:none}#rbtF b{position:absolute;left:2px;top:0;font-size:12px}
+#rbtF .pr{position:absolute;pointer-events:none;border-radius:50%;transition:opacity .4s}
+#rbtP{position:fixed;z-index:100000;border:0;width:420px;height:640px;max-width:96vw;max-height:88vh;background:transparent;color-scheme:normal}
+@media(max-width:600px){#rbtP{left:2vw!important;width:96vw;bottom:8px!important;top:auto!important;height:78vh}}`;document.head.appendChild(st);
+const b=document.createElement('div');b.id='rbtF';b.title='দোয়েল · ক্লিক = প্যানেল · টেনে বসান · ডাবল-ক্লিক = উড়ে যাও';b.innerHTML='<img alt=""><b></b>';document.body.appendChild(b);
 const D='/bb/static/notes/doyel/',SZ=96,FOOT=93,im=b.querySelector('img'),badge=b.querySelector('b'),cache={};
-const POSES=['fly0','fly1','fly2','fly3','fly4','fly5','fly6','fly7','glide0','perch0','cock0','cock1','look0','preen0','sing0','down0','hop0','hop1'];
-POSES.forEach(p=>['','_L'].forEach(s=>{const i=new Image();i.src=D+p+s+'.png';cache[p+s]=i.src}));
+['fly0','fly1','fly2','fly3','fly4','fly5','fly6','fly7','glide0','perch0','cock0','cock1','look0','preen0','sing0','down0','hop0','hop1','walk0','walk1','walk2','peck0','peck1','drink0','sleep0','shake0']
+ .forEach(p=>['','_L'].forEach(s=>{const i=new Image();i.src=D+p+s+'.png';cache[p+s]=i.src}));
 let face=-1,pose='perch0';const show=p=>{pose=p;const k=p+(face<0?'_L':'');if(im.dataset.k!==k){im.dataset.k=k;im.src=cache[k]}};
 const pos=JSON.parse(localStorage.rbtFpos||'null')||{x:innerWidth-110,y:innerHeight-FOOT-4};
 const clampP=()=>{pos.x=Math.max(0,Math.min(innerWidth-SZ,pos.x));pos.y=Math.max(-10,Math.min(innerHeight-FOOT,pos.y))};
-const place=(bob=0)=>{b.style.left=pos.x+'px';b.style.top=(pos.y+bob)+'px'};clampP();place();addEventListener('resize',()=>{clampP();place()});
-/* internet speed → flight speed (Network Information API + a timed small fetch every 60s); offline → stays perched */
-let net=1,mbps=0;const probe=async()=>{if(!navigator.onLine){net=null;return}try{const t=performance.now(),r=await fetch(D+'fly0.png?p='+Date.now(),{cache:'no-store'}),n=(await r.arrayBuffer()).byteLength,dt=(performance.now()-t)/1000;
+const place=(bob=0)=>{b.style.transform=`translate(${pos.x}px,${pos.y+bob}px)`};clampP();place();addEventListener('resize',()=>{clampP();place()});
+/* props: crumbs / insect / water / splash */
+function props(k){b.querySelectorAll('.pr').forEach(e=>e.remove());if(!k)return;const bx=face>0?84:8,add=(x,y,w,h,c)=>{const e=document.createElement('i');e.className='pr';Object.assign(e.style,{left:x+'px',top:y+'px',width:w+'px',height:h+'px',background:c});b.appendChild(e)};
+ if(k==='crumbs')for(let i=0;i<4;i++)add(bx+(Math.random()*16-8)*face,89,3,3,['#c8a165','#a0763d','#e0c68f'][i%3]);
+ else if(k==='insect'){add(bx,88,6,3,'#3e7d2c')}else if(k==='water')add(bx-8,89,16,5,'#7ec8f0');
+ else if(k==='splash')for(let i=0;i<7;i++)add(48+Math.random()*60-30,50+Math.random()*40-20,3,4,'#9bd6f5')}
+/* soft synthesized chirp, off by default */
+let ac=null;function chirp(){if(localStorage.rbtSound!=='1')return;try{ac=ac||new AudioContext();const t0=ac.currentTime;for(let n=0;n<3;n++){const o=ac.createOscillator(),g=ac.createGain(),t=t0+n*.14,f=2600+Math.random()*800;
+ o.frequency.setValueAtTime(f,t);o.frequency.linearRampToValueAtTime(f+1800,t+.09);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.07,t+.03);g.gain.linearRampToValueAtTime(0,t+.09);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+.1)}}catch(e){}}
+/* network → speed; offline = stays perched */
+let net=1,mbps=0,busy=0;const probe=async()=>{if(!navigator.onLine){net=null;return}try{const t=performance.now(),r=await fetch(D+'fly0.png?p='+Date.now(),{cache:'no-store'}),n=(await r.arrayBuffer()).byteLength,dt=(performance.now()-t)/1000;
  let m=n*8/Math.max(dt,.02)/1e6;const dl=navigator.connection&&navigator.connection.downlink;if(dl)m=(m+dl)/2;mbps=m;net=Math.max(.35,Math.min(2.6,.4+.5*Math.log2(1+m)))}catch(e){net=null}};
 probe();setInterval(probe,60000);addEventListener('offline',()=>net=null);addEventListener('online',probe);navigator.connection&&navigator.connection.addEventListener&&navigator.connection.addEventListener('change',probe);
-const roamOn=()=>localStorage.rbtRoam!=='0';
-let state=localStorage.rbtPin==='1'?'pinned':'perch',until=performance.now()+3000,tgt=null,perchEl=null,perchOff=0,nextF=0,wing=0,glide=0,lt=0,hov=false,hold=0;
-function spots(){const s=[{x:Math.random()*(innerWidth-SZ),y:innerHeight,el:null}];
- document.querySelectorAll('h1,h2,h3,img,button,textarea,table,section,article,header,nav,aside,.card,[class*=card]').forEach(e=>{if(s.length>40||e.closest('#rbtF,#rbtP'))return;const r=e.getBoundingClientRect();
-  if(r.width>110&&r.top>70&&r.top<innerHeight-30&&getComputedStyle(e).visibility!=='hidden'){const el=document.elementFromPoint(r.left+r.width/2,r.top+2);if(el&&(el===e||e.contains(el)))s.push({x:r.left+20+Math.random()*(r.width-40)-SZ/2,y:r.top,el:e})}});return s}
-function pick(perch){if(perch){const s=spots(),c=s.length>1&&Math.random()<.75?s[1+Math.floor(Math.random()*(s.length-1))]:s[0];perchEl=c.el;tgt={x:Math.max(0,Math.min(innerWidth-SZ,c.x)),y:c.y-FOOT,perch:1};if(c.el)perchOff=tgt.x-c.el.getBoundingClientRect().left}
- else{perchEl=null;tgt={x:Math.random()*(innerWidth-SZ),y:Math.random()*(innerHeight*.7),perch:0}}}
-function fidget(t){const r=Math.random();let p='perch0',d=700+Math.random()*1900;
- if(r<.08){face=-face}else if(r<.28)p=Math.random()<.6?'cock0':'cock1';else if(r<.42)p='look0';else if(r<.52){p='preen0';d+=1200}else if(r<.58)p='sing0';else if(r<.68)p='down0';
- else if(r<.76){show('hop0');setTimeout(()=>{show('hop1');pos.y-=8;place()},150);setTimeout(()=>{pos.y+=8;pos.x+=12*face;clampP();place();show('perch0')},400);nextF=t+1500+Math.random()*1000;return}
- show(p);nextF=t+d}
+const hubT=async()=>{try{busy=(await api('/bb/link/hub')).device.busy?1:0}catch(e){}};hubT();setInterval(hubT,20000);
+const roamOn=()=>localStorage.rbtRoam!=='0',sp0=()=>+localStorage.rbtRoamSp||1;
+const hourBD=()=>new Date(Date.now()+6*3600e3).getUTCHours();
+let state='perch',until=performance.now()+3000,tgt=null,perchEl=null,perchOff=0,edge=null,seq=[],seqT=0,wing=0,glide=0,lt=0,mood=null,follow=false,tFly=performance.now(),tMouse=performance.now(),mp={x:-999,y:-999,t:0},noStartle=0;
+function spots(){const s=[{x:Math.random()*(innerWidth-SZ),y:innerHeight,el:null,a:0,b:innerWidth}];
+ document.querySelectorAll('h1,h2,h3,img,button,textarea,table,section,article,header,nav,aside,.card,[class*=card]').forEach(e=>{if(s.length>40||e.closest('#rbtF'))return;const r=e.getBoundingClientRect();
+  if(r.width>110&&r.top>70&&r.top<innerHeight-30&&getComputedStyle(e).visibility!=='hidden'){const el=document.elementFromPoint(r.left+r.width/2,r.top+2);if(el&&(el===e||e.contains(el)))s.push({x:r.left+20+Math.random()*(r.width-40)-SZ/2,y:r.top,el:e,a:r.left,b:r.right})}});return s}
+function pick(perch,near){if(perch){let s=spots();if(near)s=s.sort((p,q)=>Math.hypot(p.x-near.x,p.y-near.y)-Math.hypot(q.x-near.x,q.y-near.y)).slice(0,3);const c=s.length>1&&Math.random()<.75?s[1+Math.floor(Math.random()*(s.length-1))]:s[0];
+  perchEl=c.el;tgt={x:Math.max(0,Math.min(innerWidth-SZ,c.x)),y:c.y-FOOT,perch:1};edge={a:c.a-SZ/2+10,b:c.b-SZ/2-10};if(c.el)perchOff=tgt.x-c.el.getBoundingClientRect().left}
+ else{perchEl=null;edge=null;tgt=near?{x:near.x-SZ/2,y:near.y-SZ-10,perch:0}:{x:Math.random()*(innerWidth-SZ),y:Math.random()*(innerHeight*.7),perch:0}}}
+const go=(s,d)=>{state=s;seq=[];props(null);until=performance.now()+(d!=null?d:s==='fly'?8000+Math.random()*12000:4000+Math.random()*6000)};
+function act(k){const R=Math.random,S=[];const P=(p,d,dx=0,pr=null)=>S.push([p,d,dx,pr]);
+ if(k==='idle')P('perch0',1500+R()*2500);else if(k==='look'){P('look0',800+R()*1200);P('perch0',600);P('down0',600+R()*900);P('perch0',500)}
+ else if(k==='cock'){for(let i=0;i<2;i++){P('cock0',500);P('cock1',400);P('cock0',600);P('perch0',900)}}
+ else if(k==='preen'){P('preen0',1500+R()*1500);P('perch0',400);P('preen0',1000+R()*1500);P('shake0',350);P('perch0',800)}
+ else if(k==='walk'){if(R()<.4)face=-face;for(let i=0,n=8+R()*16;i<n;i++)P('walk'+i%3,130,3);P('perch0',800)}
+ else if(k==='forage'){for(let i=0,n=3+R()*6;i<n;i++)P('walk'+i%3,130,3);for(let j=0,m=2+R()*3;j<m;j++){const pr=R()<.33?'insect':'crumbs';P('down0',400,0,pr);P('peck1',250,0,pr);P('peck0',180,0,pr);P('peck1',180,0,pr);P('peck0',180);P('perch0',500);P('walk1',130,3);P('walk2',130,3)}}
+ else if(k==='drink'){P('peck1',500,0,'water');P('peck0',600,0,'water');P('drink0',700,0,'water');P('peck0',600,0,'water');P('drink0',700,0,'water');P('perch0',600)}
+ else if(k==='sing'){P('sing0',700,0,'chirp');P('perch0',300);P('sing0',900,0,'chirp');P('cock0',600);P('sing0',700,0,'chirp');P('perch0',1000)}
+ else if(k==='bathe'){P('peck0',500,0,'water');for(let i=0;i<3;i++){P('shake0',260,0,'splash');P('perch0',120,0,'splash')}P('preen0',2000);P('perch0',800)}
+ else if(k==='hop'){P('hop0',180);P('hop1',250,12);P('perch0',600)}
+ else if(k==='sleep'){const h=hourBD();go('sleep',h>=22||h<5?Infinity:60000+R()*180000);show('sleep0');return}
+ else if(k==='curious'){pick(true,mp);go('fly',30000);mood='curious';return}
+ else if(k==='fly'){pick(R()<.3);go('fly');tFly=performance.now();return}
+ seq=S;seqT=0}
+function choose(t){const h=hourBD(),night=h>=22||h<5,morning=h>=5&&h<9,noon=h>=12&&h<15,onEdge=edge&&edge.b-edge.a>160;
+ const w={idle:3,look:3,cock:2,preen:2,walk:onEdge?3:0,forage:onEdge?3:1,drink:noon?1.5:.6,sing:morning?3:1,bathe:noon?1.2:.3,hop:1.5,fly:net===null||!roamOn()?0:1+(t-tFly>90000)*2.5,sleep:night?30:.2,
+  curious:t-tMouse>20000&&Math.hypot(mp.x-pos.x-48,mp.y-pos.y-48)<700?3:0};
+ let r=Math.random()*Object.values(w).reduce((a,b)=>a+b,0);for(const k in w){if((r-=w[k])<=0)return act(k)}act('idle')}
+function stepSeq(t){if(!seq.length)return false;if(t<seqT)return true;const [p,d,dx,pr]=seq.shift();seqT=t+d;
+ if(dx){let nx=pos.x+dx*face;const a=edge?edge.a:0,bb=edge?edge.b:innerWidth-SZ;if(nx<a||nx>bb){face=-face;nx=pos.x+dx*face}pos.x=nx;if(perchEl)perchOff+=dx*face}
+ if(pr==='chirp'){chirp();props(null)}else props(pr);show(p);place(p==='hop1'?-9:0);return true}
+function react(w){if(state==='sleep'&&w!=='clip')return;if(w==='clip'&&state!=='pinned'&&net!==null&&mp.x>0){pick(false,{x:mp.x+60,y:mp.y});go('fly',6000);mood='visit'}
+ else if(w==='happy'&&state!=='fly')act('sing');else if(w==='think'&&state!=='fly'){seq=[];for(let i=0;i<3;i++)seq.push(['look0',800,0,null],['down0',800,0,null])}else if(w==='sad'&&state!=='fly')seq=[['down0',2000,0,null],['perch0',500,0,null]]}
+addEventListener('pointermove',e=>{const t=performance.now(),dt=Math.max(t-mp.t,8),vx=(e.clientX-mp.x)/dt*1000,vy=(e.clientY-mp.y)/dt*1000;tMouse=t;
+ const cx=pos.x+48,cy=pos.y+52,d=Math.hypot(e.clientX-cx,e.clientY-cy),toward=vx*(cx-e.clientX)+vy*(cy-e.clientY)>0;
+ if(mp.t&&Math.hypot(vx,vy)>1800&&toward&&d<220&&state!=='pinned'&&!drag&&net!==null&&t>noStartle&&!P){face=cx>e.clientX?1:-1;perchEl=null;edge=null;tgt={x:Math.max(0,Math.min(innerWidth-SZ,pos.x+face*(250+Math.random()*300))),y:Math.max(0,pos.y-150-Math.random()*200),perch:0};go('fly',6000+Math.random()*5000);mood='startled';noStartle=t+4000;chirp()}
+ mp={x:e.clientX,y:e.clientY,t}},{passive:true});
 function roam(t){const dt=Math.min(50,t-(lt||t));lt=t;const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
- if(drag||document.hidden){}else if(state!=='fly'){if(t>nextF)fidget(t);
-  if(state==='perch'&&perchEl){const r=perchEl.getBoundingClientRect();if(r.top<0||r.top>innerHeight||!r.width){until=0}else{pos.x=r.left+perchOff;pos.y=r.top-FOOT;place()}}
-  if(state==='perch'&&t>until&&roamOn()&&net!==null&&!P&&!reduce&&!hov){pick(Math.random()<.3);state='fly';until=t+14000+Math.random()*24000}}
- else{ if(hov&&!tgt.perch||P){wing=(wing+1)%8;show('fly'+wing)}else{
-  if((net===null||!roamOn()||t>until||reduce)&&!tgt.perch)pick(true);
-  const sp=(+localStorage.rbtRoamSp||1)*.13*(net||.6)*(tgt.perch?1.25:1)*dt,dx=tgt.x-pos.x,dy=tgt.y-pos.y,d=Math.hypot(dx,dy);
-  if(d<sp+1){pos.x=tgt.x;pos.y=tgt.y;place();if(tgt.perch){state='perch';until=t+5000+Math.random()*9000;nextF=0;show('perch0')}else pick(false)}
+ if(busy&&state!=='fly'&&state!=='pinned'&&mood!=='busy'){pick(true);mood='busy';go('fly',30000)}
+ if(drag||document.hidden){}
+ else if(state!=='fly'){
+  if(state==='sleep'){show('sleep0');const h=hourBD();if(t>until||(h>=5&&h<22&&until===Infinity)){go('perch',2000);show('shake0')}}
+  else if(!stepSeq(t)){if(state==='pinned'){if(t>until)pin(false);else act(['idle','look','cock','preen','walk','forage','sing','hop','idle'][Math.floor(Math.random()*9)])}
+   else if(busy&&mood==='busy')seq=[['peck1',200,0,null],['peck0',150,0,null],['look0',600,0,null],['perch0',500,0,null]];
+   else if(t>until&&!P&&!reduce){until=t+500+Math.random()*1500;choose(t)}else show('perch0')}
+  if(state==='perch'&&perchEl){const r=perchEl.getBoundingClientRect();if(r.top<0||r.top>innerHeight||!r.width)act('fly');else{pos.y=r.top-FOOT;pos.x=r.left+perchOff;place(pose==='hop1'?-9:0)}}
+  if(follow&&state==='perch'&&Math.hypot(mp.x-pos.x,mp.y-pos.y)>260){pick(false,{x:mp.x-70,y:mp.y});go('fly',30000)}}
+ else{const near=Math.hypot(mp.x-pos.x-48,mp.y-pos.y-48)<110;
+  if(near&&!tgt.perch&&!mood&&!follow||P){wing=(wing+1)%8;show('fly'+wing)}else{
+  if(follow)tgt={x:face>0?mp.x-140:mp.x+20,y:mp.y-100,perch:0};
+  else if((net===null||!roamOn()||t>until||reduce)&&!tgt.perch&&mood!=='visit')pick(true);
+  const sp=sp0()*.13*(net||.6)*(tgt.perch?1.25:1)*(mood==='startled'?2.4:1)*dt,dx=tgt.x-pos.x,dy=tgt.y-pos.y,d=Math.hypot(dx,dy);
+  if(d<sp+1){pos.x=tgt.x;pos.y=tgt.y;place();
+   if(follow){wing=(wing+1)%8;show('fly'+wing)}
+   else if(tgt.perch){go('perch');mood=mood==='busy'?'busy':null;show('perch0');if(Math.random()<.5)act('look')}
+   else if(mood==='visit'){mood=null;edge={a:pos.x-40,b:pos.x+40};go('perch',4000);act('sing')}
+   else if(mood==='startled'){mood=null;pick(true)}else pick(false)}
   else{if(Math.abs(dx)>2)face=dx>0?1:-1;pos.x+=dx/d*sp;pos.y+=dy/d*sp;
-   if(glide>0){glide--;show('glide0')}else if(t-(roam.f||0)>Math.max(30,55/Math.sqrt(net||.6))){roam.f=t;wing=(wing+1)%8;show('fly'+wing);if(wing===2&&dy>-.3*Math.abs(dx)&&d>300&&Math.random()<.3)glide=20+Math.random()*30}
+   if(glide>0){glide--;show('glide0')}else if(t-(roam.f||0)>Math.max(26,55/Math.sqrt(net||.6))/(mood==='startled'?1.6:1)){roam.f=t;wing=(wing+1)%8;show('fly'+wing);if(wing===2&&dy>-.3*Math.abs(dx)&&d>300&&Math.random()<.3&&mood!=='startled')glide=20+Math.random()*30}
    place(glide?0:3*Math.sin(t/60))}}}
- badge.textContent=state==='pinned'?'📌':'';requestAnimationFrame(roam)}
+ badge.textContent=localStorage.rbtClipPause==='1'?'⏸':state==='pinned'?'📌':busy?'⚙':state==='sleep'?'💤':'';requestAnimationFrame(roam)}
 requestAnimationFrame(roam);
-const pin=on=>{if(on){state='pinned';perchEl=null;localStorage.rbtPin='1';localStorage.rbtFpos=JSON.stringify(pos);nextF=0}else{localStorage.rbtPin='0';pick(false);state='fly';until=performance.now()+20000}};
+const pin=on=>{if(on){go('pinned',30000+Math.random()*90000);perchEl=null;edge={a:pos.x-60,b:pos.x+60};localStorage.rbtFpos=JSON.stringify(pos)}else{pick(false);go('fly');tFly=performance.now()}};
 let drag=null,moved=false,clickT=0;b.addEventListener('pointerdown',e=>{e.preventDefault();drag={dx:e.clientX-pos.x,dy:e.clientY-pos.y};moved=false;b.setPointerCapture(e.pointerId)});
-b.addEventListener('pointermove',e=>{if(!drag)return;const nx=e.clientX-drag.dx,ny=e.clientY-drag.dy;if(Math.abs(nx-pos.x)+Math.abs(ny-pos.y)>3){moved=true;show('fly0')}pos.x=nx;pos.y=ny;clampP();place()});
-b.addEventListener('pointerup',()=>{if(!drag)return;drag=null;if(moved)pin(true);else{clearTimeout(clickT);clickT=setTimeout(toggle,280)}});
-b.addEventListener('dblclick',e=>{e.preventDefault();clearTimeout(clickT);if(P)toggle();if(state==='pinned')pin(false);else toggle()});
-b.addEventListener('pointerenter',()=>hov=true);b.addEventListener('pointerleave',()=>hov=false);
-let P=null;
-async function toggle(){if(P){P.remove();P=null;return}P=document.createElement('div');P.id='rbtP';document.body.appendChild(P);
- P.style.left=Math.max(6,Math.min(innerWidth-350,pos.x-260))+'px';P.style.top=(pos.y>innerHeight/2?Math.max(6,pos.y-400):pos.y+96)+'px';
- P.innerHTML=`<b>📒 দ্রুত নোট</b><textarea id="rbtQ" placeholder="এখানে লিখুন…"></textarea><div><button class=g id="rbtS">💾 রাখুন</button><button id="rbtV">📋 পেস্ট করে রাখুন</button><button onclick="location.href='/notes/'">📖 নোটবুক</button><button onclick="location.href='/notes/?view=clips'">🗂 ক্লিপবোর্ড</button></div>
- <div style="margin-top:6px"><small>সাম্প্রতিক কপি (৩০ দিন রাখা হয়) · <a id="rbtFly" style="color:#d4af37;cursor:pointer">${state==='pinned'?'🕊 উড়ে যাও':'🪵 কোথাও বসো'}</a> · <a id="rbtRo" style="color:#d4af37;cursor:pointer">${localStorage.rbtRoam==='0'?'🌀 ঘোরান':'🌀 ঘোরা থামান'}</a> · <a id="rbtSp" style="color:#d4af37;cursor:pointer">⚡ নেট ${net===null?'অফলাইন':mbps.toFixed(1)+' Mbps'} · গতি ${({'0.5':'ধীর','1':'মাঝারি','2':'দ্রুত'})[localStorage.rbtRoamSp||'1']}</a> · <a id="rbtPa" style="color:#d4af37;cursor:pointer">${localStorage.rbtClipPause==='1'?'▶ চালু করুন':'⏸ থামান'}</a></small><div id="rbtC"><small>লোড হচ্ছে…</small></div></div>`;
- P.querySelector('#rbtQ').focus();
- P.querySelector('#rbtS').onclick=async()=>{const t=P.querySelector('#rbtQ').value;if(!t.trim())return;try{await api('/bb/api/notes',{method:'POST',body:JSON.stringify({title:t.trim().split('\n')[0].slice(0,60),body:t,folder:'দ্রুত নোট'})});P.querySelector('#rbtQ').value='';P.querySelector('#rbtS').textContent='✓ রাখা হয়েছে'}catch(e){alert(e.message)}};
- P.querySelector('#rbtV').onclick=async()=>{try{const t=await navigator.clipboard.readText();if(!t)return;await send(t);load()}catch(e){alert('ব্রাউজার ক্লিপবোর্ড পড়ার অনুমতি দেয়নি। লেখার বাক্সে চেপে ধরে Paste করুন।')}};
- P.querySelector('#rbtFly').onclick=()=>{if(state==='pinned')pin(false);else{pick(true);state='fly'}toggle()};
- P.querySelector('#rbtRo').onclick=()=>{localStorage.rbtRoam=localStorage.rbtRoam==='0'?'1':'0';toggle();toggle()};
- P.querySelector('#rbtSp').onclick=()=>{localStorage.rbtRoamSp={'0.5':'1','1':'2','2':'0.5'}[localStorage.rbtRoamSp||'1'];toggle();toggle()};
- P.querySelector('#rbtPa').onclick=()=>{localStorage.rbtClipPause=localStorage.rbtClipPause==='1'?'0':'1';toggle();toggle()};
- load()}
-async function load(){if(!P)return;try{const j=await api('/bb/api/clips?limit=6');P.querySelector('#rbtC').innerHTML=j.clips.map(c=>`<div class=c data-t="${esc(c.kind==='image'?'':c.content.slice(0,2000))}" title="কপি করুন">${c.kind==='image'?'🖼 ছবি':esc(c.content.slice(0,90))}</div>`).join('')||'<small>এখনো কিছু নেই</small>';
- P.querySelectorAll('.c').forEach(e=>e.onclick=()=>{navigator.clipboard?.writeText(e.dataset.t);e.style.outline='1px solid #d4af37'})}catch(e){P.querySelector('#rbtC').innerHTML='<small>লগইন দরকার</small>'}}
+b.addEventListener('pointermove',e=>{if(!drag)return;const nx=e.clientX-drag.dx,ny=e.clientY-drag.dy;if(Math.abs(nx-pos.x)+Math.abs(ny-pos.y)>3){moved=true;wing=(wing+1)%8;show('fly'+wing);props(null)}pos.x=nx;pos.y=ny;clampP();place()});
+b.addEventListener('pointerup',()=>{if(!drag)return;drag=null;if(moved)pin(true);else{if(state==='sleep'){go('perch',3000);show('shake0')}clearTimeout(clickT);clickT=setTimeout(()=>toggle(),280)}});
+b.addEventListener('dblclick',e=>{e.preventDefault();clearTimeout(clickT);if(P)toggle(false);pin(false)});
+/* glass panel (same panel.html as Windows/Android) — bridge via postMessage */
+let P=null;function toggle(on){if(P&&on!==true){P.style.display='none';P=null;return}
+ let f=document.getElementById('rbtP');if(!f){f=document.createElement('iframe');f.id='rbtP';f.allow='microphone; clipboard-read; clipboard-write';f.src='/bb/static/notes/panel.html?v=1';document.body.appendChild(f)}
+ else{try{f.contentWindow.rbtShow&&f.contentWindow.rbtShow()}catch(e){}}
+ f.style.display='block';f.style.left=Math.max(6,Math.min(innerWidth-430,pos.x>innerWidth/2?pos.x-410:pos.x+SZ))+'px';f.style.top=Math.max(6,Math.min(innerHeight-650,pos.y-300))+'px';P=f}
+const status=()=>({state:state==='perch'&&seq.length?(pose.startsWith('walk')?'walk':pose.startsWith('peck')?'forage':'perch'):state,net,mbps,speed:sp0(),sound:localStorage.rbtSound==='1',roam:roamOn(),paused:localStorage.rbtClipPause==='1',busy});
+function cmd(c,v){if(c==='fly'){follow=false;pin(false)}else if(c==='sit'){follow=false;pick(true);go('fly',30000)}else if(c==='follow'){follow=!follow;if(follow)go('fly',1e9);else pick(true)}
+ else if(c==='sleep'){if(state==='sleep')go('perch',2000);else act('sleep')}else if(c==='forage'){if(state==='fly')pick(true);else act('forage')}else if(c==='sing'){chirp();if(state!=='fly')act('sing')}
+ else if(c==='roam')localStorage.rbtRoam=roamOn()?'0':'1';else if(c==='sound'){localStorage.rbtSound=localStorage.rbtSound==='1'?'0':'1';chirp()}else if(c==='speed')localStorage.rbtRoamSp=String(v);
+ else if(c==='pause')localStorage.rbtClipPause=localStorage.rbtClipPause==='1'?'0':'1';else if(c==='hide'){b.style.display='none';setTimeout(()=>b.style.display='',600000)}else react(c)}
+addEventListener('message',async e=>{if(e.origin!==location.origin||!e.data||!e.data.rbt)return;const {rbt:fn,args=[],id}=e.data;let v=null;
+ if(fn==='token')v='';else if(fn==='bird')cmd(args[0],args[1]);else if(fn==='status')v=status();else if(fn==='close')toggle(false);
+ else if(fn==='open'){const u=String(args[0]);if(/^https?:\/\//.test(u))u.startsWith(location.origin)?location.href=u:open(u,'_blank','noopener')}
+ else if(fn==='copy'){try{await navigator.clipboard.writeText(args[0])}catch(_){}}
+ e.source&&e.source.postMessage({rbtRe:id,v},location.origin)});
+addEventListener('keydown',e=>{if(e.key==='Escape'&&P)toggle(false)});
 /* in-page copies are always visible to us */
 document.addEventListener('copy',()=>{const s=String(getSelection()||'');if(s.length>1)setTimeout(()=>send(s),50)});
 /* on focus: read only if the user already granted clipboard-read (Chrome); never prompts silently */

@@ -1019,6 +1019,8 @@ NB.setup(app,dict(is_admin=is_admin))
 import notes as NOTES
 NOTES.setup(app,dict(db=db,need=need,RT=RT,audit=audit))
 NOTES.setup_clips(app,dict(db=db,need=need,RT=RT,AG=AG,owner=CFG["BB_USER"]))
+_lk=[r for r in app.router.routes if getattr(r,"path","") in ("/bb/link/clips","/bb/link/hub","/bb/link/search","/bb/link/stt")]
+for _r in _lk: app.router.routes.remove(_r); app.router.routes.insert(0,_r)
 import devagent as DA
 DA.setup(app,dict(db=db,audit=audit,need_admin=need_admin,rate_ok=rate_ok,MD=MD))
 try:

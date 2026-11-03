@@ -1,0 +1,136 @@
+<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>রয়েল দোয়েল</title>
+<style>
+:root{--g:#d4af37;--o:#ff8c1a;--t:#eef2fb;--m:#9fb0cf}
+:root{color-scheme:normal}*{box-sizing:border-box}html,body{margin:0;height:100%;background:transparent;font:14px/1.5 "Noto Sans Bengali","Nirmala UI",system-ui,sans-serif;color:var(--t);overflow:hidden}
+#w{position:absolute;inset:6px;border-radius:22px;background:linear-gradient(150deg,#16305cee,#0b1a33f2 60%,#1d1440f0);border:1px solid #d4af3766;box-shadow:0 18px 50px #000a,inset 0 1px 0 #ffffff22;
+ backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);display:flex;flex-direction:column;overflow:hidden;transform-origin:var(--ox,90%) var(--oy,90%);animation:pop .42s cubic-bezier(.2,1.4,.4,1)}
+#w.out{animation:shut .25s ease-in forwards}
+@keyframes pop{from{transform:scale(.15) rotate(-8deg);opacity:0;border-radius:50%}to{transform:none;opacity:1}}
+@keyframes shut{to{transform:scale(.1);opacity:0;border-radius:50%}}
+header{display:flex;align-items:center;gap:8px;padding:10px 12px 4px;-webkit-app-region:drag;cursor:move}
+header img{width:38px;height:38px;filter:drop-shadow(0 2px 3px #0008);animation:bob 2.4s ease-in-out infinite}@keyframes bob{50%{transform:translateY(-3px) rotate(-4deg)}}
+header b{color:var(--g);font-size:15px}header small{color:var(--m);display:block;font-size:11px;line-height:1.2}
+header .x{margin-left:auto;-webkit-app-region:no-drag;background:#ffffff14;border:0;color:var(--t);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:15px}
+#orb{display:flex;justify-content:space-around;padding:6px 6px 2px;position:relative}
+#orb button{width:44px;height:44px;border-radius:50%;border:1px solid #ffffff22;background:radial-gradient(circle at 30% 30%,#2c4f8f,#12264a);color:#fff;font-size:19px;cursor:pointer;position:relative;
+ opacity:0;transform:translateY(26px) scale(.3);animation:orb .5s cubic-bezier(.2,1.6,.4,1) forwards;transition:transform .2s,box-shadow .2s}
+#orb button:hover{transform:translateY(-3px) scale(1.08)!important;box-shadow:0 0 0 3px #d4af3755}
+#orb button.on{background:radial-gradient(circle at 30% 30%,#ffb35c,#d46b00);box-shadow:0 0 14px #ff8c1a99}
+#orb button span{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--m);white-space:nowrap}
+@keyframes orb{to{opacity:1;transform:none}}
+#tabs{flex:1;overflow:auto;padding:18px 12px 8px;position:relative}
+.pg{display:none;animation:fade .3s ease}.pg.on{display:block}@keyframes fade{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+textarea,input{width:100%;background:#0a1730cc;color:inherit;border:1px solid #2a4a80;border-radius:12px;padding:9px;font:inherit;outline:none;transition:border .2s}
+textarea:focus,input:focus{border-color:var(--g)}
+.b{background:#ffffff12;color:inherit;border:1px solid #ffffff22;border-radius:10px;padding:5px 10px;margin:4px 3px 0 0;cursor:pointer;font:inherit;font-size:13px;transition:all .15s}
+.b:hover{background:#ffffff26;transform:translateY(-1px)}.b.g{background:linear-gradient(135deg,#ff9d3a,#e06d00);border:0;color:#fff}.b.rec{background:#c62828;animation:pulse 1s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px #c6282844}}
+.card{background:#0a1730aa;border:1px solid #ffffff14;border-radius:12px;padding:8px;margin:6px 0;animation:fade .3s ease both}
+.card .t{white-space:pre-wrap;word-break:break-word;max-height:4.6em;overflow:hidden;font-size:13px}
+.card .a{display:flex;flex-wrap:wrap;gap:2px}.card .a .b{font-size:11px;padding:2px 7px}
+.ans{white-space:pre-wrap;background:#0d2347;border-left:3px solid var(--g);border-radius:10px;padding:8px;margin-top:8px;font-size:13px;animation:fade .3s}
+.chat .me{text-align:right;color:#ffd79a;margin:6px 0 2px}.dots::after{content:'…';animation:d 1s steps(3) infinite}@keyframes d{0%{content:'.'}50%{content:'..'}}
+small,.m{color:var(--m);font-size:12px}h4{margin:2px 0 6px;color:var(--g);font-size:13px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.grid .b{margin:0;padding:9px 6px;text-align:left}
+footer{display:flex;gap:4px;padding:6px 10px 10px;flex-wrap:wrap;border-top:1px solid #ffffff12}footer a{color:var(--g);font-size:12px;cursor:pointer;text-decoration:none;padding:2px 6px;border-radius:8px}footer a:hover{background:#ffffff14}
+.late{color:#ff8a80}.chip{display:inline-block;background:#ffffff14;border-radius:20px;padding:1px 8px;font-size:11px;margin:2px}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#ffffff30;border-radius:6px}
+</style></head><body>
+<div id="w">
+ <header class="pywebview-drag-region"><img src="/bb/static/notes/doyel/perch0.png" alt=""><div><b>রয়েল দোয়েল</b><small id="st">সংযোগ হচ্ছে…</small></div><button class="x" id="x" title="বন্ধ (Esc)">✕</button></header>
+ <div id="orb"></div>
+ <div id="tabs">
+  <section class="pg" id="p-note"><h4>📝 দ্রুত নোট</h4><textarea id="nt" rows="5" placeholder="লিখুন বা 🎤 চেপে বলুন…"></textarea>
+   <button class="b g" id="nsave">💾 রাখুন</button><button class="b" id="nmic">🎤 বলুন</button><button class="b" id="npaste">📋 ক্লিপবোর্ড থেকে</button><button class="b" id="nai">✨ AI দিয়ে গুছাও</button><div id="nmsg" class="m"></div></section>
+  <section class="pg" id="p-clip"><h4>📋 সাম্প্রতিক কপি <small>· ৩০ দিন</small></h4><div id="cl"><small class="dots">লোড হচ্ছে</small></div></section>
+  <section class="pg" id="p-ai"><h4>🤖 AI-কে জিজ্ঞাসা</h4><div id="chat" class="chat"></div><textarea id="q" rows="2" placeholder="যেকোনো প্রশ্ন… (Enter = পাঠাও)"></textarea>
+   <button class="b g" id="ask">➤ জিজ্ঞাসা</button><button class="b" id="scr" data-win>🖥 স্ক্রিন দেখে বলো</button><button class="b" id="qcl">📋 ক্লিপবোর্ড নিয়ে</button>
+   <div class="grid" style="margin-top:6px"><button class="b" data-m="translate">🌐 ক্লিপবোর্ড অনুবাদ</button><button class="b" data-m="summarise">🧾 ক্লিপবোর্ড সারাংশ</button><button class="b" data-m="explain">💡 ব্যাখ্যা করো</button><button class="b" id="qmic">🎤 বলে জিজ্ঞাসা</button></div></section>
+  <section class="pg" id="p-task"><h4>✅ আজকের কাজ</h4><div id="tk"><small class="dots">লোড হচ্ছে</small></div><small>নোটে <code>- [ ] কাজ @YYYY-MM-DD</code> লিখলে এখানে আসবে।</small></section>
+  <section class="pg" id="p-find"><h4>🔍 নোট খুঁজুন</h4><input id="sq" placeholder="শব্দ লিখুন…"><div id="sr"></div></section>
+  <section class="pg" id="p-bird"><h4>🐦 পাখির নিয়ন্ত্রণ</h4><div class="grid">
+   <button class="b" data-c="fly">🕊 উড়ে যাও</button><button class="b" data-c="sit">🪵 কোথাও বসো</button><button class="b" data-c="follow">🎯 কার্সর অনুসরণ</button><button class="b" data-c="sleep">😴 ঘুমাও / জাগো</button>
+   <button class="b" data-c="forage">🐛 খাবার খোঁজো</button><button class="b" data-c="sing">🎵 গান গাও</button><button class="b" data-c="roam">🌀 ঘোরা চালু/বন্ধ</button><button class="b" data-c="sound">🔊 শব্দ চালু/বন্ধ</button>
+   <button class="b" data-c="pause">⏸ কপি-ধরা থামাও/চালাও</button><button class="b" data-c="hide">🙈 লুকাও</button></div>
+   <h4 style="margin-top:10px">⚡ গতি <small>(ইন্টারনেট × এটি)</small></h4><button class="b" data-s="0.5">ধীর</button><button class="b" data-s="1">মাঝারি</button><button class="b" data-s="2">দ্রুত</button><div id="bs" class="m" style="margin-top:6px"></div></section>
+ </div>
+ <footer><a data-u="/notes/">📖 নোটবুক</a><a data-u="/notes/?view=clips">🗂 ক্লিপ ইতিহাস</a><a data-u="/bb/static/v4/index.html">🐯 v4</a><a data-u="/bb/live">📡 লাইভ ভিউ</a><span id="dv" class="m" style="margin-left:auto"></span></footer>
+</div>
+<script>
+'use strict';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const qs=new URLSearchParams(location.search);let B=null,MODE='web',TOK='';
+/* bridge: Windows (pywebview js_api) · Android (RBT JS interface) · web iframe (postMessage to float.js) */
+const call=async(fn,...a)=>{try{if(MODE==='win')return await B[fn](...a);if(MODE==='android')return B[fn](...a.map(String));}catch(e){return null}
+ return new Promise(r=>{const id=Math.random().toString(36).slice(2);const h=e=>{if(e.data&&e.data.rbtRe===id){removeEventListener('message',h);r(e.data.v)}};addEventListener('message',h);parent.postMessage({rbt:fn,args:a,id},'*');setTimeout(()=>r(null),3000)})};
+const bird=(c,v)=>call('bird',c,v??'');
+async function clip(){if(MODE!=='web')return await call('clipboard')||'';try{return await navigator.clipboard.readText()}catch(e){return ''}}
+async function copy(t){if(MODE!=='web')return call('copy',t);try{await navigator.clipboard.writeText(t)}catch(e){call('copy',t)}}
+const go=u=>{const url=location.origin+u;if(MODE==='web')call('open',url);else call('open',url)};
+const H={'Content-Type':'application/json','x-bb-notes':'1'};
+const api=(u,o={})=>fetch(u,{credentials:'same-origin',...o,headers:{...(o.body instanceof FormData?{'x-bb-notes':'1'}:H)}}).then(async r=>{const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||r.status);return j});
+const T=()=>TOK?'token='+encodeURIComponent(TOK):'';
+const A={ask:(mode,q,text,image_b64)=>api('/bb/link/ask',{method:'POST',body:JSON.stringify({token:TOK,mode,q,text,image_b64})}).then(j=>j.answer),
+ hub:()=>api('/bb/link/hub?'+T()),search:q=>api('/bb/link/search?q='+encodeURIComponent(q)+'&'+T()),
+ clips:()=>TOK?api('/bb/link/clips?n=20&'+T()).then(j=>j.clips):api('/bb/api/clips?limit=20').then(j=>j.clips.filter(c=>c.kind!=='image')),
+ note:b=>TOK?api('/bb/link/note',{method:'POST',body:JSON.stringify({token:TOK,body:b})}):api('/bb/api/notes',{method:'POST',body:JSON.stringify({title:b.trim().split('\n')[0].slice(0,60),body:b,folder:'দ্রুত নোট'})}),
+ stt:blob=>{const f=new FormData();f.append('file',blob,'v.webm');return api('/bb/link/stt?'+T(),{method:'POST',body:f}).then(j=>j.text)}};
+/* orb bar */
+const TABS=[['note','📝','নোট'],['clip','📋','ক্লিপ'],['ai','🤖','AI'],['task','✅','কাজ'],['find','🔍','খোঁজ'],['bird','🐦','পাখি']];
+$('#orb').innerHTML=TABS.map(([k,i,l],n)=>`<button data-t="${k}" style="animation-delay:${60+n*55}ms">${i}<span>${l}</span></button>`).join('');
+function tab(k){$$('#orb button').forEach(b=>b.classList.toggle('on',b.dataset.t===k));$$('.pg').forEach(p=>p.classList.toggle('on',p.id==='p-'+k));localStorage.rbtTab=k;
+ ({clip:loadClips,task:loadHub,ai:()=>$('#q').focus(),note:()=>$('#nt').focus(),find:()=>$('#sq').focus(),bird:birdStat})[k]?.()}
+$$('#orb button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
+const close=()=>{$('#w').classList.add('out');setTimeout(()=>{call('close');$('#w').classList.remove('out')},230)};$('#x').onclick=close;addEventListener('keydown',e=>e.key==='Escape'&&close());
+/* note */
+$('#nsave').onclick=async()=>{const t=$('#nt').value.trim();if(!t)return;try{await A.note(t);$('#nt').value='';$('#nmsg').textContent='✓ নোটবুকে রাখা হয়েছে';bird('happy')}catch(e){$('#nmsg').textContent='⚠ '+e.message}};
+$('#npaste').onclick=async()=>{$('#nt').value+=(await clip());$('#nt').focus()};
+$('#nai').onclick=async()=>{const t=$('#nt').value.trim();if(!t)return;$('#nmsg').innerHTML='<span class=dots>AI গুছাচ্ছে</span>';try{$('#nt').value=await A.ask('ask','এই নোটটি পরিষ্কার শিরোনাম ও বুলেটসহ গুছিয়ে লেখো, অর্থ বদলাবে না। শুধু নোটটি দাও।',t);$('#nmsg').textContent='✓ গুছানো হলো — দেখে রাখুন'}catch(e){$('#nmsg').textContent='⚠ '+e.message}};
+/* voice: MediaRecorder → /bb/link/stt (works in Edge WebView2, Chrome, Android WebView with mic permission) */
+let rec=null;async function mic(btn,done){if(rec){rec.stop();return}
+ try{const s=await navigator.mediaDevices.getUserMedia({audio:true}),ch=[];rec=new MediaRecorder(s);rec.ondataavailable=e=>ch.push(e.data);btn.classList.add('rec');const old=btn.textContent;btn.textContent='⏹ থামান';
+  rec.onstop=async()=>{s.getTracks().forEach(t=>t.stop());btn.classList.remove('rec');btn.textContent='⏳ লেখা হচ্ছে';rec=null;try{done(await A.stt(new Blob(ch,{type:'audio/webm'})))}catch(e){alert('ভয়েস বোঝা যায়নি: '+e.message)}btn.textContent=old};
+  rec.start();setTimeout(()=>rec&&rec.stop(),60000)}catch(e){alert('মাইক্রোফোন পাওয়া যায়নি / অনুমতি নেই')}}
+$('#nmic').onclick=e=>mic(e.target,t=>{$('#nt').value+=(($('#nt').value?' ':'')+t)});
+/* AI */
+const say=(q,a)=>{const c=$('#chat');c.insertAdjacentHTML('beforeend',`<div class=me>${esc(q)}</div><div class="ans">${a}</div>`);c.lastElementChild.scrollIntoView({block:'end'});return c.lastElementChild};
+async function ask(mode,q,text,img,label){const el=say(label||q,'<span class=dots>ভাবছি</span>');bird('think');
+ try{const a=await A.ask(mode,q,text,img);el.innerHTML=esc(a)+`<div><button class="b" data-cp>📋 কপি</button><button class="b" data-sv>💾 নোটে রাখুন</button></div>`;
+  el.querySelector('[data-cp]').onclick=()=>copy(a);el.querySelector('[data-sv]').onclick=async e=>{await A.note((label||q)+'\n\n'+a);e.target.textContent='✓ রাখা হলো'};bird('happy')}
+ catch(e){el.textContent='⚠ '+e.message;bird('sad')}}
+$('#ask').onclick=()=>{const q=$('#q').value.trim();if(q){$('#q').value='';ask('ask',q)}};$('#q').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#ask').click()}};
+$('#qcl').onclick=async()=>{const t=await clip(),q=$('#q').value.trim()||'এটা কী? সংক্ষেপে বলো';$('#q').value='';ask('ask',q,t,null,q+' 📋')};
+$$('[data-m]').forEach(b=>b.onclick=async()=>{const t=await clip();if(!t)return alert('ক্লিপবোর্ড খালি');ask(b.dataset.m,'',t,null,b.textContent+': '+t.slice(0,60))});
+$('#qmic').onclick=e=>mic(e.target,t=>ask('ask',t));
+$('#scr').onclick=async()=>{const img=await call('screenshot');if(!img)return alert('স্ক্রিনশট নেওয়া যায়নি');const q=$('#q').value.trim()||'আমার স্ক্রিনে কী আছে? কী করা উচিত?';$('#q').value='';ask('screen',q,'',img,q+' 🖥')};
+/* clips with smart actions */
+const kindOf=t=>/^https?:\/\//.test(t.trim())?'url':/^\+?[\d\s-]{8,15}$/.test(t.trim())?'phone':/[A-Za-z]{3}/.test(t)&&!/[\u0980-\u09FF]/.test(t)?'en':'bn';
+async function loadClips(){try{const cs=await A.clips();$('#cl').innerHTML=cs.map((c,i)=>{const k=kindOf(c.content);return `<div class=card style="animation-delay:${i*30}ms"><div class=t>${esc(c.content.slice(0,400))}</div><div class=a>
+ <button class=b data-a=copy data-i=${i}>📋 কপি</button>${k==='url'?`<button class=b data-a=open data-i=${i}>🔗 খুলুন</button>`:''}<button class=b data-a=translate data-i=${i}>🌐 অনুবাদ</button>
+ ${c.content.length>200?`<button class=b data-a=summarise data-i=${i}>🧾 সারাংশ</button>`:''}<button class=b data-a=explain data-i=${i}>💡</button><button class=b data-a=note data-i=${i}>💾 নোট</button>${c.cat?`<span class=chip>${esc(c.cat)}</span>`:''}</div></div>`}).join('')||'<small>এখনো কিছু কপি হয়নি</small>';
+ $$('#cl [data-a]').forEach(b=>b.onclick=async()=>{const c=cs[b.dataset.i].content,a=b.dataset.a;
+  if(a==='copy'){await copy(c);b.textContent='✓';bird('happy')}else if(a==='open')call('open',c.trim());else if(a==='note'){await A.note(c);b.textContent='✓ রাখা'}
+  else{tab('ai');ask(a,'',c,null,b.textContent+': '+c.slice(0,60))}})}catch(e){$('#cl').innerHTML='<small>⚠ '+esc(e.message)+'</small>'}}
+/* hub: tasks + device */
+let hub=null;async function loadHub(){try{hub=await A.hub();$('#tk').innerHTML=hub.tasks.map((t,i)=>`<div class=card style="animation-delay:${i*30}ms"><span class="${t.late?'late':''}">${t.late?'⏰':'☐'} ${esc(t.text)}</span> <small>${t.due}</small> <button class=b data-n="${t.note}">খুলুন</button></div>`).join('')||'<small>🎉 আজ কোনো বাকি কাজ নেই</small>';
+ $$('#tk [data-n]').forEach(b=>b.onclick=()=>go('/notes/#'+b.dataset.n));dev()}catch(e){$('#tk').innerHTML='<small>⚠ '+esc(e.message)+'</small>'}}
+function dev(){if(!hub)return;$('#dv').textContent=`${hub.device.name} · ${hub.device.busy?'⚙ কাজ চলছে':'● প্রস্তুত'} · ${hub.notes} নোট · ${hub.clips} ক্লিপ`;$('#orb [data-t=task]').firstChild.textContent=hub.tasks.length?'✅':'✅'}
+/* search */
+let st=0;$('#sq').oninput=()=>{clearTimeout(st);st=setTimeout(async()=>{const q=$('#sq').value.trim();if(!q){$('#sr').innerHTML='';return}try{const r=await A.search(q);
+ $('#sr').innerHTML=r.notes.map((n,i)=>`<div class=card style="cursor:pointer;animation-delay:${i*25}ms" data-n="${n.id}"><b>${esc(n.title)}</b><div class=t>${esc(n.body)}</div></div>`).join('')||'<small>কিছু পাওয়া যায়নি</small>';
+ $$('#sr [data-n]').forEach(c=>c.onclick=()=>go('/notes/#'+c.dataset.n))}catch(e){$('#sr').innerHTML='<small>⚠ '+esc(e.message)+'</small>'}},300)};
+/* bird controls */
+$$('[data-c]').forEach(b=>b.onclick=async()=>{await bird(b.dataset.c);birdStat();if(['fly','sit','follow','sleep','forage','sing','hide'].includes(b.dataset.c))setTimeout(close,250)});
+$$('[data-s]').forEach(b=>b.onclick=async()=>{await bird('speed',b.dataset.s);birdStat()});
+async function birdStat(){const s=await call('status');if(!s)return;const o=typeof s==='string'?JSON.parse(s):s;
+ $('#st').textContent=`${({fly:'উড়ছে',perch:'বসে আছে',pinned:'📌 বসানো',walk:'হাঁটছে',sleep:'😴 ঘুমাচ্ছে',forage:'খাবার খুঁজছে'})[o.state]||o.state} · নেট ${o.net==null?'অফলাইন':(+o.mbps||0).toFixed(1)+' Mbps'}${o.paused?' · ⏸ কপি-ধরা বন্ধ':''}`;
+ $('#bs').textContent=`গতি ×${o.speed} · শব্দ ${o.sound?'চালু':'বন্ধ'} · ঘোরা ${o.roam?'চালু':'বন্ধ'}`}
+$$('footer [data-u]').forEach(a=>a.onclick=()=>go(a.dataset.u));
+if(MODE==='web')$$('[data-win]').forEach(e=>e.style.display='none');
+async function init(){if(window.pywebview&&window.pywebview.api){B=window.pywebview.api;MODE='win'}else if(window.RBT){B=window.RBT;MODE='android'}
+ TOK=MODE==='web'?'':(await call('token'))||'';$$('[data-win]').forEach(e=>e.style.display=MODE==='win'?'':'none');
+ tab(qs.get('tab')||localStorage.rbtTab||'note');birdStat();loadHub();setInterval(()=>{birdStat()},4000)}
+window.rbtShow=t=>{$('#w').style.animation='none';$('#w').offsetHeight;$('#w').style.animation='';if(t)tab(t);birdStat();loadHub()};
+if(qs.get('m')==='win'){if(window.pywebview&&window.pywebview.api)init();else addEventListener('pywebviewready',init)}else init();
+</script></body></html>
