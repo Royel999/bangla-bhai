@@ -421,7 +421,7 @@ class Doyel:
         menu.add_command(label=self.LB[3], command=lambda: self.bird_cmd('mascot', 'doyel' if isinstance(self, Girl) else 'girl'))
         getattr(self, 'extra_menu', lambda m: None)(menu)
         def popup(e):
-            menu.entryconfig(10, label='⚡ গতি — নেট %s' % ('অফলাইন' if self.net is None else '%.1f Mbps' % self.mbps)); menu.tk_popup(e.x_root, e.y_root)
+            menu.entryconfig(next((i for i in range(menu.index('end') + 1) if menu.type(i) == 'cascade' and str(menu.entrycget(i, 'label')).startswith('⚡')), 10), label='⚡ গতি — নেট %s' % ('অফলাইন' if self.net is None else '%.1f Mbps' % self.mbps)); menu.tk_popup(e.x_root, e.y_root)
         self.cv.bind('<Button-3>', popup)
         self.paint(); r.after(300, self.noactivate); r.after(800, self.poll); r.after(500, self.roam_tick); r.mainloop()
     def _load_pos(self):
@@ -709,11 +709,19 @@ class Girl(Doyel):
         if c == 'sleep': self.do('sleep') if self.state != 'sleep' else self.go('perch', 2); self.paint(); return
         return super().bird_cmd(c, arg)
     def extra_menu(self, menu):
-        import tkinter as tk; sm = tk.Menu(menu, tearoff=0)
+        import tkinter as tk; sm = tk.Menu(menu, tearoff=0); pm = tk.Menu(menu, tearoff=0)
         for lbl, v in (('ছোট', 'small'), ('মাঝারি', 'medium'), ('বড়', 'large')): sm.add_command(label=lbl + (' ✓' if v == self.size else ''), command=lambda v=v: self.bird_cmd('size', v))
-        menu.add_cascade(label='📏 আকার', menu=sm)
-        for lbl, c in (('💃 নাচো', 'dance'), ('🦋 প্রজাপতি ধরো', 'chase'), ('📖 বই পড়ো', 'read'), ('🙈 টুকি দাও', 'peek'), ('🧗 জানালায় ওঠো', 'climb')):
-            menu.add_command(label=lbl, command=lambda c=c: (self.go('perch', 30), self.do(c)))
+        for lbl, c in (('💃 নাচো', 'dance'), ('🦋 প্রজাপতি ধরো', 'chase'), ('⚽ বল খেলো', 'ball'), ('📖 বই পড়ো', 'read'), ('🙈 টুকি দাও', 'peek'), ('🧗 জানালায় ওঠো', 'climb'),
+                       ('🏃 দৌড়াও', 'run'), ('🤸 লাফাও', 'skip'), ('👋 হাত নাড়ো', 'wave'), ('😘 চুমু দাও', 'kiss'), ('😄 হাসো', 'giggle'), ('🤔 ভাবো', 'think')):
+            pm.add_command(label=lbl, command=lambda c=c: self.play(c))
+        menu.insert_cascade(1, label='🎭 খেলা — নাচ / প্রজাপতি / বই / টুকি', menu=pm)
+        menu.insert_cascade(2, label='📏 আকার', menu=sm)
+    def play(self, c):
+        try:
+            if self.state in ('pinned', 'sleep', 'fly'): self.go('perch', 30)
+            else: self.until = __import__('time').time() + 30
+            self.do(c)
+        except Exception as e: print('play', c, e)
     def travel(self, now):
         import math
         sp = (2.0 if getattr(self, 'run_fast', False) else 1.0) * max(.5, (self.net or .6)) * self.speed; k = self.k

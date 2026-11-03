@@ -36,6 +36,7 @@ small,.m{color:var(--m);font-size:12px}h4{margin:2px 0 6px;color:var(--g);font-s
 footer{display:flex;gap:4px;padding:6px 10px 10px;flex-wrap:wrap;border-top:1px solid #ffffff12}footer a{color:var(--g);font-size:12px;cursor:pointer;text-decoration:none;padding:2px 6px;border-radius:8px}footer a:hover{background:#ffffff14}
 .late{color:#ff8a80}.chip{display:inline-block;background:#ffffff14;border-radius:20px;padding:1px 8px;font-size:11px;margin:2px}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#ffffff30;border-radius:6px}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}.pg h5{margin:12px 0 4px;font-size:13px}.pg select,.pg input:not([type=checkbox]){background:#ffffff14;color:inherit;border:1px solid #ffffff30;border-radius:9px;padding:7px 9px;font:inherit;max-width:100%}.pg select option{color:#111}.pg input:not([type=checkbox]){width:100%;box-sizing:border-box;margin:4px 0}
 </style></head><body>
 <div id="w">
  <header class="pywebview-drag-region"><img id="hav" src="/bb/static/notes/girl2/stand0.png" alt="" style="object-fit:contain"><div><b>রয়্যাল এজেন্ট</b><small id="st">সংযোগ হচ্ছে…</small></div><button class="x" id="x" title="বন্ধ (Esc)">✕</button></header>
@@ -52,8 +53,28 @@ footer{display:flex;gap:4px;padding:6px 10px 10px;flex-wrap:wrap;border-top:1px 
   <section class="pg" id="p-agent"><h4>🧠 এজেন্ট <small>· PC-তে কাজ করে দেবে</small></h4><div id="alog" class="chat"></div>
    <textarea id="aq" rows="2" placeholder="যেমন: Chrome খুলে dhaka weather খোঁজো · Downloads ফোল্ডার খোলো · Notepad খুলে আজকের তারিখ লেখো"></textarea>
    <button class="b g" id="ago">▶ করো</button><button class="b" id="amic">🎤 বলো</button><button class="b" id="astop">⏹ থামাও</button>
-   <div class="grid" style="margin-top:6px"><button class="b" data-aq="এখন স্ক্রিনে কী আছে বলো">🖥 স্ক্রিন বুঝিয়ে বলো</button><button class="b" data-aq="Downloads ফোল্ডার খোলো">📂 Downloads</button><button class="b" data-aq="Chrome খুলে Gmail খোলো">✉ Gmail খোলো</button><button class="b" data-aq="Excel খোলো">📊 Excel</button></div>
+   <div class="grid" style="margin-top:6px"><button class="b" data-aq="এখন স্ক্রিনে কী আছে বলো">🖥 স্ক্রিন বুঝিয়ে বলো</button><button class="b" data-aq="Downloads ফোল্ডার খোলো">📂 Downloads</button><button class="b" data-aq="রয়্যাল ইউনিভার্সের জন্য একটি প্রিমিয়াম সোশ্যাল পোস্ট বানাও">🎨 পোস্ট বানাও</button><button class="b" data-aq="আমার PC-র সিকিউরিটি হেলথ চেক করো">🛡 PC চেক</button><button class="b" data-aq="Chrome খুলে Gmail খোলো">✉ Gmail খোলো</button><button class="b" data-aq="Excel খোলো">📊 Excel</button></div>
    <small id="aw" class="m">ঝুঁকির কাজ (মুছা, পাঠানো, কেনা, ইনস্টল, সেটিং) আগে আপনার অনুমতি চাইবে।</small></section>
+  <section class="pg" id="p-design"><h4>🎨 ডিজাইন <small>· ছবি/লোগো/পোস্টার বানাও, সম্পাদনা</small></h4>
+   <textarea id="dp" rows="3" placeholder="কী বানাবো? যেমন: রয়্যাল ইউনিভার্সের জন্য ঈদ মোবারক পোস্টার, সোনালি চাঁদ"></textarea>
+   <div class="row"><select id="dk"><option value="post">সোশ্যাল পোস্ট</option><option value="poster">পোস্টার</option><option value="logo">লোগো</option><option value="story">স্টোরি</option><option value="banner">ব্যানার</option><option value="image">ছবি</option></select>
+   <label><input type="checkbox" id="dbr" checked> 👑 রয়্যাল রং</label></div>
+   <input id="dtx" placeholder="ছবিতে বাংলা লেখা (ঐচ্ছিক)"><div class="row"><select id="dpos"><option value="bottom">নিচে</option><option value="top">উপরে</option><option value="center">মাঝে</option></select>
+   <select id="dcol"><option value="white">সাদা লেখা</option><option value="royal_red">লাল</option><option value="gold">সোনালি</option><option value="royal_blue">নীল</option><option value="royal_black">কালো</option></select>
+   <select id="dband"><option value="">ব্যান্ড নেই</option><option value="royal_black">কালো ব্যান্ড</option><option value="royal_blue">নীল ব্যান্ড</option><option value="royal_red">লাল ব্যান্ড</option></select></div>
+   <button class="b g" id="dgo">✨ বানাও</button><button class="b" id="dup">🖼 ছবি দিন</button><input type="file" id="dfile" accept="image/*" hidden>
+   <div id="dview" class="m"></div>
+   <div id="dtools" style="display:none"><button class="b" data-dop="rmbg">✂ ব্যাকগ্রাউন্ড সরাও</button><button class="b" data-dop="text">🔤 লেখা বসাও</button>
+    <select id="dsz"><option value="post">১০৮০×১০৮০</option><option value="story">স্টোরি ১০৮০×১৯২০</option><option value="fb_cover">FB কভার</option><option value="yt_thumb">YT থাম্বনেইল</option><option value="logo">লোগো ৫১২</option><option value="a4">A4</option></select><button class="b" data-dop="resize">📐 মাপ বদলাও</button>
+    <button class="b" data-dop="crop">⬛ মাঝখান কাটো</button><button class="b g" id="dsave">💾 নোটে রাখো</button><button class="b" id="ddl">⬇ ডাউনলোড</button></div>
+   <small>অফিসিয়াল লোগো আপনি না বললে বদলানো হয় না। ছবি Pollinations/ফ্রি AI দিয়ে তৈরি।</small></section>
+  <section class="pg" id="p-sec"><h4>🛡 সিকিউরিটি <small>· শুধু নিজের ডিভাইস ও সাইট, রিড-অনলি</small></h4>
+   <div class="row"><button class="b g" id="spc" data-win>🖥 PC হেলথ চেক</button><button class="b" id="sbr">📧 ইমেইল ফাঁস চেক</button></div>
+   <h5>🔑 পাসওয়ার্ড শক্তি <small>(এই ডিভাইসেই, কোথাও পাঠানো বা রাখা হয় না)</small></h5><input id="spw" type="password" autocomplete="off" placeholder="পাসওয়ার্ড লিখুন"><div id="spwr" class="m"></div>
+   <h5>🔗 সন্দেহজনক লিংক / 📁 ফাইল</h5><input id="surl" placeholder="https://…"><button class="b" id="sgo">🔍 লিংক যাচাই</button><button class="b" id="sfile">📁 ফাইল যাচাই</button><input type="file" id="sfin" hidden>
+   <h5>🌐 নিজের ওয়েবসাইট স্ক্যান</h5><div class="row"><select id="sdom"></select><button class="b" id="ssite">🔍 স্ক্যান</button><button class="b" id="sadd">＋ ডোমেইন</button></div>
+   <div id="sout" class="chat"></div></section>
+
   <section class="pg" id="p-bird"><h4>👧 সঙ্গীর নিয়ন্ত্রণ</h4><div class="grid">
    <button class="b" data-c="fly">🚶 হেঁটে বেড়াও</button><button class="b" data-c="sit">🪑 কোথাও বসো</button><button class="b" data-c="follow">🎯 কার্সর অনুসরণ</button><button class="b" data-c="sleep">😴 ঘুমাও / জাগো</button>
    <button class="b" data-c="forage">⚽ খেলা করো</button><button class="b" data-c="sing">💃 নাচো</button><button class="b" data-c="roam">🌀 ঘোরা চালু/বন্ধ</button><button class="b" data-c="sound">🔊 শব্দ চালু/বন্ধ</button>
@@ -84,10 +105,10 @@ const A={ask:(mode,q,text,image_b64)=>api('/bb/link/ask',{method:'POST',body:JSO
  note:b=>TOK?api('/bb/link/note',{method:'POST',body:JSON.stringify({token:TOK,body:b})}):api('/bb/api/notes',{method:'POST',body:JSON.stringify({title:b.trim().split('\n')[0].slice(0,60),body:b,folder:'দ্রুত নোট'})}),
  stt:blob=>{const f=new FormData();f.append('file',blob,'v.webm');return api('/bb/link/stt?'+T(),{method:'POST',body:f}).then(j=>j.text)}};
 /* orb bar */
-const TABS=[['note','📝','নোট'],['clip','📋','ক্লিপ'],['ai','🤖','AI'],['task','✅','কাজ'],['find','🔍','খোঁজ'],['agent','🧠','এজেন্ট'],['bird','👧','সঙ্গী']];
+const TABS=[['note','📝','নোট'],['clip','📋','ক্লিপ'],['ai','🤖','AI'],['task','✅','কাজ'],['find','🔍','খোঁজ'],['agent','🧠','এজেন্ট'],['design','🎨','ডিজাইন'],['sec','🛡','সিকিউরিটি'],['bird','👧','সঙ্গী']];
 $('#orb').innerHTML=TABS.map(([k,i,l],n)=>`<button data-t="${k}" style="animation-delay:${60+n*55}ms">${i}<span>${l}</span></button>`).join('');
 function tab(k){$$('#orb button').forEach(b=>b.classList.toggle('on',b.dataset.t===k));$$('.pg').forEach(p=>p.classList.toggle('on',p.id==='p-'+k));localStorage.rbtTab=k;
- ({clip:loadClips,task:loadHub,ai:()=>$('#q').focus(),note:()=>$('#nt').focus(),find:()=>$('#sq').focus(),bird:birdStat})[k]?.()}
+ ({clip:loadClips,task:loadHub,ai:()=>$('#q').focus(),note:()=>$('#nt').focus(),find:()=>$('#sq').focus(),bird:birdStat,sec:()=>sdoms({})})[k]?.()}
 $$('#orb button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
 const close=()=>{$('#w').classList.add('out');setTimeout(()=>{call('close');$('#w').classList.remove('out')},230)};$('#x').onclick=close;addEventListener('keydown',e=>e.key==='Escape'&&close());
 /* note */
@@ -140,6 +161,7 @@ async function agentRun(q){q=(q||'').trim();if(!q)return;const my=++AST;alog('�
  th.innerHTML='🧠 '+esc(plan.reply||'এই ধাপগুলো করছি')+'<ol style="margin:4px 0 0 18px;padding:0">'+plan.steps.map(s=>`<li>${s.risky?'⚠ ':''}${esc(s.say)}</li>`).join('')+'</ol>';
  for(const s of plan.steps){if(my!==AST){alog('⏹ থামানো হলো');return}
   if(s.risky&&!(await confirmStep(s)))continue;
+  if(await agentExtra(s,q))continue;
   if(s.action==='say'){alog('💬 '+esc(s.args.text||''));continue}
   if(s.action==='note'){try{await A.note(String(s.args.text||''));alog('✓ নোটে রাখা হলো')}catch(e){alog('⚠ '+esc(e.message))}continue}
   if(MODE!=='win'){if(s.action==='open_url'||s.action==='web_search'){const u=s.action==='web_search'?'https://www.google.com/search?q='+encodeURIComponent(s.args.q||''):s.args.url;open(u,'_blank','noopener');alog('✓ '+esc(s.say))}else alog('ℹ এই ধাপ শুধু PC অ্যাপে চলে: '+esc(s.say));continue}
@@ -152,6 +174,36 @@ $('#astop').onclick=()=>{AST++};$$('[data-aq]').forEach(b=>b.onclick=()=>agentRu
 async function amicH(){try{const st=await navigator.mediaDevices.getUserMedia({audio:true}),mr=new MediaRecorder(st),ch=[];mr.ondataavailable=e=>ch.push(e.data);
  $('#amic').textContent='⏺ বলুন… (আবার চাপলে শেষ)';const stop=()=>mr.state!=='inactive'&&mr.stop();$('#amic').onclick=stop;setTimeout(stop,12000);
  mr.onstop=async()=>{st.getTracks().forEach(t=>t.stop());$('#amic').textContent='🎤 বলো';$('#amic').onclick=amicH;try{const t=await A.stt(new Blob(ch,{type:'audio/webm'}));$('#aq').value=t;agentRun(t)}catch(e){alog('⚠ '+esc(e.message))}};mr.start()}catch(e){alog('⚠ মাইক পাওয়া যায়নি')}}$('#amic').onclick=amicH;
+/* 🎨 design */
+let DI=null;const dshow=(j,msg)=>{DI=j.image_b64;$('#dview').innerHTML=`<img src="data:image/png;base64,${DI}" style="max-width:100%;border-radius:10px;margin-top:6px"><br><small>${j.w}×${j.h}${j.model?' · '+esc(j.model):''}${j.shaped===false?' · ⚠ বাংলা শেপিং নেই':''}${msg?' · '+msg:''}</small>`;$('#dtools').style.display=''};
+const D=b=>api('/bb/link/design',{method:'POST',body:JSON.stringify({token:TOK,...b})});
+async function design(b,label){$('#dview').innerHTML='<span class=dots>'+(label||'বানাচ্ছি')+'</span>';bird('think');try{const j=await D(b);dshow(j,j.note?'✓ নোটে রাখা হয়েছে':'');bird('happy');return j}catch(e){$('#dview').textContent='⚠ '+e.message;bird('sad')}}
+const dopts=()=>({text:$('#dtx').value.trim(),pos:$('#dpos').value,color:$('#dcol').value,band:$('#dband').value||null});
+$('#dgo').onclick=()=>{const p=$('#dp').value.trim();if(!p){$('#dp').focus();return}design({op:'gen',prompt:p,kind:$('#dk').value,brand:$('#dbr').checked,...dopts()},'AI ছবি বানাচ্ছে (২০-৬০ সেকেন্ড)')};
+$('#dup').onclick=()=>$('#dfile').click();$('#dfile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{dshow({image_b64:String(r.result).split(',')[1],w:'?',h:'?'},esc(f.name))};r.readAsDataURL(f)};
+$$('[data-dop]').forEach(b=>b.onclick=()=>{if(!DI)return;const op=b.dataset.dop;const x={op,image_b64:DI};if(op==='text'){Object.assign(x,dopts());if(!x.text){$('#dtx').focus();return}}if(op==='resize')x.preset=$('#dsz').value;if(op==='crop')x.box=[.1,.1,.8,.8];design(x,'করছি')});
+$('#dsave').onclick=()=>DI&&design({op:'crop',box:[0,0,1,1],image_b64:DI,save:1,prompt:$('#dp').value.trim()||'ডিজাইন'},'নোটে রাখছি');
+$('#ddl').onclick=async()=>{if(!DI)return;const n='royal_design_'+Date.now()+'.png';if(MODE==='win'){const r=await call('save_image',DI,n);$('#dview').querySelector('small').append(' · ✓ '+(r||'সেভ হয়েছে'))}else{const a=document.createElement('a');a.href='data:image/png;base64,'+DI;a.download=n;document.body.appendChild(a);a.click();a.remove()}};
+/* 🛡 security */
+const S=b=>api('/bb/link/sec',{method:'POST',body:JSON.stringify({token:TOK,...b})});const sout=h=>{const d=document.createElement('div');d.className='msg';d.innerHTML=h;$('#sout').prepend(d);return d};
+function pwScore(p){if(!p)return null;let s=0,t=[];const L=p.length;s+=Math.min(40,L*3);const cls=[/[a-z]/,/[A-Z]/,/\d/,/[^\w]/].filter(r=>r.test(p)).length;s+=cls*10;
+ if(/^(.)\1+$/.test(p)||/(1234|abcd|qwer|password|pass|admin|iloveyou|bangladesh|0000|1111)/i.test(p)){s-=35;t.push('খুব প্রচলিত/অনুমানযোগ্য অংশ আছে')}if(/(19|20)\d\d/.test(p)){s-=8;t.push('সাল (জন্মসাল?) থাকলে অনুমান সহজ')}
+ if(L<12)t.push('কমপক্ষে ১২-১৬ অক্ষর দিন');if(cls<3)t.push('বড়-ছোট হাতের অক্ষর, সংখ্যা ও চিহ্ন মেশান');const pool=[26,26,10,33].filter((_,i)=>[/[a-z]/,/[A-Z]/,/\d/,/[^\w]/][i].test(p)).reduce((a,b)=>a+b,0)||1,bits=Math.round(L*Math.log2(pool));
+ s=Math.max(0,Math.min(100,s));return {s,bits,t,lv:s>=80?'💪 শক্তিশালী':s>=60?'🙂 মোটামুটি':s>=35?'😟 দুর্বল':'❌ খুব দুর্বল'}}
+$('#spw').oninput=()=>{const r=pwScore($('#spw').value);$('#spwr').innerHTML=r?`${r.lv} · ${r.s}/100 · ~${r.bits} বিট<br><small>${r.t.map(esc).join(' · ')||'ভালো! প্রতিটি সাইটে আলাদা রাখুন, 2FA চালু করুন'}</small>`:''};
+$('#sgo').onclick=async()=>{const u=$('#surl').value.trim();if(!u)return;const d=sout('<span class=dots>যাচাই করছি</span>');try{const j=await S({op:'url',url:u});d.innerHTML=`🔗 <b>${esc(j.host)}</b> · ঝুঁকি ${j.score}/100 — <b>${esc(j.verdict)}</b>${j.redirect?'<br>↪ যায়: '+esc(j.redirect):''}<ul>${j.flags.map(f=>'<li>'+esc(f)+'</li>').join('')}</ul>`}catch(e){d.textContent='⚠ '+e.message}};
+$('#sfile').onclick=()=>$('#sfin').click();$('#sfin').onchange=async e=>{const f=e.target.files[0];if(!f)return;const d=sout('<span class=dots>হ্যাশ করছি</span>');try{if(f.size>300e6)throw new Error('৩০০MB-এর বড় ফাইল');const h=[...new Uint8Array(await crypto.subtle.digest('SHA-256',await f.arrayBuffer()))].map(b=>b.toString(16).padStart(2,'0')).join('');
+ const j=await S({op:'hash',sha256:h,name:f.name});d.innerHTML=`📁 <b>${esc(f.name)}</b><br><small>SHA-256 ${h}</small><br><b>${esc(j.verdict)}</b><ul>${j.flags.map(x=>'<li>'+esc(x)+'</li>').join('')}</ul><a href="${j.vt}" target="_blank" rel="noopener">VirusTotal-এ হ্যাশ দেখুন ↗</a>`}catch(e){d.textContent='⚠ '+e.message}};
+async function sdoms(add){try{const j=await S({op:'domains',...add});$('#sdom').innerHTML=j.domains.map(x=>`<option>${esc(x)}</option>`).join('')}catch(e){sout('⚠ '+esc(e.message))}}
+$('#sadd').onclick=async()=>{const d=prompt('আপনার নিজের ডোমেইন (যেমন example.com):');if(!d)return;if(!confirm(d+' — এই ডোমেইনটি কি সত্যিই আপনার নিজের/আপনার প্রতিষ্ঠানের? অন্যের সাইট স্ক্যান করা যাবে না।'))return;sdoms({add:d,confirm_owned:true})};
+$('#ssite').onclick=async()=>{const dm=$('#sdom').value;const d=sout('<span class=dots>'+esc(dm)+' স্ক্যান করছি</span>');try{const j=await S({op:'site',domain:dm,save:1});d.innerHTML=`🌐 <b>${esc(j.domain)}</b> · গ্রেড <b>${j.grade}</b> <small>(নোটে রাখা হয়েছে)</small><ul>${j.items.map(i=>`<li>${i.ok?'✅':'⚠'} ${esc(i.msg)}${i.fix?'<br><small>সমাধান: <code>'+esc(i.fix)+'</code></small>':''}</li>`).join('')}</ul>`}catch(e){d.textContent='⚠ '+e.message}};
+$('#sbr').onclick=async()=>{const em=prompt('কোন ইমেইল চেক করবো? (আপনার নিজের)');if(!em)return;const d=sout('<span class=dots>খুঁজছি</span>');try{const j=await S({op:'breach',email:em});d.innerHTML=`📧 ${esc(j.email)} · ${j.count?'⚠ '+j.count+'টি ডেটা-ফাঁসে পাওয়া গেছে':'✅ জানা ফাঁসে নেই'}${j.count?'<br><small>'+j.breaches.map(esc).join(', ')+'</small>':''}<br>${esc(j.tip)} <small>· ${esc(j.source)}</small>`}catch(e){d.textContent='⚠ '+e.message}};
+async function pcHealth(){if(MODE!=='win'){sout('ℹ PC হেলথ চেক শুধু Windows অ্যাপে চলে');return}const d=sout('<span class=dots>PC পরীক্ষা করছি (রিড-অনলি, ~২০ সেকেন্ড)</span>');bird('think');
+ try{let r=await call('sec_health');r=typeof r==='string'?JSON.parse(r):r;const j=await S({op:'report',data:JSON.stringify(r).slice(0,18000),save:1});d.innerHTML='🖥 <b>PC হেলথ রিপোর্ট</b> <small>(নোটে রাখা হয়েছে)</small><br>'+esc(j.report).replace(/\n/g,'<br>');bird('happy')}catch(e){d.textContent='⚠ '+e.message;bird('sad')}}
+$('#spc').onclick=pcHealth;
+async function agentExtra(s,q){if(s.action==='design'){tab('design');$('#dp').value=s.args.prompt||q;if(s.args.kind)$('#dk').value=s.args.kind;if(s.args.text)$('#dtx').value=s.args.text;$('#dbr').checked=!!s.args.brand||/রয়্যাল|royal/i.test(q);
+  const j=await design({op:'gen',prompt:s.args.prompt||q,kind:s.args.kind||'post',brand:$('#dbr').checked,...dopts()},'AI ছবি বানাচ্ছে');alog(j?'🎨 ডিজাইন তৈরি — 🎨 ডিজাইন ট্যাবে দেখুন':'⚠ ডিজাইন হয়নি');return true}
+ if(s.action==='security'){const c=s.args.check,t=s.args.target||'';tab('sec');if(c==='pc')await pcHealth();else if(c==='url'&&t){$('#surl').value=t;$('#sgo').click()}else if(c==='site'){if(t)$('#sdom').value=t;$('#ssite').click()}else if(c==='password'){$('#spw').focus()}else if(c==='breach')$('#sbr').click();else if(c==='file')$('#sfile').click();alog('🛡 সিকিউরিটি ট্যাবে দেখুন');return true}return false}
 async function birdStat(){const s=await call('status');if(!s)return;const o=typeof s==='string'?JSON.parse(s):s;
  $('#st').textContent=`${({fly:'চলছে',perch:'খেলছে',pinned:'📌 বসানো',walk:'হাঁটছে',sleep:'😴 ঘুমাচ্ছে',forage:'খেলছে'})[o.state]||o.state} · নেট ${o.net==null?'অফলাইন':(+o.mbps||0).toFixed(1)+' Mbps'}${o.paused?' · ⏸ কপি-ধরা বন্ধ':''}`;
  $('#bs').textContent=`গতি ×${o.speed} · শব্দ ${o.sound?'চালু':'বন্ধ'} · ঘোরা ${o.roam?'চালু':'বন্ধ'}`}

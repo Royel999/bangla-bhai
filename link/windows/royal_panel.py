@@ -110,10 +110,64 @@ def agent_do(s):
                 if len(hits) > 15 or time.time() - t0 > 8: break
         return {'ok': True, 'msg': ('পাওয়া গেছে:\n' + '\n'.join(hits[:15])) if hits else 'কিছু পাওয়া যায়নি'}
     return {'ok': False, 'msg': 'অজানা ধাপ'}
+def _ps(cmd, t=25):
+    import subprocess
+    try:
+        r = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', cmd], capture_output=True, text=True, timeout=t, creationflags=0x08000000)
+        return (r.stdout or r.stderr or '').strip()
+    except Exception as e: return 'ERR ' + str(e)[:100]
+def _run(args, t=20):
+    import subprocess
+    try: return subprocess.run(args, capture_output=True, text=True, timeout=t, creationflags=0x08000000).stdout
+    except Exception as e: return 'ERR ' + str(e)[:100]
+def sec_health():
+    """Read-only Windows health snapshot. Never changes settings, never touches Panda/Defender config."""
+    R = {}
+    R['os'] = _ps('(Get-CimInstance Win32_OperatingSystem | Select Caption,Version,LastBootUpTime | ConvertTo-Json -Compress)')
+    R['antivirus'] = _ps('Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct | Select displayName,productState,timestamp | ConvertTo-Json -Compress')
+    R['defender'] = _ps('Get-MpComputerStatus | Select AMServiceEnabled,AntivirusEnabled,RealTimeProtectionEnabled,AntivirusSignatureLastUpdated | ConvertTo-Json -Compress')
+    R['firewall'] = _ps('Get-NetFirewallProfile | Select Name,Enabled | ConvertTo-Json -Compress')
+    R['updates'] = _ps('Get-HotFix | Sort-Object InstalledOn -Descending | Select -First 5 HotFixID,InstalledOn | ConvertTo-Json -Compress')
+    names = {}
+    for ln in _run(['tasklist', '/fo', 'csv', '/nh']).splitlines():
+        c = [x.strip('"') for x in ln.split('","')]
+        if len(c) > 1: names[c[1]] = c[0]
+    ports = set()
+    for ln in _run(['netstat', '-ano']).splitlines():
+        f = ln.split()
+        if len(f) >= 5 and f[0] == 'TCP' and f[3] == 'LISTENING': ports.add((f[1], names.get(f[4], f[4])))
+        elif len(f) == 4 and f[0] == 'UDP' and f[1].startswith('0.0.0.0'): ports.add(('udp ' + f[1], names.get(f[3], f[3])))
+    R['listening'] = sorted(ports)[:80]
+    R['startup'] = _ps('Get-CimInstance Win32_StartupCommand | Select Name,Command,Location | ConvertTo-Json -Compress')[:5000]
+    procs = _ps('Get-CimInstance Win32_Process | Select Name,ProcessId,ExecutablePath | ConvertTo-Json -Compress', 40)
+    sus = []
+    try:
+        import re
+        SYS = {'svchost.exe', 'lsass.exe', 'csrss.exe', 'winlogon.exe', 'services.exe', 'smss.exe', 'explorer.exe', 'spoolsv.exe'}
+        for p in json.loads(procs):
+            n, pa = (p.get('Name') or '').lower(), (p.get('ExecutablePath') or '')
+            why = []
+            if re.search(r'\\(temp|downloads|public)\\|\\appdata\\local\\temp', pa, re.I) and pa.lower().endswith('.exe'): why.append('Temp/Downloads থেকে চলছে')
+            if n in SYS and pa and not pa.lower().startswith(r'c:\windows'): why.append('সিস্টেম নামের নকল? পথ ' + pa)
+            if re.fullmatch(r'(svch0st|scvhost|lsas|csrs|expl0rer|svhost)\.exe', n): why.append('সিস্টেম নামের মতো বানান')
+            if why: sus.append({'name': n, 'pid': p.get('ProcessId'), 'path': pa, 'why': why})
+        R['process_count'] = len(json.loads(procs))
+    except Exception as e: R['process_err'] = str(e)[:80]
+    R['suspicious'] = sus[:30]
+    return R
+def save_image(b64, name):
+    import base64, re
+    name = re.sub(r'[^\w.\-]', '_', name)[:80] or 'design.png'
+    d = _path('Downloads'); d = d if os.path.isdir(d) else os.path.expanduser('~')
+    fp = os.path.join(d, name); open(fp, 'wb').write(base64.b64decode(b64)); return fp
 class Api:
     def token(self): return CFG['token']
     def bird(self, cmd, arg=''): out({'bird': cmd, 'arg': arg}); return True
     def status(self): return STATUS
+    def sec_health(self): return json.dumps(sec_health(), ensure_ascii=False)
+    def save_image(self, b64, name):
+        try: return save_image(b64, name)
+        except Exception as e: return 'ERR ' + str(e)[:80]
     def agent_do(self, js):
         try: return agent_do(json.loads(js))
         except Exception as e: return {'ok': False, 'msg': str(e)[:160]}

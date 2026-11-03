@@ -146,7 +146,7 @@ b.addEventListener('pointerup',()=>{if(!drag)return;drag=null;if(moved)pin(true)
 b.addEventListener('dblclick',e=>{e.preventDefault();clearTimeout(clickT);if(P)toggle(false);pin(false)});
 /* glass panel (same panel.html as Windows/Android) — bridge via postMessage */
 let P=null;function toggle(on){if(P&&on!==true){P.style.display='none';P=null;return}
- let f=document.getElementById('rbtP');if(!f){f=document.createElement('iframe');f.id='rbtP';f.allow='microphone; clipboard-read; clipboard-write';f.src='/bb/static/notes/panel.html?v=2';document.body.appendChild(f)}
+ let f=document.getElementById('rbtP');if(!f){f=document.createElement('iframe');f.id='rbtP';f.allow='microphone; clipboard-read; clipboard-write';f.src='/bb/static/notes/panel.html?v=3';document.body.appendChild(f)}
  else{try{f.contentWindow.rbtShow&&f.contentWindow.rbtShow()}catch(e){}}
  f.style.display='block';f.style.left=Math.max(6,Math.min(innerWidth-430,pos.x>innerWidth/2?pos.x-410:pos.x+SZ))+'px';f.style.top=Math.max(6,Math.min(innerHeight-650,pos.y-300))+'px';P=f}
 const status=()=>({state:state==='perch'&&seq.length?(pose.startsWith('walk')?'walk':pose.startsWith('peck')?'forage':'perch'):state,net,mbps,speed:sp0(),sound:localStorage.rbtSound==='1',roam:roamOn(),paused:localStorage.rbtClipPause==='1',busy});

@@ -335,13 +335,15 @@ def setup_clips(app, HH):
         except Exception: return JSONResponse({'error': 'AI এখন ব্যস্ত, একটু পরে চেষ্টা করুন'}, 503)
     # ---- রয়্যাল এজেন্ট phase 1: plan PC actions from a command (executed on the device, risky steps confirmed there) ----
     AGENT_ACTS = {'open_url': ['url'], 'web_search': ['q'], 'open_app': ['name'], 'open_path': ['path'], 'type_text': ['text'], 'hotkey': ['keys'], 'press': ['key'],
-                  'screenshot': ['question'], 'search_files': ['query'], 'wait': ['sec'], 'clipboard_set': ['text'], 'note': ['text'], 'say': ['text']}
+                  'screenshot': ['question'], 'search_files': ['query'], 'wait': ['sec'], 'clipboard_set': ['text'], 'note': ['text'], 'say': ['text'], 'design': ['prompt', 'kind', 'text'], 'security': ['check', 'target']}
     AGENT_SYS = """তুমি "রয়্যাল এজেন্ট" — জাহাঁপনার Windows PC-র ব্যক্তিগত সহকারী। কমান্ড পড়ে ছোট, বাস্তবসম্মত ধাপের পরিকল্পনা বানাও যা PC-তে চালানো হবে।
 শুধু এই JSON দাও: {"reply":"বাংলায় ১ লাইনে কী করবে","steps":[{"action":"...","args":{...},"say":"বাংলায় ছোট বর্ণনা","risky":false}]}
 অনুমোদিত action ও args:
 open_url{url} · web_search{q} · open_app{name: notepad|calc|explorer|chrome|msedge|excel|winword|outlook|powerpnt|mspaint|snippingtool বা অন্য সাধারণ অ্যাপের exe নাম} · open_path{path: ফোল্ডার/ফাইল, যেমন "Downloads", "Desktop", "Documents" বা পূর্ণ পথ}
 type_text{text} (সক্রিয় উইন্ডোতে টাইপ) · hotkey{keys:["ctrl","l"]} · press{key: enter|tab|esc|up|down|left|right|backspace|f5 ...}
 screenshot{question} (স্ক্রিন দেখে প্রশ্নের উত্তর) · search_files{query} (ব্যবহারকারীর ফোল্ডারে ফাইল খোঁজা) · wait{sec ≤10} · clipboard_set{text} · note{text} (নোটবুকে রাখা) · say{text} (শুধু উত্তর)
+design{prompt (ইংরেজি বা বাংলা বর্ণনা), kind: image|logo|poster|post|story|banner, text: ছবিতে বসানোর বাংলা লেখা (ঐচ্ছিক), brand: true যদি Royal Universe রঙ চায়} — ছবি/লোগো/পোস্টার বানানো। তার অফিসিয়াল লোগো নিজে থেকে রিডিজাইন করবে না।
+security{check: pc|url|file|site|breach|password, target: URL/ডোমেইন/ইমেইল} — শুধু তার নিজের ডিভাইস/সাইটের রক্ষণাত্মক পরীক্ষা। অন্যের সিস্টেম স্ক্যান, হ্যাকিং টুল, পাসওয়ার্ড ক্র্যাক — না বলো।
 নিয়ম: সর্বোচ্চ ১২ ধাপ। অ্যাপ/পেজ খোলার পর টাইপের আগে wait{sec:2} দাও। ব্রাউজারে ঠিকানা লিখতে hotkey ctrl+l তারপর type_text তারপর press enter।
 মুছে ফেলা, ইমেইল/মেসেজ পাঠানো, কেনাকাটা/পেমেন্ট, কিছু ইনস্টল/আনইনস্টল, সিস্টেম সেটিং বদল, ফর্ম জমা — এমন যেকোনো ধাপে "risky":true।
 কখনো নিরাপত্তা সফটওয়্যার (Panda/antivirus/firewall) বন্ধ বা এড়ানোর ধাপ দেবে না; cmd/powershell/regedit চালাবে না — এমন অনুরোধে say দিয়ে বিনয়ের সাথে না বলো।
@@ -373,6 +375,9 @@ screenshot{question} (স্ক্রিন দেখে প্রশ্নে�
             steps.append({'action': a, 'args': args, 'say': str(st.get('say') or a)[:120], 'risky': risky})
         if not steps: steps = [{'action': 'say', 'args': {'text': str(o.get('reply') or 'বুঝতে পারিনি, আরেকটু খুলে বলবেন?')}, 'say': 'উত্তর', 'risky': False}]
         return {'reply': str(o.get('reply') or '')[:300], 'steps': steps}
+    try:
+        import design_sec as _DS; _DS.register(app, dev_ok, owner, db, RT, _ASKT)
+    except Exception as _e: print('design_sec failed', _e)
     @app.get('/bb/link/hub')
     def lhub(request: Request, token: str = ''):
         d = dev_ok(token, request)
