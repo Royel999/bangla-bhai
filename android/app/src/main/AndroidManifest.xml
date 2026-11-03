@@ -10,8 +10,10 @@
  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
  <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
  <uses-permission android:name="android.permission.WAKE_LOCK"/>
+ <uses-permission android:name="android.permission.RECORD_AUDIO"/>
  <application android:label="রয়েল বেঙ্গল টাইগার" android:icon="@mipmap/ic_launcher" android:usesCleartextTraffic="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
   <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+  <activity android:name=".PanelActivity" android:exported="false" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:taskAffinity="" android:windowSoftInputMode="adjustResize"/>
   <activity android:name=".ClipActivity" android:exported="false" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:taskAffinity=""/>
   <activity android:name=".QuickActivity" android:exported="false" android:theme="@android:style/Theme.Material.Light.Dialog" android:excludeFromRecents="true" android:taskAffinity=""/>
   <activity android:name=".ShareActivity" android:exported="true" android:label="রয়েল নোটবুকে রাখুন" android:theme="@android:style/Theme.Translucent.NoTitleBar">
