@@ -12,16 +12,18 @@ const st=document.createElement('style');st.textContent=`#rbtF{position:fixed;z-
 #rbtF .pr{position:absolute;pointer-events:none;border-radius:50%;transition:opacity .4s}
 #rbtP{position:fixed;z-index:100000;border:0;width:420px;height:640px;max-width:96vw;max-height:88vh;background:transparent;color-scheme:normal}
 @media(max-width:600px){#rbtP{left:2vw!important;width:96vw;bottom:8px!important;top:auto!important;height:78vh}}`;document.head.appendChild(st);
-const b=document.createElement('div');b.id='rbtF';b.title='দোয়েল · ক্লিক = প্যানেল · টেনে বসান · ডাবল-ক্লিক = উড়ে যাও';b.innerHTML='<img alt=""><b></b>';document.body.appendChild(b);
-const D='/bb/static/notes/doyel/',SZ=96,FOOT=93,im=b.querySelector('img'),badge=b.querySelector('b'),cache={};
-['fly0','fly1','fly2','fly3','fly4','fly5','fly6','fly7','glide0','perch0','cock0','cock1','look0','preen0','sing0','down0','hop0','hop1','walk0','walk1','walk2','peck0','peck1','drink0','sleep0','shake0']
+const b=document.createElement('div');b.id='rbtF';b.title=(localStorage.rbtMascot!=='doyel'?'মামণি · ক্লিক = প্যানেল · টেনে বসান · ডাবল-ক্লিক = হেঁটে যাও · রাইট-ক্লিক = দোয়েল':'দোয়েল · ক্লিক = প্যানেল · টেনে বসান · ডাবল-ক্লিক = উড়ে যাও · রাইট-ক্লিক = মামণি');b.innerHTML='<img alt=""><b></b>';document.body.appendChild(b);
+const GIRL=localStorage.rbtMascot!=='doyel',D=GIRL?'/bb/static/notes/girl/':'/bb/static/notes/doyel/',SZ=96,FOOT=93,im=b.querySelector('img'),badge=b.querySelector('b'),cache={};
+(GIRL?['stand0','blink0','look0','wave0','wave1','jump0','squat0','sit0','sleep0','carry0','clap0','walk0','walk1','walk2','walk3','walk4','walk5']:['fly0','fly1','fly2','fly3','fly4','fly5','fly6','fly7','glide0','perch0','cock0','cock1','look0','preen0','sing0','down0','hop0','hop1','walk0','walk1','walk2','peck0','peck1','drink0','sleep0','shake0'])
  .forEach(p=>['','_L'].forEach(s=>{const i=new Image();i.src=D+p+s+'.png';cache[p+s]=i.src}));
-let face=-1,pose='perch0';const show=p=>{pose=p;const k=p+(face<0?'_L':'');if(im.dataset.k!==k){im.dataset.k=k;im.src=cache[k]}};
+let face=-1,pose='perch0';const GA={perch0:'stand0',shake0:'stand0',cock0:'look0',cock1:'look0',down0:'squat0',peck0:'squat0',peck1:'squat0',sing0:'wave0',preen0:'blink0',glide0:'jump0',hop0:'squat0',hop1:'jump0',drink0:'squat0'};
+const show=p=>{if(GIRL){p=p.startsWith('fly')?'carry0':GA[p]||p}pose=p;const k=p+(face<0?'_L':'');if(im.dataset.k!==k){im.dataset.k=k;im.src=cache[k]}};
 const pos=JSON.parse(localStorage.rbtFpos||'null')||{x:innerWidth-110,y:innerHeight-FOOT-4};
 const clampP=()=>{pos.x=Math.max(0,Math.min(innerWidth-SZ,pos.x));pos.y=Math.max(-10,Math.min(innerHeight-FOOT,pos.y))};
 const place=(bob=0)=>{b.style.transform=`translate(${pos.x}px,${pos.y+bob}px)`};clampP();place();addEventListener('resize',()=>{clampP();place()});
 /* props: crumbs / insect / water / splash */
-function props(k){b.querySelectorAll('.pr').forEach(e=>e.remove());if(!k)return;const bx=face>0?84:8,add=(x,y,w,h,c)=>{const e=document.createElement('i');e.className='pr';Object.assign(e.style,{left:x+'px',top:y+'px',width:w+'px',height:h+'px',background:c});b.appendChild(e)};
+const EM={heart:['♥','#ff4d7d'],music:['♪','#ffd84a'],flower:['🌸',''],ball:['⚽',''],zzz:['z z','#bcd3ff']};
+function props(k){b.querySelectorAll('.pr').forEach(e=>e.remove());if(!k)return;if(EM[k]){const e=document.createElement('i');e.className='pr';e.textContent=EM[k][0];Object.assign(e.style,{left:(k==='flower'||k==='ball'?(face>0?70:6):k==='zzz'?66:30+Math.random()*30)+'px',top:(k==='flower'||k==='ball'?76:k==='zzz'?46:4)+'px',color:EM[k][1],fontSize:'14px',fontWeight:'bold',fontStyle:'normal',borderRadius:0});b.appendChild(e);return}const bx=face>0?84:8,add=(x,y,w,h,c)=>{const e=document.createElement('i');e.className='pr';Object.assign(e.style,{left:x+'px',top:y+'px',width:w+'px',height:h+'px',background:c});b.appendChild(e)};
  if(k==='crumbs')for(let i=0;i<4;i++)add(bx+(Math.random()*16-8)*face,89,3,3,['#c8a165','#a0763d','#e0c68f'][i%3]);
  else if(k==='insect'){add(bx,88,6,3,'#3e7d2c')}else if(k==='water')add(bx-8,89,16,5,'#7ec8f0');
  else if(k==='splash')for(let i=0;i<7;i++)add(48+Math.random()*60-30,50+Math.random()*40-20,3,4,'#9bd6f5')}
@@ -29,7 +31,7 @@ function props(k){b.querySelectorAll('.pr').forEach(e=>e.remove());if(!k)return;
 let ac=null;function chirp(){if(localStorage.rbtSound!=='1')return;try{ac=ac||new AudioContext();const t0=ac.currentTime;for(let n=0;n<3;n++){const o=ac.createOscillator(),g=ac.createGain(),t=t0+n*.14,f=2600+Math.random()*800;
  o.frequency.setValueAtTime(f,t);o.frequency.linearRampToValueAtTime(f+1800,t+.09);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.07,t+.03);g.gain.linearRampToValueAtTime(0,t+.09);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+.1)}}catch(e){}}
 /* network → speed; offline = stays perched */
-let net=1,mbps=0,busy=0;const probe=async()=>{if(!navigator.onLine){net=null;return}try{const t=performance.now(),r=await fetch(D+'fly0.png?p='+Date.now(),{cache:'no-store'}),n=(await r.arrayBuffer()).byteLength,dt=(performance.now()-t)/1000;
+let net=1,mbps=0,busy=0;const probe=async()=>{if(!navigator.onLine){net=null;return}try{const t=performance.now(),r=await fetch(D+(GIRL?'stand0':'fly0')+'.png?p='+Date.now(),{cache:'no-store'}),n=(await r.arrayBuffer()).byteLength,dt=(performance.now()-t)/1000;
  let m=n*8/Math.max(dt,.02)/1e6;const dl=navigator.connection&&navigator.connection.downlink;if(dl)m=(m+dl)/2;mbps=m;net=Math.max(.35,Math.min(2.6,.4+.5*Math.log2(1+m)))}catch(e){net=null}};
 probe();setInterval(probe,60000);addEventListener('offline',()=>net=null);addEventListener('online',probe);navigator.connection&&navigator.connection.addEventListener&&navigator.connection.addEventListener('change',probe);
 const hubT=async()=>{try{busy=(await api('/bb/link/hub')).device.busy?1:0}catch(e){}};hubT();setInterval(hubT,20000);
@@ -39,11 +41,22 @@ let state='perch',until=performance.now()+3000,tgt=null,perchEl=null,perchOff=0,
 function spots(){const s=[{x:Math.random()*(innerWidth-SZ),y:innerHeight,el:null,a:0,b:innerWidth}];
  document.querySelectorAll('h1,h2,h3,img,button,textarea,table,section,article,header,nav,aside,.card,[class*=card]').forEach(e=>{if(s.length>40||e.closest('#rbtF'))return;const r=e.getBoundingClientRect();
   if(r.width>110&&r.top>70&&r.top<innerHeight-30&&getComputedStyle(e).visibility!=='hidden'){const el=document.elementFromPoint(r.left+r.width/2,r.top+2);if(el&&(el===e||e.contains(el)))s.push({x:r.left+20+Math.random()*(r.width-40)-SZ/2,y:r.top,el:e,a:r.left,b:r.right})}});return s}
-function pick(perch,near){if(perch){let s=spots();if(near)s=s.sort((p,q)=>Math.hypot(p.x-near.x,p.y-near.y)-Math.hypot(q.x-near.x,q.y-near.y)).slice(0,3);const c=s.length>1&&Math.random()<.75?s[1+Math.floor(Math.random()*(s.length-1))]:s[0];
+function pick(perch,near){if(GIRL)perch=true;if(perch){let s=spots();if(near)s=s.sort((p,q)=>Math.hypot(p.x-near.x,p.y-near.y)-Math.hypot(q.x-near.x,q.y-near.y)).slice(0,3);const c=s.length>1&&Math.random()<.75?s[1+Math.floor(Math.random()*(s.length-1))]:s[0];
   perchEl=c.el;tgt={x:Math.max(0,Math.min(innerWidth-SZ,c.x)),y:c.y-FOOT,perch:1};edge={a:c.a-SZ/2+10,b:c.b-SZ/2-10};if(c.el)perchOff=tgt.x-c.el.getBoundingClientRect().left}
  else{perchEl=null;edge=null;tgt=near?{x:near.x-SZ/2,y:near.y-SZ-10,perch:0}:{x:Math.random()*(innerWidth-SZ),y:Math.random()*(innerHeight*.7),perch:0}}}
 const go=(s,d)=>{state=s;seq=[];props(null);until=performance.now()+(d!=null?d:s==='fly'?8000+Math.random()*12000:4000+Math.random()*6000)};
 function act(k){const R=Math.random,S=[];const P=(p,d,dx=0,pr=null)=>S.push([p,d,dx,pr]);
+ if(GIRL&&!['sleep','curious','fly'].includes(k)){k={cock:'blink',preen:'wave',forage:'flower',drink:'ball',sing:R()<.5?'clap':'wave',bathe:'jump',hop:'jump'}[k]||k;
+  if(k==='idle'){P('stand0',1500+R()*2000);P('blink0',140);P('stand0',1000+R()*1500)}else if(k==='blink'){P('blink0',130);P('stand0',250);P('blink0',120);P('stand0',1500)}
+  else if(k==='look'){P('look0',1000+R()*1200);P('stand0',600);P('blink0',140);P('stand0',600)}
+  else if(k==='wave'){for(let i=0,n=2+R()*3;i<n;i++){P('wave0',300);P('wave1',300)}P('stand0',1000)}
+  else if(k==='walk'){if(R()<.4)face=-face;for(let i=0,n=12+R()*28;i<n;i++)P('walk'+i%6,110,3);P('stand0',800)}
+  else if(k==='flower'){for(let i=0,n=4+R()*6;i<n;i++)P('walk'+i%6,110,3);P('squat0',1500+R()*1500,0,'flower');P('look0',1000,0,'flower');P('stand0',600);P('wave0',500);P('stand0',600)}
+  else if(k==='ball'){P('squat0',400,0,'ball');P('stand0',300);P('jump0',350,0,'ball');P('stand0',300,0,'ball');P('walk0',110,3,'ball');P('walk1',110,3,'ball');P('squat0',500,0,'ball');P('clap0',500,0,'heart');P('stand0',800)}
+  else if(k==='jump'){P('squat0',200);P('jump0',350,0,'heart');P('stand0',250);P('squat0',150);P('jump0',350,0,'heart');P('stand0',1000)}
+  else if(k==='clap'){P('sit0',500);for(let i=0,n=3+R()*4;i<n;i++){P('clap0',350,0,'music');P('sit0',300)}P('stand0',600)}
+  else{P('squat0',350);P('sit0',5000+R()*9000);P('clap0',600,0,'music');P('sit0',2000+R()*4000);P('squat0',300);P('stand0',500)}
+  seq=S;seqT=0;return}
  if(k==='idle')P('perch0',1500+R()*2500);else if(k==='look'){P('look0',800+R()*1200);P('perch0',600);P('down0',600+R()*900);P('perch0',500)}
  else if(k==='cock'){for(let i=0;i<2;i++){P('cock0',500);P('cock1',400);P('cock0',600);P('perch0',900)}}
  else if(k==='preen'){P('preen0',1500+R()*1500);P('perch0',400);P('preen0',1000+R()*1500);P('shake0',350);P('perch0',800)}
@@ -63,7 +76,7 @@ function choose(t){const h=hourBD(),night=h>=22||h<5,morning=h>=5&&h<9,noon=h>=1
  let r=Math.random()*Object.values(w).reduce((a,b)=>a+b,0);for(const k in w){if((r-=w[k])<=0)return act(k)}act('idle')}
 function stepSeq(t){if(!seq.length)return false;if(t<seqT)return true;const [p,d,dx,pr]=seq.shift();seqT=t+d;
  if(dx){let nx=pos.x+dx*face;const a=edge?edge.a:0,bb=edge?edge.b:innerWidth-SZ;if(nx<a||nx>bb){face=-face;nx=pos.x+dx*face}pos.x=nx;if(perchEl)perchOff+=dx*face}
- if(pr==='chirp'){chirp();props(null)}else props(pr);show(p);place(p==='hop1'?-9:0);return true}
+ if(pr==='chirp'){chirp();props(null)}else props(pr);show(p);place(p==='hop1'||p==='jump0'?-11:0);return true}
 function react(w){if(state==='sleep'&&w!=='clip')return;if(w==='clip'&&state!=='pinned'&&net!==null&&mp.x>0){pick(false,{x:mp.x+60,y:mp.y});go('fly',6000);mood='visit'}
  else if(w==='happy'&&state!=='fly')act('sing');else if(w==='think'&&state!=='fly'){seq=[];for(let i=0;i<3;i++)seq.push(['look0',800,0,null],['down0',800,0,null])}else if(w==='sad'&&state!=='fly')seq=[['down0',2000,0,null],['perch0',500,0,null]]}
 addEventListener('pointermove',e=>{const t=performance.now(),dt=Math.max(t-mp.t,8),vx=(e.clientX-mp.x)/dt*1000,vy=(e.clientY-mp.y)/dt*1000;tMouse=t;
@@ -74,12 +87,13 @@ function roam(t){const dt=Math.min(50,t-(lt||t));lt=t;const reduce=matchMedia('(
  if(busy&&state!=='fly'&&state!=='pinned'&&mood!=='busy'){pick(true);mood='busy';go('fly',30000)}
  if(drag||document.hidden){}
  else if(state!=='fly'){
-  if(state==='sleep'){show('sleep0');const h=hourBD();if(t>until||(h>=5&&h<22&&until===Infinity)){go('perch',2000);show('shake0')}}
+  if(state==='sleep'){show('sleep0');if(GIRL&&!b.querySelector('.pr'))props('zzz');const h=hourBD();if(t>until||(h>=5&&h<22&&until===Infinity)){go('perch',2000);show('shake0')}}
   else if(!stepSeq(t)){if(state==='pinned'){if(t>until)pin(false);else act(['idle','look','cock','preen','walk','forage','sing','hop','idle'][Math.floor(Math.random()*9)])}
    else if(busy&&mood==='busy')seq=[['peck1',200,0,null],['peck0',150,0,null],['look0',600,0,null],['perch0',500,0,null]];
    else if(t>until&&!P&&!reduce){until=t+500+Math.random()*1500;choose(t)}else show('perch0')}
   if(state==='perch'&&perchEl){const r=perchEl.getBoundingClientRect();if(r.top<0||r.top>innerHeight||!r.width)act('fly');else{pos.y=r.top-FOOT;pos.x=r.left+perchOff;place(pose==='hop1'?-9:0)}}
   if(follow&&state==='perch'&&Math.hypot(mp.x-pos.x,mp.y-pos.y)>260){pick(false,{x:mp.x-70,y:mp.y});go('fly',30000)}}
+ else if(GIRL)girlMove(t,dt);
  else{const near=Math.hypot(mp.x-pos.x-48,mp.y-pos.y-48)<110;
   if(near&&!tgt.perch&&!mood&&!follow||P){wing=(wing+1)%8;show('fly'+wing)}else{
   if(follow)tgt={x:face>0?mp.x-140:mp.x+20,y:mp.y-100,perch:0};
@@ -95,7 +109,19 @@ function roam(t){const dt=Math.min(50,t-(lt||t));lt=t;const reduce=matchMedia('(
    place(glide?0:3*Math.sin(t/60))}}}
  badge.textContent=localStorage.rbtClipPause==='1'?'⏸':state==='pinned'?'📌':busy?'⚙':state==='sleep'?'💤':'';requestAnimationFrame(roam)}
 requestAnimationFrame(roam);
-const pin=on=>{if(on){go('pinned',30000+Math.random()*90000);perchEl=null;edge={a:pos.x-60,b:pos.x+60};localStorage.rbtFpos=JSON.stringify(pos)}else{pick(false);go('fly');tFly=performance.now()}};
+/* মামণি: walks along the same edge; squat → jump arc between edges; waves on arrival after a copy */
+let arc=null;function girlMove(t,dt){if(P){show('stand0');return}
+ if(follow&&t-(girlMove.f||0)>2000){girlMove.f=t;pick(true,mp);until=t+1e9}
+ const sp=sp0()*Math.max(.4,net||.5)*(mood==='visit'?2.2:1);
+ if(arc){const u=Math.min(1,(t-arc.t0)/arc.T);pos.x=arc.sx+(tgt.x-arc.sx)*u;pos.y=arc.sy+(tgt.y-arc.sy)*u-arc.h*4*u*(1-u);show('jump0');place();if(u>=1){arc=null;girlLand()}return}
+ const dx=tgt.x-pos.x;if(Math.abs(tgt.y-pos.y)<=4){if(Math.abs(dx)<3){pos.x=tgt.x;girlLand();return}face=dx>0?1:-1;pos.x+=face*Math.min(Math.abs(dx),.065*sp*dt);
+  if(t-(girlMove.w||0)>105){girlMove.w=t;wing=(wing+1)%6;show('walk'+wing)}place()}
+ else{face=dx>0?1:-1;const d=Math.hypot(dx,tgt.y-pos.y);show('squat0');arc={sx:pos.x,sy:pos.y,t0:t+180,T:Math.min(1600,550+d*.7)/Math.max(.6,Math.min(1.6,sp)),h:60+Math.max(0,pos.y-tgt.y)*.6+d*.05}}
+ if(t>until&&!follow){pos.x=tgt.x;pos.y=tgt.y;place();girlLand()}}
+function girlLand(){go('perch');const vis=mood==='visit'||mood==='curious';mood=mood==='busy'?'busy':null;seq=[['squat0',200,0,null],['stand0',300,0,null]];
+ if(vis){face=mp.x>pos.x+48?1:-1;for(let i=0;i<3;i++)seq.push(['wave0',300,0,'heart'],['wave1',300,0,null]);seq.push(['stand0',1000,0,null])}}
+b.addEventListener('contextmenu',e=>{e.preventDefault();if(confirm(GIRL?'দোয়েল পাখিকে ফিরিয়ে আনবেন?':'মামণিকে আনবেন?'))cmd('mascot',GIRL?'doyel':'girl')});
+const pin=on=>{if(on){go('pinned',(GIRL?25000:30000)+Math.random()*(GIRL?65000:90000));perchEl=null;edge={a:pos.x-60,b:pos.x+60};localStorage.rbtFpos=JSON.stringify(pos);if(GIRL)act('sit')}else{pick(false);go('fly',GIRL?120000:undefined);arc=null;tFly=performance.now()}};
 let drag=null,moved=false,clickT=0;b.addEventListener('pointerdown',e=>{e.preventDefault();drag={dx:e.clientX-pos.x,dy:e.clientY-pos.y};moved=false;b.setPointerCapture(e.pointerId)});
 b.addEventListener('pointermove',e=>{if(!drag)return;const nx=e.clientX-drag.dx,ny=e.clientY-drag.dy;if(Math.abs(nx-pos.x)+Math.abs(ny-pos.y)>3){moved=true;wing=(wing+1)%8;show('fly'+wing);props(null)}pos.x=nx;pos.y=ny;clampP();place()});
 b.addEventListener('pointerup',()=>{if(!drag)return;drag=null;if(moved)pin(true);else{if(state==='sleep'){go('perch',3000);show('shake0')}clearTimeout(clickT);clickT=setTimeout(()=>toggle(),280)}});
@@ -106,7 +132,7 @@ let P=null;function toggle(on){if(P&&on!==true){P.style.display='none';P=null;re
  else{try{f.contentWindow.rbtShow&&f.contentWindow.rbtShow()}catch(e){}}
  f.style.display='block';f.style.left=Math.max(6,Math.min(innerWidth-430,pos.x>innerWidth/2?pos.x-410:pos.x+SZ))+'px';f.style.top=Math.max(6,Math.min(innerHeight-650,pos.y-300))+'px';P=f}
 const status=()=>({state:state==='perch'&&seq.length?(pose.startsWith('walk')?'walk':pose.startsWith('peck')?'forage':'perch'):state,net,mbps,speed:sp0(),sound:localStorage.rbtSound==='1',roam:roamOn(),paused:localStorage.rbtClipPause==='1',busy});
-function cmd(c,v){if(c==='fly'){follow=false;pin(false)}else if(c==='sit'){follow=false;pick(true);go('fly',30000)}else if(c==='follow'){follow=!follow;if(follow)go('fly',1e9);else pick(true)}
+function cmd(c,v){if(c==='mascot'){localStorage.rbtMascot=v;location.reload();return}if(GIRL&&c==='forage'){if(state!=='fly')act(['clap','ball','flower','jump'][Math.floor(Math.random()*4)]);return}if(c==='fly'){follow=false;pin(false)}else if(c==='sit'){follow=false;pick(true);go('fly',30000)}else if(c==='follow'){follow=!follow;if(follow)go('fly',1e9);else pick(true)}
  else if(c==='sleep'){if(state==='sleep')go('perch',2000);else act('sleep')}else if(c==='forage'){if(state==='fly')pick(true);else act('forage')}else if(c==='sing'){chirp();if(state!=='fly')act('sing')}
  else if(c==='roam')localStorage.rbtRoam=roamOn()?'0':'1';else if(c==='sound'){localStorage.rbtSound=localStorage.rbtSound==='1'?'0':'1';chirp()}else if(c==='speed')localStorage.rbtRoamSp=String(v);
  else if(c==='pause')localStorage.rbtClipPause=localStorage.rbtClipPause==='1'?'0':'1';else if(c==='hide'){b.style.display='none';setTimeout(()=>b.style.display='',600000)}else react(c)}
