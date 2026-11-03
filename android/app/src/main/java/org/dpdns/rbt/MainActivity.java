@@ -9,6 +9,8 @@ public class MainActivity extends Activity{TextView st;
   btn(r,"🔋 ব্যাটারি সীমা তুলে দিন (পেছনে চালু রাখতে)",()->{PowerManager pm=getSystemService(PowerManager.class);if(pm.isIgnoringBatteryOptimizations(getPackageName()))toast("আগেই করা আছে ✓");else startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,Uri.parse("package:"+getPackageName())));});
   btn(r,"🐯 ভাসমান বাবল চালু/বন্ধ",()->{if(!Settings.canDrawOverlays(this)){toast("“অন্য অ্যাপের উপরে দেখান” অনুমতি দিন");startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+getPackageName())));return;}
    boolean on=!Link.p(this).getBoolean("bubble",false);Link.p(this).edit().putBoolean("bubble",on).apply();if(on)startForegroundService(new Intent(this,BubbleService.class));else stopService(new Intent(this,BubbleService.class));toast(on?"বাবল চালু":"বাবল বন্ধ");});
+  btn(r,"🌀 বাবল ঘোরা থামান / ঘোরান",()->{startForegroundService(new Intent(this,BubbleService.class).setAction("roam"));toast(Link.p(this).getBoolean("roam",true)?"থামছে":"ঘুরবে");});
+  btn(r,"⚡ ঘোরার গতি (ধীর/মাঝারি/দ্রুত)",()->{int s=Link.p(this).getInt("roam_speed",2)%3+1;Link.p(this).edit().putInt("roam_speed",s).apply();toast("গতি: "+new String[]{"","ধীর","মাঝারি","দ্রুত"}[s]);});
   btn(r,"📋 এখনকার ক্লিপ রাখুন",()->startActivity(new Intent(this,ClipActivity.class).setAction("save")));
   btn(r,"📝 দ্রুত নোট ও সাম্প্রতিক ক্লিপ",()->startActivity(new Intent(this,QuickActivity.class)));
   btn(r,"⏸ কপি-ধরা বিরতি / চালু",()->{boolean p=!Link.paused(this);Link.p(this).edit().putBoolean("paused",p).apply();toast(p?"বিরতিতে":"চালু");refresh();});
