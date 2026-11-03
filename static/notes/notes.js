@@ -49,12 +49,13 @@ function netUI(){const off=!navigator.onLine,q=Q.get().length;$('#net').classNam
 addEventListener('online',()=>{flush().then(load)});addEventListener('offline',netUI);
 
 /* ---------- list ---------- */
-async function load(){const p=new URLSearchParams({view:S.view==='tasks'?'all':S.view,folder:S.folder,tag:S.tag,q:S.q});
+async function load(){if(S.smart&&S.q&&S.view!=='clips'){try{const j=await api('/bb/api/notes-smart/search?q='+encodeURIComponent(S.q));S.list=j.notes;side();return list()}catch(e){}}
+ const p=new URLSearchParams({view:['tasks','clips'].includes(S.view)?'all':S.view,folder:S.folder,tag:S.tag,q:S.q});
  try{const j=await api('/bb/api/notes?'+p);S.list=j.notes;S.folders=j.folders;S.tags=j.tags;LS.set('list',j)}
  catch(e){if(e.status)return toast(e.message);const j=LS.get('list',{notes:[],folders:{},tags:{}});S.list=j.notes;S.folders=j.folders;S.tags=j.tags;
   if(S.q){const t=S.q.toLowerCase();S.list=S.list.filter(n=>(n.title+' '+n.body).toLowerCase().includes(t))}}
- side();S.view==='tasks'?tasks():list()}
-function side(){const V=[['all','🗒 সব নোট'],['fav','⭐ প্রিয়'],['tasks','☑ কাজের তালিকা'],['archive','🗄 আর্কাইভ'],['trash','🗑 ট্র্যাশ']];
+ side();S.view==='tasks'?tasks():S.view==='clips'?clips():list()}
+function side(){const V=[['all','🗒 সব নোট'],['fav','⭐ প্রিয়'],['tasks','☑ কাজের তালিকা'],['clips','📋 ক্লিপবোর্ড (৩০ দিন)'],['archive','🗄 আর্কাইভ'],['trash','🗑 ট্র্যাশ']];
  $('#views').innerHTML=V.map(([k,l])=>`<a data-v="${k}" class="${S.view===k&&!S.folder&&!S.tag?'act':''}">${l}</a>`).join('');
  $('#folders').innerHTML=Object.entries(S.folders).sort().map(([f,c])=>`<a data-f="${esc(f)}" class="${S.folder===f?'act':''}">📁 ${esc(f)}<small>${bn(c)}</small></a>`).join('')||'<small style="color:var(--mu);padding:0 10px">নেই</small>';
  $('#tags').innerHTML=Object.entries(S.tags).sort((a,b)=>b[1]-a[1]).map(([t,c])=>`<a data-t="${esc(t)}" class="${S.tag===t?'act':''}">#${esc(t)}<small>${bn(c)}</small></a>`).join('')||'<small style="color:var(--mu);padding:0 10px">নেই</small>';
@@ -73,7 +74,7 @@ async function open(id){if(S.dirty)await save();let n;
  try{n=await api('/bb/api/notes/'+id);cachePut(n)}catch(e){if(e.status)return toast(e.message);n=cache()[id]||S.list.find(x=>x.id===id);if(!n)return toast('অফলাইনে এই নোট নেই')}
  S.cur=n;S.dirty=false;$('#edPane').classList.remove('empty');$('#title').value=n.title||'';$('#body').value=n.body||'';$('#folder').value=n.folder||'';
  $('#tagIn').value=(n.tags||[]).join(', ');$('#pinB').classList.toggle('on',!!n.pinned);$('#favB').classList.toggle('on',!!n.fav);
- $('#upd').textContent='সম্পাদিত '+ago(n.updated);$('#saveState').textContent=n.trashed?'🗑 ট্র্যাশে':'';files(n.files||[]);render();mode(S.mode);
+ $('#upd').textContent='সম্পাদিত '+ago(n.updated);$('#saveState').textContent=n.trashed?'🗑 ট্র্যাশে':'';files(n.files||[]);render();mode(S.mode);related(id);
  document.querySelectorAll('.it').forEach(e=>e.classList.toggle('act',e.dataset.id===id));history.replaceState({},'','/notes/?id='+id)}
 function files(F){$('#files').innerHTML=F.map(f=>`<a href="/bb/api/notes/file/${f.id}" target="_blank">📎 ${esc(f.name)} <small>${bn(Math.ceil(f.size/1024))}KB</small></a>`).join('')}
 function render(){const b=$('#body').value;$('#prev').innerHTML=md(b);const w=b.trim()?b.trim().split(/\s+/).length:0;$('#wc').textContent=bn(w)+' শব্দ · '+bn(b.length)+' অক্ষর'}
@@ -83,7 +84,7 @@ function fields(){return{title:$('#title').value,body:$('#body').value,folder:$(
 function dirty(){S.dirty=true;$('#saveState').textContent='✍️ লিখছেন…';clearTimeout(S.timer);S.timer=setTimeout(save,900);if(S.mode!=='edit')render();else render()}
 async function save(snapshot){if(!S.cur)return;clearTimeout(S.timer);const d=fields(),id=S.cur.id;S.dirty=false;cachePut({id,...d,updated:Date.now()/1000});
  try{const n=await api('/bb/api/notes/'+id,{method:'PUT',body:JSON.stringify({...d,base:S.cur.updated,snapshot:!!snapshot})});S.cur={...S.cur,...n};
-  $('#saveState').textContent='✓ সংরক্ষিত';$('#upd').textContent='সম্পাদিত এইমাত্র';const it=S.list.find(x=>x.id===id);if(it){Object.assign(it,n);}else S.list.unshift(n);if(S.view!=='tasks')list()}
+  $('#saveState').textContent='✓ সংরক্ষিত';autotag(id,d);$('#upd').textContent='সম্পাদিত এইমাত্র';const it=S.list.find(x=>x.id===id);if(it){Object.assign(it,n);}else S.list.unshift(n);if(S.view!=='tasks')list()}
  catch(e){if(e.status===409){if(confirm('এই নোট অন্য ডিভাইসে বদলানো হয়েছে। আপনার লেখা রাখব? (বাতিল = সার্ভারের লেখা দেখাবে)')){S.cur.updated=e.j.server.updated;return save(true)}else return open(id)}
   if(!e.status){Q.push({t:'put',id,d});$('#saveState').textContent='💾 অফলাইনে জমা';netUI()}else{$('#saveState').textContent='⚠ '+e.message;S.dirty=true}}}
 async function create(extra={}){const id=(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2)).replace(/-/g,'').slice(0,12);
@@ -167,7 +168,7 @@ $('#pinB').onclick=()=>setFlag('pinned');$('#favB').onclick=()=>setFlag('fav');$
 $('#aiB').onclick=aiMenu;$('#moreB').onclick=more;$('#attB').onclick=()=>$('#file').click();$('#file').onchange=e=>{upload([...e.target.files]);e.target.value=''};$('#micB').onclick=mic;
 $('#dueB').onclick=()=>{const d=prompt('কাজের শেষ তারিখ (YYYY-MM-DD):',today());if(d&&/^\d{4}-\d{2}-\d{2}$/.test(d))ins('- [ ] | @'+d)};
 $('#sheetX').onclick=unsheet;$('#sheet').onclick=e=>{if(e.target.id==='sheet')unsheet()};
-let qt;$('#q').addEventListener('input',e=>{clearTimeout(qt);qt=setTimeout(()=>{S.q=e.target.value.trim();if(S.view==='tasks')S.view='all';load()},250)});
+let qt;$('#q').addEventListener('input',e=>{clearTimeout(qt);qt=setTimeout(()=>{S.q=e.target.value.trim();if(S.view==='tasks')S.view='all';load()},S.smart?600:250)});
 $('#body').addEventListener('paste',e=>{const f=[...(e.clipboardData?.files||[])];if(f.length){e.preventDefault();upload(f)}});
 $('#body').addEventListener('drop',e=>{const f=[...(e.dataTransfer?.files||[])];if(f.length){e.preventDefault();upload(f)}});
 $('#body').addEventListener('keydown',e=>{if(e.key==='Enter'){const t=e.target,s=t.selectionStart,ls=t.value.lastIndexOf('\n',s-1)+1,ln=t.value.slice(ls,s),m=ln.match(/^(\s*)([-*] \[[ xX]\] |[-*] |\d+[.)] )/);
@@ -180,3 +181,37 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&S.dirty)sa
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/notes/sw.js',{scope:'/notes/'}).catch(()=>{});
 (async()=>{netUI();await flush();await load();const p=new URLSearchParams(location.search);if(p.get('id'))open(p.get('id'));else if(p.get('new'))create();else if(p.get('view')==='tasks'){S.view='tasks';load()}
  setInterval(()=>{if(!S.dirty&&!document.hidden&&S.view!=='tasks')load()},60000)})();
+
+/* ---------- smart: related, autotag, semantic search ---------- */
+const AT=LS.get('autotagged',{});
+async function autotag(id,d){if(AT[id]||(d.body||'').trim().length<120)return;AT[id]=1;LS.set('autotagged',AT);
+ try{const j=await api('/bb/api/notes/'+id+'/autotag',{method:'POST',body:'{}'});if(j.tags&&S.cur?.id===id){$('#tagIn').value=j.tags.join(', ');if(j.title&&!$('#title').value)$('#title').value=j.title;S.cur.updated=Date.now()/1000+1;toast('🏷 AI ট্যাগ দিল: '+j.tags.join(', '));load()}}catch(e){}}
+async function related(id){let el=$('#related');if(!el){el=document.createElement('div');el.id='related';el.style.cssText='font-size:12px;color:var(--mu);padding-top:4px';$('#files').after(el)}el.innerHTML='';
+ try{const j=await api('/bb/api/notes/'+id+'/related');if(j.related.length)el.innerHTML='🔗 সম্পর্কিত নোট: '+j.related.map(r=>`<a class="chip" style="cursor:pointer" data-open="${r.id}">${esc(r.title||'শিরোনামহীন')}</a>`).join(' ')}catch(e){}}
+(()=>{const q=$('#q');const b=document.createElement('button');b.className='icon';b.title='স্মার্ট খোঁজা (AI সমার্থক শব্দ, বাংলা↔ইংরেজি)';b.textContent='🧠';
+ b.onclick=()=>{S.smart=!S.smart;b.classList.toggle('on',S.smart);toast(S.smart?'🧠 স্মার্ট খোঁজা চালু':'সাধারণ খোঁজা');if(S.q)load()};q.after(b)})();
+/* ---------- clipboard panel ---------- */
+const CAT={link:'🔗 লিংক',phone:'📞 ফোন',email:'✉️ ইমেইল',code:'💻 কোড',date:'📅 তারিখ',bangla:'🇧🇩 বাংলা লেখা',text:'📝 লেখা',image:'🖼 ছবি'};
+async function clips(){let j;try{j=await api('/bb/api/clips?limit=200&q='+encodeURIComponent(S.q)+'&cat='+encodeURIComponent(S.ccat||''))}catch(e){return toast(e.message)}S.clips=j.clips;
+ $('#list').innerHTML=`<div style="padding:4px"><small style="color:var(--mu)">আপনার ডিভাইসগুলোতে কপি করা জিনিস ৩০ দিন থাকে (📌 পিন করলে সবসময়)। পাসওয়ার্ড/OTP/কার্ড নম্বর রাখা হয় না।</small>
+ <div style="margin:6px 0"><button id="cPaste">📋 এখন পেস্ট করে রাখুন</button> <button id="cDig">🌅 আজকের সারাংশ</button> <button id="cClr">🧹 পিন ছাড়া সব মুছুন</button></div>
+ <div>${['',...Object.keys(j.cats)].map(c=>`<a class="chip" style="cursor:pointer;${(S.ccat||'')===c?'outline:1px solid var(--gd)':''}" data-cc="${c}">${c?CAT[c]||c:'সব'} ${c?bn(j.cats[c]):''}</a>`).join('')}</div><div id="cDigOut"></div></div>`+
+ (j.clips.map((c,i)=>`<div class="it" style="cursor:default"><small>${CAT[c.cat]||c.cat} · ${esc(c.device||'')} · ${ago(c.last)}${c.count>1?' · ×'+bn(c.count):''}${c.pinned?' · 📌':''}</small>
+ ${c.kind==='image'?`<img src="${esc(c.content)}" style="max-width:100%;border-radius:8px">`:`<p style="max-height:5em;white-space:pre-wrap">${esc(c.content.slice(0,400))}</p>`}
+ <div>${c.kind!=='image'?`<button data-ca="copy" data-i="${i}">📋 কপি</button>`:''}<button data-ca="note" data-i="${i}">📝 নোট</button><button data-ca="pin" data-i="${i}">${c.pinned?'আনপিন':'📌'}</button>
+ ${c.cat==='link'?`<button data-ca="open" data-i="${i}">🔗 খুলুন</button>`:''}${c.cat==='phone'?`<button data-ca="call" data-i="${i}">📞</button>`:''}${c.cat==='email'?`<button data-ca="mail" data-i="${i}">✉️</button>`:''}${c.cat==='date'?`<button data-ca="task" data-i="${i}">☑ কাজ</button>`:''}
+ <button data-ca="del" data-i="${i}">🗑</button></div><small style="color:var(--gd)">💡 ${esc((c.suggest||[]).join(' · '))}</small></div>`).join('')||'<p style="color:var(--mu);text-align:center">এখনো কোনো ক্লিপ নেই</p>');
+ $('#cPaste').onclick=async()=>{try{const t=await navigator.clipboard.readText();if(!t)return toast('ক্লিপবোর্ড খালি');const r=await api('/bb/api/clips',{method:'POST',body:JSON.stringify({content:t,device:'নোটবুক'})});toast(r.skipped==='private'?'🔒 গোপন তথ্য মনে হলো — রাখা হয়নি':'✓ রাখা হয়েছে');clips()}catch(e){toast('ব্রাউজার অনুমতি দেয়নি')}};
+ $('#cClr').onclick=async()=>{if(!confirm('পিন ছাড়া সব ক্লিপ মুছবে?'))return;await api('/bb/api/clips/0',{method:'DELETE'});clips()};
+ $('#cDig').onclick=async()=>{$('#cDigOut').innerHTML='⏳ …';try{const d=await api('/bb/api/clips/digest');$('#cDigOut').innerHTML=`<div class="md" style="background:var(--pn);padding:8px;border-radius:10px;margin-top:6px">আজ ${bn(d.count)}টি কপি। ${md(d.summary||'')}<button id="cDigN">📝 নোট বানান</button></div>`;$('#cDigN').onclick=()=>create({title:'ক্লিপবোর্ড সারাংশ '+today(),body:d.summary,folder:'দৈনিক সারাংশ'})}catch(e){$('#cDigOut').textContent=e.message}}}
+document.addEventListener('click',async e=>{const x=e.target.closest('[data-ca],[data-cc]');if(!x)return;e.stopPropagation();
+ if(x.dataset.cc!=null){S.ccat=x.dataset.cc;return clips()}const c=S.clips[+x.dataset.i],a=x.dataset.ca;
+ if(a==='copy'){navigator.clipboard?.writeText(c.content);return toast('📋 আবার কপি হলো')}
+ if(a==='open')return window.open(c.content.startsWith('http')?c.content:'https://'+c.content,'_blank','noopener');
+ if(a==='call')return location.href='tel:'+c.content.replace(/[^\d+]/g,'');if(a==='mail')return location.href='mailto:'+c.content;
+ if(a==='note')return create({title:(c.kind==='image'?'ছবি':c.content.split('\n')[0]).slice(0,60),body:c.kind==='image'?`![ছবি](${c.content.startsWith('data:')?'':c.content})`+(c.content.startsWith('data:')?'\n(ছবি ক্লিপবোর্ডে আছে)':''):(c.cat==='code'?'```\n'+c.content+'\n```':c.content),folder:'ক্লিপবোর্ড'});
+ if(a==='task')return create({title:'কাজ',body:'- [ ] '+c.content,folder:'ক্লিপবোর্ড'});
+ if(a==='pin'){await api('/bb/api/clips/'+c.id,{method:'PUT',body:JSON.stringify({pinned:!c.pinned})});return clips()}
+ if(a==='del'){await api('/bb/api/clips/'+c.id,{method:'DELETE'});return clips()}},true);
+document.addEventListener('copy',()=>{const t=String(getSelection()||'');if(t.length>1)api('/bb/api/clips',{method:'POST',body:JSON.stringify({content:t,device:'নোটবুক'})}).catch(()=>{})});
+if(new URLSearchParams(location.search).get('view')==='clips'){S.view='clips';setTimeout(load,300)}

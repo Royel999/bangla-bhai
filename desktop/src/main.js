@@ -40,5 +40,7 @@ app.whenReady().then(()=>{app.setAppUserModelId('org.dpdns.banglabhai.rbt');
   if(!app.getLoginItemSettings().openAtLogin&&!require('fs').existsSync(path.join(app.getPath('userData'),'.autostart-set'))){app.setLoginItemSettings({openAtLogin:true,args:['--hidden']});require('fs').writeFileSync(path.join(app.getPath('userData'),'.autostart-set'),'1');}
   tray=new Tray(nativeImage.createFromPath(path.join(__dirname,'tray.png')));tray.on('click',mainWin);refreshTray();mkOverlay();
   if(!process.argv.includes('--hidden'))mainWin();
-  agent=new Agent(BASE,ui);agent.start();});
+  agent=new Agent(BASE,ui);agent.start();
+  try{const fs=require('fs'),SF=path.join(app.getPath('userData'),'rbt-clip.json');const store={get:k=>{try{return JSON.parse(fs.readFileSync(SF,'utf8'))[k]}catch(e){}},set:(k,v)=>{let o={};try{o=JSON.parse(fs.readFileSync(SF,'utf8'))}catch(e){}o[k]=v;fs.writeFileSync(SF,JSON.stringify(o))}};
+   require('./clip')(agent,BASE,store);}catch(e){console.error('clip',e)}});
 app.on('window-all-closed',e=>{});

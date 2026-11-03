@@ -214,3 +214,181 @@ def setup(app, HH):
         tags = json.loads(r['tags'] or '[]')
         md = '# ' + (r['title'] or 'Untitled') + '\n\n' + (('Tags: ' + ', '.join('#' + t for t in tags) + '\n\n') if tags else '') + (r['body'] or '')
         return Response(md, media_type='text/markdown; charset=utf-8', headers={'Content-Disposition': "attachment; filename*=UTF-8''" + quote((r['title'] or 'note')[:60] + '.md')})
+
+# ---------------- Clipboard history + smart features ----------------
+CLIP_SCHEMA = """create table if not exists clips(id integer primary key autoincrement,user text,device text,kind text,cat text,content text,hash text,
+ pinned int default 0,count int default 1,created real,last real);
+create index if not exists clips_u on clips(user,last);
+create unique index if not exists clips_h on clips(user,hash);"""
+import hashlib as _hl, base64 as _b64
+SENS = [re.compile(p, re.I) for p in (r'\b\d{4,8}\b.{0,40}\b(otp|code|কোড|পিন|pin|verification)\b', r'\b(otp|code|কোড|pin|verification)\b.{0,40}\b\d{4,8}\b',
+        r'^\s*\d{4,8}\s*$', r'(?:\d[ -]?){13,19}', r'(password|passwd|pwd|পাসওয়ার্ড)\s*[:=]', r'-----BEGIN [A-Z ]*PRIVATE KEY', r'\b(sk|pk|ghp|gho|xox[bpa]|AKIA)[-_A-Za-z0-9]{16,}')]
+def _luhn(s):
+    d = [int(c) for c in re.sub(r'\D', '', s)][::-1]
+    return 13 <= len(d) <= 19 and sum(x if i % 2 == 0 else (x * 2 - 9 if x * 2 > 9 else x * 2) for i, x in enumerate(d)) % 10 == 0
+def sensitive(t):
+    t = t or ''
+    if any(p.search(t) for p in SENS[:3] + SENS[4:]): return True
+    for m in SENS[3].finditer(t):
+        if _luhn(m.group(0)): return True
+    s = t.strip()  # looks like a password: single token, mixed classes, 8-64 chars
+    if ' ' not in s and 8 <= len(s) <= 64 and not s.startswith(('http', 'www')) and sum(bool(re.search(p, s)) for p in (r'[a-z]', r'[A-Z]', r'\d', r'[^\w]')) >= 3 and '@' not in s: return True
+    return False
+def categorize(kind, t):
+    if kind == 'image': return 'image'
+    s = (t or '').strip()
+    if re.fullmatch(r'(https?://|www\.)\S+', s): return 'link'
+    if re.fullmatch(r'[\w.+-]+@[\w-]+\.[\w.-]+', s): return 'email'
+    if re.fullmatch(r'[+]?[\d\s()০-৯-]{7,18}', s) and len(re.sub(r'\D', '', s)) >= 7: return 'phone'
+    if re.search(r'[{};]\s*$|^\s*(def|function|import|const|let|class|SELECT|<\w+)\b|=>|\bfor\s*\(', s, re.M): return 'code'
+    if re.search(r'\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|\d{4}-\d{2}-\d{2}', s) and len(s) < 60: return 'date'
+    if re.search(r'[\u0980-\u09FF]', s): return 'bangla'
+    return 'text'
+def suggest(cat, t):
+    return {'link': ['🔗 লিংক খুলুন', '📝 পড়ার তালিকায় রাখুন'], 'email': ['✉️ ইমেইল লিখুন', '👤 যোগাযোগে রাখুন'], 'phone': ['📞 কল করুন', '👤 যোগাযোগে রাখুন'],
+            'code': ['💻 কোড নোটে রাখুন', '✨ AI দিয়ে ব্যাখ্যা'], 'date': ['📅 কাজ হিসেবে রাখুন'], 'image': ['🖼 নোটে ছবি রাখুন']}.get(cat, ['📝 নোট বানান', '✨ সারাংশ'])
+def setup_clips(app, HH):
+    db, need, owner, AG, RT = HH['db'], HH['need'], HH['owner'], HH['AG'], HH['RT']
+    with db() as c: c.executescript(CLIP_SCHEMA)
+    def purge():
+        with db() as c: c.execute('delete from clips where pinned=0 and last<?', (time.time() - 30 * 86400,))
+    purge(); _P = {'t': time.time()}
+    def U(request):
+        if time.time() - _P['t'] > 3600: _P['t'] = time.time(); purge()
+        try: return need(request)
+        except PermissionError: return None
+    def add(u, dev, kind, content):
+        if not content or len(content) > 2_000_000: return {'skipped': 'size'}
+        if kind != 'image' and sensitive(content): return {'skipped': 'private'}
+        h = _hl.sha256((kind + ':' + content).encode()).hexdigest(); now = time.time(); cat = categorize(kind, content)
+        if kind == 'text' and cat == 'link': kind = 'url'
+        with db() as c:
+            r = c.execute('select id from clips where user=? and hash=?', (u, h)).fetchone()
+            if r: c.execute('update clips set last=?,count=count+1,device=? where id=?', (now, dev, r['id'])); return {'id': r['id'], 'dup': True, 'cat': cat}
+            cur = c.execute('insert into clips(user,device,kind,cat,content,hash,created,last) values(?,?,?,?,?,?,?,?)', (u, dev, kind, cat, content, h, now, now))
+            n = c.execute('select count(*) from clips where user=? and pinned=0', (u,)).fetchone()[0]
+            if n > 5000: c.execute('delete from clips where id in (select id from clips where user=? and pinned=0 order by last limit ?)', (u, n - 5000))
+            return {'id': cur.lastrowid, 'cat': cat}
+    def row(r, full=False):
+        d = dict(r); d.pop('hash', None); d['suggest'] = suggest(d['cat'], d['content'])
+        if d['kind'] == 'image' and not full: d['content'] = d['content'][:200000]
+        return d
+    @app.post('/bb/api/clips')
+    async def cpost(request: Request):
+        u = U(request)
+        if not u: return JSONResponse({'error': 'unauthorized'}, 401)
+        if request.headers.get('x-bb-notes') != '1': return JSONResponse({'error': 'bad request'}, 400)
+        j = await request.json()
+        return add(u, str(j.get('device') or 'web')[:40], j.get('kind') if j.get('kind') in ('text', 'image', 'url') else 'text', str(j.get('content') or ''))
+    @app.post('/bb/link/clip')
+    async def lpost(request: Request):
+        j = await request.json(); d = AG.dev_by_token(j.get('token', ''))
+        if not d or d['status'] != 'approved': return JSONResponse({'error': 'unauthorized'}, 403)
+        kind = j.get('kind') if j.get('kind') in ('text', 'image', 'url') else 'text'
+        return add(owner, (d['name'] or d['id'])[:40], kind, str(j.get('content') or ''))
+    @app.get('/bb/link/clips')
+    def lget(token: str, n: int = 15):
+        d = AG.dev_by_token(token)
+        if not d or d['status'] != 'approved': return JSONResponse({'error': 'unauthorized'}, 403)
+        with db() as c: rs = c.execute("select id,kind,cat,substr(content,1,500) content,last,pinned from clips where user=? and kind!='image' order by last desc limit ?", (owner, min(n, 50))).fetchall()
+        return {'clips': [dict(r) for r in rs]}
+    @app.post('/bb/link/note')
+    async def lnote(request: Request):
+        j = await request.json(); d = AG.dev_by_token(j.get('token', ''))
+        if not d or d['status'] != 'approved': return JSONResponse({'error': 'unauthorized'}, 403)
+        body = str(j.get('body') or '')[:100000]
+        if not body.strip(): return JSONResponse({'error': 'empty'}, 400)
+        nid = uuid.uuid4().hex[:12]; now = time.time(); title = str(j.get('title') or body.strip().split('\n')[0][:60])
+        with db() as c: c.execute("insert into notes(id,user,title,body,folder,tags,created,updated) values(?,?,?,?,?,?,?,?)", (nid, owner, title, body, 'দ্রুত নোট', '[]', now, now))
+        return {'id': nid}
+    @app.get('/bb/api/clips')
+    def cget(request: Request, q: str = '', cat: str = '', limit: int = 100):
+        u = U(request)
+        if not u: return JSONResponse({'error': 'unauthorized'}, 401)
+        w, a = ['user=?'], [u]
+        if cat: w.append('cat=?'); a.append(cat)
+        for t in q.split()[:6]: w.append("kind!='image' and content like ?"); a.append('%' + t + '%')
+        with db() as c:
+            rs = c.execute('select * from clips where ' + ' and '.join(w) + ' order by pinned desc,last desc limit ?', a + [min(limit, 300)]).fetchall()
+            cats = {r['cat']: r['n'] for r in c.execute('select cat,count(*) n from clips where user=? group by cat', (u,))}
+        return {'clips': [row(r) for r in rs], 'cats': cats, 'keep_days': 30}
+    @app.put('/bb/api/clips/{cid}')
+    async def cput(cid: int, request: Request):
+        u = U(request)
+        if not u or request.headers.get('x-bb-notes') != '1': return JSONResponse({'error': 'unauthorized'}, 401)
+        j = await request.json()
+        with db() as c: c.execute('update clips set pinned=? where id=? and user=?', (int(bool(j.get('pinned'))), cid, u))
+        return {'ok': True}
+    @app.delete('/bb/api/clips/{cid}')
+    def cdel(cid: int, request: Request):
+        u = U(request)
+        if not u or request.headers.get('x-bb-notes') != '1': return JSONResponse({'error': 'unauthorized'}, 401)
+        with db() as c:
+            if cid == 0: c.execute('delete from clips where user=? and pinned=0', (u,))
+            else: c.execute('delete from clips where id=? and user=?', (cid, u))
+        return {'ok': True}
+    @app.get('/bb/api/clips/digest')
+    async def digest(request: Request, ai: int = 1):
+        u = U(request)
+        if not u: return JSONResponse({'error': 'unauthorized'}, 401)
+        with db() as c: rs = c.execute("select cat,substr(content,1,300) content,device from clips where user=? and kind!='image' and last>? order by last desc limit 80", (u, time.time() - 86400)).fetchall()
+        cats = {}
+        for r in rs: cats[r['cat']] = cats.get(r['cat'], 0) + 1
+        out = {'count': len(rs), 'cats': cats, 'summary': ''}
+        if ai and rs:
+            try:
+                _, t, _ = await RT.complete([{'role': 'system', 'content': 'এগুলো আজ ব্যবহারকারী যা কপি করেছেন। বাংলায় ৩-৬ বুলেটে সংক্ষিপ্ত দৈনিক সারাংশ দাও: কী নিয়ে কাজ করছেন, জরুরি লিংক/নম্বর, আর পরামর্শ (কী নোট/কাজ বানানো উচিত)।'},
+                                             {'role': 'user', 'content': '\n---\n'.join(r['content'] for r in rs)[:12000]}], timeout=60, tries=2)
+                out['summary'] = re.sub(r'<think>.*?</think>', '', t or '', flags=re.S).strip()
+            except Exception: out['summary'] = ''
+        return out
+    # ---- smart notes: related + auto tag/title + semantic-ish search ----
+    def toks(s):
+        return {w for w in re.findall(r'[\w\u0980-\u09FF]{3,}', (s or '').lower()) if w not in STOP}
+    @app.get('/bb/api/notes/{nid}/related')
+    def related(nid: str, request: Request):
+        u = U(request)
+        if not u: return JSONResponse({'error': 'unauthorized'}, 401)
+        with db() as c:
+            me = c.execute('select * from notes where id=? and user=?', (nid, u)).fetchone()
+            if not me: return JSONResponse({'error': 'not found'}, 404)
+            rs = c.execute('select id,title,body,tags,updated from notes where user=? and trashed=0 and id!=?', (u, nid)).fetchall()
+        a = toks(me['title'] + ' ' + me['body'] + ' ' + me['tags']); sc = []
+        for r in rs:
+            b = toks(r['title'] + ' ' + r['body'] + ' ' + r['tags'])
+            if a and b:
+                s = len(a & b) / (len(a | b) ** .5)
+                if s > 0.15: sc.append((s, {'id': r['id'], 'title': r['title'], 'score': round(s, 2)}))
+        return {'related': [x[1] for x in sorted(sc, key=lambda x: -x[0])[:6]]}
+    @app.get('/bb/api/notes-smart/search')
+    async def ssearch(request: Request, q: str):
+        u = U(request)
+        if not u: return JSONResponse({'error': 'unauthorized'}, 401)
+        qs = toks(q)
+        try:
+            _, t, _ = await RT.complete([{'role': 'system', 'content': 'Give 8 search keywords (Bangla and English synonyms/translations) for the query, comma separated, nothing else.'}, {'role': 'user', 'content': q[:300]}], timeout=20, tries=1)
+            qs |= toks(re.sub(r'<think>.*?</think>', '', t or '', flags=re.S).replace(',', ' '))
+        except Exception: pass
+        with db() as c: rs = c.execute('select id,title,body,tags,folder,updated,pinned,fav from notes where user=? and trashed=0', (u,)).fetchall()
+        out = []
+        for r in rs:
+            txt = (r['title'] + ' ' + r['body'] + ' ' + r['tags']).lower()
+            s = sum(txt.count(w) for w in qs) + 3 * sum(w in (r['title'] or '').lower() for w in qs)
+            if s: d = dict(r); d['body'] = d['body'][:240]; d['tags'] = json.loads(d['tags'] or '[]'); d['score'] = s; out.append(d)
+        return {'notes': sorted(out, key=lambda x: -x['score'])[:50], 'terms': sorted(qs)[:20]}
+    @app.post('/bb/api/notes/{nid}/autotag')
+    async def autotag(nid: str, request: Request):
+        u = U(request)
+        if not u or request.headers.get('x-bb-notes') != '1': return JSONResponse({'error': 'unauthorized'}, 401)
+        with db() as c: r = c.execute('select * from notes where id=? and user=?', (nid, u)).fetchone()
+        if not r or len((r['body'] or '').strip()) < 40: return {'skipped': True}
+        try:
+            _, t, _ = await RT.complete([{'role': 'system', 'content': 'Return JSON only: {"title": "3-6 word title in the note language", "tags": ["2-4 short lowercase tags in the note language"]}'}, {'role': 'user', 'content': r['body'][:6000]}], timeout=30, tries=1)
+            j = json.loads(re.search(r'\{.*\}', t, re.S).group(0))
+        except Exception: return {'skipped': True}
+        tags = json.loads(r['tags'] or '[]'); new = [str(x)[:30].lstrip('#') for x in j.get('tags', [])][:4]
+        upd = {'tags': json.dumps(list(dict.fromkeys(tags + new))[:12], ensure_ascii=False)}
+        if not (r['title'] or '').strip() and j.get('title'): upd['title'] = str(j['title'])[:120]
+        with db() as c: c.execute('update notes set ' + ','.join(k + '=?' for k in upd) + ' where id=?', list(upd.values()) + [nid])
+        return {'tags': json.loads(upd['tags']), 'title': upd.get('title')}
+STOP = set('the and for with this that from are was have you your not but করে এবং থেকে জন্য হবে আমি আমার এটা একটা তার করা আছে এই সেই করতে হয়'.split())

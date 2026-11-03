@@ -224,9 +224,17 @@ def main():
         BASE=BASE.rstrip("/")
         if not BASE: raise SystemExit("URL দরকার")
     print("♛ "+APP+" · Royal Link (tray)"); c=pair(); tray_loop()
-    # prefer WS
-    try: loop_ws(c["token"])
-    except Exception: loop_http(c["token"])
+    def net():
+        try: loop_ws(c["token"])
+        except Exception: loop_http(c["token"])
+    if os.environ.get("BB_CLIP","1")=="0": return net()
+    threading.Thread(target=net,daemon=True).start()
+    try:
+        sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
+        import royal_clip; royal_clip.Clip(BASE,c["token"],STATUS).run()   # tkinter needs the main thread
+    except Exception as e:
+        print("clip/bubble unavailable:",e)
+    while True: time.sleep(3600)
 
 if __name__=="__main__":
     if "--install-autostart" in sys.argv: install_autostart(); sys.exit(0)

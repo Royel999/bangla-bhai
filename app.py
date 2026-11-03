@@ -1018,6 +1018,7 @@ import notebook as NB
 NB.setup(app,dict(is_admin=is_admin))
 import notes as NOTES
 NOTES.setup(app,dict(db=db,need=need,RT=RT,audit=audit))
+NOTES.setup_clips(app,dict(db=db,need=need,RT=RT,AG=AG,owner=CFG["BB_USER"]))
 import devagent as DA
 DA.setup(app,dict(db=db,audit=audit,need_admin=need_admin,rate_ok=rate_ok,MD=MD))
 try:
