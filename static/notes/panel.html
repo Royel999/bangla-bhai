@@ -82,7 +82,7 @@ footer{display:flex;gap:4px;padding:6px 10px 10px;flex-wrap:wrap;border-top:1px 
    <h4 style="margin-top:10px">📏 আকার</h4><button class="b" data-z="small">ছোট</button><button class="b" data-z="medium">মাঝারি</button><button class="b" data-z="large">বড়</button>
    <h4 style="margin-top:10px">🎭 সঙ্গী</h4><button class="b" data-mz="girl">👧 মামণি</button><button class="b" data-mz="doyel">🐦 দোয়েল</button>
    <h4 style="margin-top:10px">⚡ গতি <small>(ইন্টারনেট × এটি)</small></h4><button class="b" data-s="0.5">ধীর</button><button class="b" data-s="1">মাঝারি</button><button class="b" data-s="2">দ্রুত</button><div id="bs" class="m" style="margin-top:6px"></div>
-   <h4 style="margin-top:12px">🧠 কাজ দেখে শেখা <small>(শুধু এই পিসিতে থাকে)</small></h4><div id="lrn" class="m">PC অ্যাপে খুলুন</div>
+   <h4 style="margin-top:12px">🧠 কাজ দেখে শেখা <small>(শুধু এই পিসিতে থাকে)</small></h4><div id="lrn" class="m">PC বা অ্যান্ড্রয়েড অ্যাপে খুলুন</div>
    <div class="row"><button class="b" id="lp">⏸ শেখা থামাও</button><button class="b" id="lq">🔕 পরামর্শ বন্ধ</button><select id="lg" class="b"><option value="5">৫ মিনিটে ১টি</option><option value="7">৭ মিনিটে ১টি</option><option value="10">১০ মিনিটে ১টি</option><option value="20">২০ মিনিটে ১টি</option></select><button class="b" id="ld" style="color:#ff8a8a">🗑 শেখা ডেটা মুছুন</button></div>
    <div id="lins"></div></section>
  </div>
@@ -157,15 +157,16 @@ $$('[data-s]').forEach(b=>b.onclick=async()=>{await bird('speed',b.dataset.s);bi
 $$('[data-z]').forEach(b=>b.onclick=()=>bird('size',b.dataset.z));$$('[data-mz]').forEach(b=>b.onclick=()=>bird('mascot',b.dataset.mz));
 
 /* ---- কাজ দেখে শেখা (PC only; data in ~/.rbt_learn) ---- */
-async function learnStat(){if(MODE!=='win'||!B.learn_state)return;let o;try{o=JSON.parse(await B.learn_state())}catch(e){return}
+async function learnStat(){if(!B||!B.learn_state)return;let o;try{o=JSON.parse(await B.learn_state())}catch(e){return}
  const st=o.settings||{};$('#lp').textContent=st.pause?'▶ শেখা চালু করো':'⏸ শেখা থামাও';$('#lq').textContent=st.quiet?'🔔 পরামর্শ চালু':'🔕 পরামর্শ বন্ধ';$('#lg').value=String(st.gap||7);
  $('#lrn').innerHTML=(st.pause?'⏸ শেখা বন্ধ আছে · ':'✅ শিখছি · ')+`আজ ব্যবহৃত: ${(o.apps||[]).map(a=>esc(a[0].replace('.exe',''))+' '+a[1]+'মি').join(', ')||'—'} · মোট রেকর্ড ${o.n||0}`;
  $('#lins').innerHTML=(o.insights||[]).map(i=>`<div class="card">💡 ${esc(i.text)}${i.kind==='snippet'?` <button class="b" data-sn="${esc(i.p)}">📌 নোটে রাখো</button>`:''}</div>`).join('')+
   ((o.tips||[]).length?'<h5>সাম্প্রতিক পরামর্শ</h5>'+(o.tips||[]).map(t=>`<div class="card m">${esc(t.text)}</div>`).join(''):'');
  $$('[data-sn]').forEach(x=>x.onclick=async()=>{await A.note('📌 স্নিপেট\n\n'+x.dataset.sn);x.textContent='✓ রাখা'})}
-$('#lp').onclick=async()=>{const o=JSON.parse(await B.learn_state());await B.learn_set('pause',!(o.settings||{}).pause);learnStat()};
-$('#lq').onclick=async()=>{const o=JSON.parse(await B.learn_state());await B.learn_set('quiet',!(o.settings||{}).quiet);learnStat()};
-$('#lg').onchange=async()=>{await B.learn_set('gap',+$('#lg').value);learnStat()};
+const LS=(k,v)=>MODE==='android'?B.learn_set(k,String(v)):B.learn_set(k,v);
+$('#lp').onclick=async()=>{const o=JSON.parse(await B.learn_state());await LS('pause',!(o.settings||{}).pause);learnStat()};
+$('#lq').onclick=async()=>{const o=JSON.parse(await B.learn_state());await LS('quiet',!(o.settings||{}).quiet);learnStat()};
+$('#lg').onchange=async()=>{await LS('gap',+$('#lg').value);learnStat()};
 $('#ld').onclick=async()=>{if(confirm('শেখা সব ডেটা (অ্যাপ ইতিহাস, কপি-প্যাটার্ন, পরামর্শ) এই পিসি থেকে মুছে ফেলবেন?')){await B.learn_delete();learnStat()}};
 /* ---- এজেন্ট: plan on server, run step by step on the PC; risky steps need a click ---- */
 let AST=0;const alog=(h,c='')=>{const d=document.createElement('div');d.className='card '+c;d.innerHTML=h;$('#alog').appendChild(d);$('#alog').scrollTop=1e9;return d};
