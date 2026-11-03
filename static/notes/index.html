@@ -1,0 +1,49 @@
+<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex"><title>রয়েল নোটবুক</title><meta name="theme-color" content="#0b1a33">
+<link rel="manifest" href="/notes/manifest.webmanifest"><link rel="icon" href="/bb/static/notebook/icon.png"><link rel="stylesheet" href="/notes/notes.css"></head>
+<body>
+<div id="app">
+<aside id="side">
+ <div class="brand"><img src="/bb/static/notebook/icon.png" alt=""><div><b>রয়েল নোটবুক</b><small>The Royal Bengal Tiger</small></div></div>
+ <button id="newBtn" class="primary">＋ নতুন নোট</button>
+ <nav id="views"></nav>
+ <h4>ফোল্ডার</h4><nav id="folders"></nav>
+ <h4>ট্যাগ</h4><nav id="tags"></nav>
+ <a class="back" href="/v4">← অ্যাপে ফিরুন</a>
+</aside>
+<section id="listPane">
+ <div class="top"><button id="menuBtn" class="icon" aria-label="মেনু">☰</button><input id="q" type="search" placeholder="🔍 খুঁজুন… (Ctrl+K)"><span id="net" title="সংযোগ"></span></div>
+ <div id="list"></div>
+</section>
+<section id="edPane" class="empty">
+ <div class="etop">
+  <button id="backList" class="icon" aria-label="ফিরে যান">←</button>
+  <input id="title" placeholder="শিরোনাম">
+  <span id="saveState"></span>
+ </div>
+ <div class="meta">
+  <input id="folder" list="folderList" placeholder="📁 ফোল্ডার"><datalist id="folderList"></datalist>
+  <input id="tagIn" placeholder="🏷 ট্যাগ (কমা দিয়ে)">
+  <button id="pinB" class="icon" title="পিন">📌</button><button id="favB" class="icon" title="প্রিয়">⭐</button>
+ </div>
+ <div class="tools">
+  <button data-md="**|**" title="বোল্ড"><b>B</b></button><button data-md="*|*" title="ইটালিক"><i>I</i></button>
+  <button data-md="## |" title="শিরোনাম">H</button><button data-md="- |" title="তালিকা">•</button>
+  <button data-md="- [ ] |" title="চেকলিস্ট">☑</button><button id="dueB" title="তারিখসহ কাজ">📅</button>
+  <button data-md="> |" title="উদ্ধৃতি">❝</button><button data-md="`|`" title="কোড">⌨</button>
+  <button data-md="[|](https://)" title="লিংক">🔗</button>
+  <button id="attB" title="ছবি/ফাইল যোগ">📎</button><input id="file" type="file" multiple hidden>
+  <button id="micB" title="বাংলায় বলে লিখুন">🎤</button>
+  <span class="sp"></span>
+  <button id="modeB" title="এডিট/প্রিভিউ">👁 প্রিভিউ</button>
+  <button id="aiB" class="gold">✨ AI</button>
+  <button id="moreB">⋯</button>
+ </div>
+ <div id="edWrap"><textarea id="body" placeholder="লিখতে শুরু করুন… Markdown চলে: **বোল্ড**, - [ ] কাজ @2026-11-10"></textarea><article id="prev" class="md"></article></div>
+ <div id="files"></div>
+ <div class="foot"><span id="wc"></span><span id="upd"></span></div>
+</section>
+</div>
+<div id="sheet" hidden><div class="card"><div id="sheetBody"></div><button class="close" id="sheetX">বন্ধ</button></div></div>
+<div id="toast"></div>
+<script src="/notes/notes.js"></script></body></html>

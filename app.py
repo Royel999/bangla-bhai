@@ -1016,6 +1016,8 @@ import vault as VLT
 VLT.setup(app,dict(user=user,is_owner=is_owner_uid))
 import notebook as NB
 NB.setup(app,dict(is_admin=is_admin))
+import notes as NOTES
+NOTES.setup(app,dict(db=db,need=need,RT=RT,audit=audit))
 import devagent as DA
 DA.setup(app,dict(db=db,audit=audit,need_admin=need_admin,rate_ok=rate_ok,MD=MD))
 try:
