@@ -419,6 +419,7 @@ class Doyel:
         menu.add_command(label='📖 নোটবুক খুলুন', command=lambda: __import__('webbrowser').open(self.base + '/notes/'))
         menu.add_command(label='বাবল লুকান (এই সেশনে)', command=r.withdraw)
         menu.add_command(label=self.LB[3], command=lambda: self.bird_cmd('mascot', 'doyel' if isinstance(self, Girl) else 'girl'))
+        getattr(self, 'extra_menu', lambda m: None)(menu)
         def popup(e):
             menu.entryconfig(10, label='⚡ গতি — নেট %s' % ('অফলাইন' if self.net is None else '%.1f Mbps' % self.mbps)); menu.tk_popup(e.x_root, e.y_root)
         self.cv.bind('<Button-3>', popup)
@@ -519,161 +520,302 @@ DOYEL = {
 }
 DOYEL_POSES = {"fly": ["fly0", "fly1", "fly2", "fly3", "fly4", "fly5", "fly6", "fly7"], "glide": ["glide0"], "perch": ["perch0"], "cock": ["cock0", "cock1"], "look": ["look0"], "sing": ["sing0"], "preen": ["preen0"], "hop": ["hop0", "hop1"], "down": ["down0"], "walk": ["walk0", "walk1", "walk2"], "peck": ["peck0", "peck1"], "drink": ["drink0"], "sleep": ["sleep0"], "shake": ["shake0"]}
 
-# ───────── মামণি (the little girl): walks on taskbar / window tops, sits, waves, plays, sleeps at night ─────────
-MASCOT_F = os.path.expanduser('~/.rbt_mascot')      # 'girl' (default) or 'doyel'
+# ───────── মামণি v2: big (size setting), very busy little girl — walks/runs/skips/dances, hops & climbs windows, peeks from edges,
+# chases butterflies, kicks a ball, reads, waves & follows the cursor, watches you type, reacts to clicks, giggles in Bangla, sleeps at night ─────────
+MASCOT_F = os.path.expanduser('~/.rbt_mascot'); SIZE_F = os.path.expanduser('~/.rbt_size'); GDIR = os.path.expanduser('~/.rbt_girl2')
+G2 = ['walk0', 'walk1', 'walk2', 'walk3', 'walk4', 'walk5', 'stand0', 'blink0', 'wave0', 'wave1', 'jump0', 'look0', 'squat0', 'sit0', 'sleep0', 'carry0', 'clap0',
+      'run0', 'run1', 'run2', 'run3', 'skip0', 'climb0', 'dance0', 'dance1', 'read0', 'chase0', 'giggle0', 'think0', 'peek0', 'kick0', 'surprise0', 'kiss0']
+SIZES = {'small': 110, 'medium': 170, 'large': 240}
+SAY = {'hi': ['আব্বু!', 'হাই আব্বু!', 'আমি এখানে!', 'দেখো দেখো!'], 'play': ['খেলবে?', 'চলো খেলি!', 'বল খেলবো!', 'ধরো আমাকে!'], 'giggle': ['হি হি!', 'হা হা হা!', 'কাতুকুতু!', 'হি হি হি'],
+       'type': ['কী লিখছো?', 'আমিও লিখবো!', 'বাহ্‌, কত লেখা!'], 'click': ['ওমা!', 'আরে!', 'কী হলো?', 'হি হি!'], 'clip': ['কপি করলে?', 'রেখে দিলাম!', 'পেয়েছি!'],
+       'sleep': ['ঘুম পাচ্ছে…', 'শুভ রাত্রি আব্বু'], 'wake': ['শুভ সকাল!', 'উঠে গেছি!'], 'read': ['গল্প পড়ছি…', 'এটা কী লেখা?'], 'fly': ['প্রজাপতি!', 'দাঁড়াও ধরবো!'],
+       'dance': ['লা লা লা ♪', 'নাচ দেখো!'], 'kiss': ['উম্মা!', 'ভালোবাসি আব্বু!'], 'peek': ['টুকি!', 'খুঁজে পাও তো!']}
 class Girl(Doyel):
-    LB = ('🚶 হেঁটে বেড়াও', '🪑 কোথাও বসো', '👏 খেলা করো', '🐦 দোয়েলকে আনো')
+    LB = ('🚶 হেঁটে বেড়াও', '🪑 কোথাও বসো', '⚽ খেলা করো', '🐦 দোয়েলকে আনো')
     ALIAS = {'perch0': 'stand0', 'shake0': 'stand0', 'cock0': 'look0', 'cock1': 'look0', 'down0': 'squat0', 'peck0': 'squat0', 'peck1': 'squat0',
-             'sing0': 'wave0', 'preen0': 'blink0', 'glide0': 'jump0', 'hop0': 'squat0', 'hop1': 'jump0', 'drink0': 'squat0'}
+             'sing0': 'dance0', 'preen0': 'blink0', 'glide0': 'jump0', 'hop0': 'squat0', 'hop1': 'jump0', 'drink0': 'squat0'}
+    def __init__(self, base, token, status=None):
+        super().__init__(base, token, status)
+        try: self.size = open(SIZE_F).read().strip()
+        except Exception: self.size = 'large'
+        self.size = self.size if self.size in SIZES else 'large'; self.big = False
+        try:
+            from PIL import Image  # noqa
+            os.makedirs(GDIR, exist_ok=True)
+            for n in G2:
+                f = os.path.join(GDIR, n + '.png')
+                if not os.path.exists(f) or os.path.getsize(f) < 200:
+                    with U.urlopen(U.Request(self.base + '/bb/static/notes/girl2/' + n + '.png', headers={'User-Agent': 'RoyalLink/2.1'}), timeout=20) as r: open(f, 'wb').write(r.read())
+            self.big = True; self.S = round(SIZES[self.size] * 300 / 240); self.FOOT = self.S - max(2, round(self.S * 4 / 300))
+        except Exception as e: print('girl2 sprites unavailable, using small set', e)
+        self.k = self.S / 128
     def img(self, name):
         if not getattr(self, 'imgs', None):
-            import tkinter as tk; self.imgs = {k: tk.PhotoImage(data=v) for k, v in GIRL.items()}
+            import tkinter as tk; self.imgs = {}
+            if self.big:
+                from PIL import Image, ImageTk
+                for n in G2:
+                    im = Image.open(os.path.join(GDIR, n + '.png')).convert('RGBA').resize((self.S, self.S), Image.LANCZOS)
+                    a = im.split()[3].point(lambda v: 255 if v > 120 else 0); im.putalpha(a)
+                    self.imgs[n] = ImageTk.PhotoImage(im); self.imgs[n + '_L'] = ImageTk.PhotoImage(im.transpose(Image.FLIP_LEFT_RIGHT))
+            else: self.imgs = {k: tk.PhotoImage(data=v) for k, v in GIRL.items()}
         if name.startswith('fly'): name = 'carry0'
         name = self.ALIAS.get(name, name)
+        if name + '_L' not in self.imgs: name = {'run0': 'walk0', 'run1': 'walk1', 'run2': 'walk3', 'run3': 'walk4', 'skip0': 'jump0', 'dance0': 'wave0', 'dance1': 'wave1', 'read0': 'sit0',
+                                                 'chase0': 'wave0', 'giggle0': 'clap0', 'think0': 'look0', 'kick0': 'walk2', 'surprise0': 'jump0', 'kiss0': 'wave1', 'climb0': 'jump0', 'peek0': 'look0'}.get(name, 'stand0')
         if name + '_L' not in self.imgs: name = 'stand0'
         return self.imgs[name + ('_L' if self.face < 0 else '')]
+    # ---- speech bubble (separate tiny window above her head) ----
+    def bubble(self, kind, force=False):
+        import random, tkinter as tk
+        now = time.time()
+        if not force and now - getattr(self, 't_say', 0) < 7: return
+        self.t_say = now; txt = random.choice(SAY.get(kind, [kind]))
+        try:
+            if getattr(self, 'bw', None): self.bw.destroy()
+            w = self.bw = tk.Toplevel(self.root); w.overrideredirect(True); w.attributes('-topmost', True); w.configure(bg='#010203')
+            try: w.attributes('-transparentcolor', '#010203')
+            except Exception: pass
+            l = tk.Label(w, text=txt, font=('Nirmala UI', max(10, int(9 + self.k * 2)), 'bold'), bg='#fff6d8', fg='#7a2d00', padx=10, pady=4, relief='solid', bd=1); l.pack()
+            w.update_idletasks(); self.bw_pos(); w.after(2600, lambda w=w: w.destroy())
+        except Exception: pass
+    def bw_pos(self):
+        w = getattr(self, 'bw', None)
+        try:
+            if w and w.winfo_exists(): w.geometry('+%d+%d' % (self.x + self.S // 2 - w.winfo_width() // 2, self.y + int(self.S * .02) - w.winfo_height()))
+        except Exception: pass
+    def place(self): self.root.geometry('+%d+%d' % (self.x, self.y)); self.bw_pos()
     def props(self, kind=None):
         c = getattr(self, 'cv', None)
         if c is None: return
         c.delete('prop')
         if not kind: return
-        import random; bx = 100 if self.face > 0 else 28
-        if kind == 'flower':
-            c.create_line(bx, 124, bx, 112, fill='#3e7d2c', width=2, tags='prop')
-            for dx, dy in ((-3, -3), (3, -3), (0, -6), (0, 0)): c.create_oval(bx + dx - 3, 109 + dy - 3, bx + dx + 3, 109 + dy + 3, fill='#ff8fb1', outline='', tags='prop')
-            c.create_oval(bx - 2, 107, bx + 2, 111, fill='#ffd84a', outline='', tags='prop')
+        import random; k = self.k; bx = int((104 if self.face > 0 else 24) * k); fnt = ('Segoe UI Emoji', max(10, int(8 * k)))
+        if kind == 'flower': c.create_text(bx, int(116 * k), text='🌸', font=fnt, tags='prop')
         elif kind == 'heart':
-            for _ in range(2): x, y = random.randint(30, 98), random.randint(6, 30); c.create_text(x, y, text='♥', fill='#ff4d7d', font=('Segoe UI', 13, 'bold'), tags='prop')
-        elif kind == 'zzz': c.create_text(96, 72, text='z z', fill='#bcd3ff', font=('Segoe UI', 11, 'bold'), tags='prop')
-        elif kind == 'ball':
-            x = bx + random.randint(-4, 4); c.create_oval(x - 7, 110, x + 7, 124, fill='#ff6b3d', outline='#c4441e', tags='prop'); c.create_arc(x - 7, 110, x + 7, 124, start=30, extent=120, style='arc', outline='white', tags='prop')
-        elif kind == 'music': c.create_text(bx, 30, text='♪', fill='#ffd84a', font=('Segoe UI', 14, 'bold'), tags='prop')
+            for _ in range(2): c.create_text(random.randint(int(30 * k), int(98 * k)), random.randint(int(6 * k), int(26 * k)), text='♥', fill='#ff4d7d', font=('Segoe UI', max(12, int(9 * k)), 'bold'), tags='prop')
+        elif kind == 'zzz': c.create_text(int(98 * k), int(70 * k), text='z z Z', fill='#bcd3ff', font=('Segoe UI', max(11, int(8 * k)), 'bold'), tags='prop')
+        elif kind == 'ball': c.create_text(bx + random.randint(-4, 4), int(116 * k), text='⚽', font=fnt, tags='prop')
+        elif kind == 'music': c.create_text(bx + random.randint(-8, 8), int(random.randint(14, 34) * k), text=random.choice('♪♫'), fill='#ffd84a', font=('Segoe UI', max(12, int(10 * k)), 'bold'), tags='prop')
+        elif kind == 'fly':
+            self.bf = getattr(self, 'bf', 0) + 1; c.create_text(int((64 + 34 * self.face + 10 * ((self.bf % 4) - 1.5)) * k), int((14 + 6 * (self.bf % 3)) * k), text='🦋', font=fnt, tags='prop')
     def paint(self):
         super().paint()
         if self.state == 'sleep': self.props('zzz')
     def pick_target(self, perch=False, spot=None, near=None):
-        super().pick_target(True, spot, near)                    # she never floats — always aims for a surface
+        super().pick_target(True, spot, near)
         if not self.perch_on: tl, tt, tr = self.taskbar_top(); self.perch_on = ('taskbar', None, tt, tl + 10, tr - 260); self.tx, self.ty = self.x, tt - self.FOOT
     def pin(self, on):
         import random
-        if on: self.go('pinned', random.uniform(25, 90)); self.perch_on = ('pin', None, self.y + self.FOOT, self.x - 40 + 64, self.x + 40 + 64); self._save_pos(self.x, self.y); self.do('sitdown')
-        else: self.pick_target(True); self.go('fly', 120); self.t_fly = time.time(); self.arc = None
+        if on: self.go('pinned', random.uniform(20, 60)); self.perch_on = ('pin', None, self.y + self.FOOT, self.x - 40 + self.S // 2, self.x + 40 + self.S // 2); self._save_pos(self.x, self.y); self.do('giggle')
+        else: self.pick_target(True); self.go('fly', 120); self.t_fly = time.time(); self.arc = None; self.climb = None
         self.paint()
     def choose(self):
         import random; h = self.hour(); night = h >= 22 or h < 5
-        on_edge = self.perch_on and self.perch_on[4] - self.perch_on[3] > 160
-        w = {'idle': 4, 'blink': 3, 'look': 2.5, 'wave': 1.5, 'walk': 4 if on_edge else 0.5, 'sit': 2, 'clap': 1.5, 'flower': 1.5 if on_edge else .5, 'ball': 1.2,
-             'jump': 1, 'travel': 0 if not self.roam else 1 + (time.time() - self.t_fly > 120) * 2, 'sleep': 30 if night else 0.15, 'curious': 0}
-        if self.net is None: w['sit'] = 8; w['travel'] = 0
+        on_edge = self.perch_on and self.perch_on[4] - self.perch_on[3] > 200
+        w = {'idle': 1.2, 'walk': 4 if on_edge else 1, 'run': 3 if on_edge else .5, 'skip': 2.5 if on_edge else .5, 'dance': 3, 'travel': 3.5 if self.roam else 0, 'climb': 2 if self.roam else 0,
+             'peek': 1.5 if self.roam else 0, 'chase': 2.5, 'ball': 2.5, 'read': 1.2, 'wave': 2, 'follow': 1.2 if self.roam else 0, 'sit': .8, 'giggle': 2, 'kiss': 1, 'think': 1, 'jump': 2,
+             'flower': 1.5 if on_edge else .3, 'sleep': 40 if night else 0.05, 'curious': 0}
+        if self.net is None: w.update(travel=0, climb=0, peek=0, follow=0, sit=4, read=3)
         px, py = self.root.winfo_pointerxy()
-        if time.time() - self.t_mouse > 20 and abs(px - self.x - 64) + abs(py - self.y - 64) < 700: w['curious'] = 3
+        if time.time() - self.t_mouse > 8 and abs(px - self.x - self.S // 2) + abs(py - self.y - self.S // 2) < 900: w['curious'] = 3
         self.do(random.choices(list(w), list(w.values()))[0])
     def do(self, k):
-        import random; S = []
-        if k == 'idle': S = [('stand0', random.uniform(1.5, 3.5), 0, None), ('blink0', .14, 0, None), ('stand0', random.uniform(1, 2.5), 0, None)]
-        elif k == 'blink': S = [('blink0', .13, 0, None), ('stand0', .25, 0, None), ('blink0', .12, 0, None), ('stand0', 1.5, 0, None)]
-        elif k == 'look': S = [('look0', random.uniform(1, 2.2), 0, None), ('stand0', .6, 0, None), ('blink0', .14, 0, None), ('stand0', .6, 0, None)]
-        elif k == 'wave': S = [('wave0', .3, 0, None), ('wave1', .3, 0, None)] * random.randint(2, 4) + [('stand0', 1, 0, None)]
-        elif k == 'walk':
+        import random; S = []; P = lambda p, d, dx=0, pr=None: S.append((p, d, dx, pr))
+        if k == 'idle': P('stand0', random.uniform(1.2, 3)); P('blink0', .14); P('stand0', random.uniform(.6, 2))
+        elif k == 'blink': P('blink0', .13); P('stand0', .25); P('blink0', .12); P('stand0', .8)
+        elif k == 'look': P('look0', random.uniform(1, 2)); P('blink0', .14); P('stand0', .5)
+        elif k == 'wave':
+            self.face = 1 if self.root.winfo_pointerx() > self.x + self.S // 2 else -1; self.bubble('hi')
+            for _ in range(random.randint(3, 5)): P('wave0', .28); P('wave1', .28)
+            P('stand0', .6)
+        elif k in ('walk', 'run', 'skip'):
             if random.random() < .4: self.face = -self.face
-            S = [('walk%d' % (i % 6), .11, 4, None) for i in range(random.randint(12, 40))] + [('stand0', .8, 0, None)]
-        elif k in ('sit', 'sitdown'): S = [('squat0', .35, 0, None), ('sit0', random.uniform(5, 14), 0, None), ('clap0', .6, 0, 'music'), ('sit0', random.uniform(2, 6), 0, None), ('squat0', .3, 0, None), ('stand0', .5, 0, None)]
-        elif k == 'clap': S = [('sit0', .5, 0, None)] + [('clap0', .35, 0, 'music'), ('sit0', .3, 0, None)] * random.randint(3, 6) + [('stand0', .6, 0, None)]
-        elif k == 'flower':
-            S = [('walk%d' % (i % 6), .11, 4, None) for i in range(random.randint(4, 10))] + [('squat0', random.uniform(1.5, 3), 0, 'flower'), ('look0', 1, 0, 'flower'), ('stand0', .6, 0, None), ('wave0', .5, 0, None), ('stand0', .6, 0, None)]
-        elif k == 'ball': S = [('squat0', .4, 0, 'ball'), ('stand0', .3, 0, None), ('jump0', .35, 0, 'ball'), ('stand0', .3, 0, 'ball'), ('walk0', .11, 4, 'ball'), ('walk1', .11, 4, 'ball'), ('walk2', .11, 4, 'ball'), ('squat0', .5, 0, 'ball'), ('clap0', .5, 0, 'heart'), ('stand0', .8, 0, None)]
-        elif k == 'jump': S = [('squat0', .2, 0, None), ('jump0', .35, 0, 'heart'), ('stand0', .25, 0, None), ('squat0', .15, 0, None), ('jump0', .35, 0, 'heart'), ('stand0', 1, 0, None)]
+            if k == 'walk': [P('walk%d' % (i % 6), .1, 4) for i in range(random.randint(16, 44))]
+            elif k == 'run': [P('run%d' % (i % 4), .08, 9) for i in range(random.randint(16, 36))]
+            else:
+                for i in range(random.randint(5, 10)): P('skip0', .22, 9); P('walk%d' % (i % 6), .14, 6)
+            P('stand0', .5)
+        elif k == 'dance':
+            self.bubble('dance')
+            for _ in range(random.randint(4, 8)): P('dance0', .32, 0, 'music'); P('dance1', .32, 0, 'music')
+            if random.random() < .5: self.face = -self.face
+            P('jump0', .3, 0, 'heart'); P('stand0', .5)
+        elif k == 'chase':
+            self.bubble('fly')
+            for i in range(random.randint(4, 8)): P('chase0', .3, 0, 'fly'); P('run%d' % (i % 4), .09, 10, 'fly'); P('run%d' % ((i + 1) % 4), .09, 10, 'fly'); P('jump0', .3, 0, 'fly')
+            P('giggle0', .8, 0, 'fly'); P('stand0', .4)
+        elif k == 'ball':
+            self.bubble('play')
+            for i in range(random.randint(2, 4)): P('run%d' % (i % 4), .09, 8, 'ball'); P('run%d' % ((i + 1) % 4), .09, 8, 'ball'); P('kick0', .35, 0, None); P('jump0', .3, 0, 'heart')
+            P('clap0', .6, 0, 'heart'); P('stand0', .5)
+        elif k == 'read': self.bubble('read'); P('squat0', .3); P('read0', random.uniform(5, 10)); P('look0', .8); P('read0', random.uniform(3, 6)); P('stand0', .4)
+        elif k in ('sit', 'sitdown'): P('squat0', .3); P('sit0', random.uniform(3, 7)); P('clap0', .5, 0, 'music'); P('sit0', random.uniform(1, 3)); P('stand0', .4)
+        elif k == 'clap': P('sit0', .4); [S.extend([('clap0', .3, 0, 'music'), ('sit0', .25, 0, None)]) for _ in range(random.randint(3, 6))]; P('stand0', .4)
+        elif k == 'giggle': self.bubble('giggle'); P('giggle0', 1.2, 0, 'heart'); P('clap0', .4); P('giggle0', .8); P('stand0', .4)
+        elif k == 'kiss': self.face = 1 if self.root.winfo_pointerx() > self.x + self.S // 2 else -1; self.bubble('kiss'); P('kiss0', 1.2, 0, 'heart'); P('wave0', .4); P('stand0', .4)
+        elif k == 'think': P('think0', random.uniform(1.5, 3)); P('look0', .8); P('stand0', .4)
+        elif k == 'surprise': P('surprise0', .9); P('giggle0', .9, 0, 'heart'); P('stand0', .4)
+        elif k == 'flower': [P('walk%d' % (i % 6), .1, 4) for i in range(random.randint(4, 10))]; P('squat0', random.uniform(1.2, 2.4), 0, 'flower'); P('look0', .8, 0, 'flower'); P('kiss0', .8, 0, 'heart'); P('stand0', .4)
+        elif k == 'jump': P('squat0', .18); P('jump0', .35, 0, 'heart'); P('stand0', .2); P('squat0', .15); P('jump0', .35, 0, 'heart'); P('stand0', .5)
         elif k == 'sleep':
-            self.seq = [('squat0', .4, 0, None)]; self.go('sleep', float('inf') if self.hour() >= 22 or self.hour() < 5 else random.uniform(60, 180)); self.pose = 'sleep0'; self.paint(); return
-        elif k == 'curious':
-            px, py = self.root.winfo_pointerxy(); self.pick_target(True, near=(px, py)); self.go('fly', 60); self.mood = 'curious'; return
-        elif k in ('travel', 'fly'): self.pick_target(True); self.go('fly', 120); self.t_fly = time.time(); self.arc = None; return
+            self.bubble('sleep', True); self.go('sleep', float('inf') if self.hour() >= 22 or self.hour() < 5 else random.uniform(40, 90)); self.pose = 'sleep0'; self.paint(); return
+        elif k == 'curious': px, py = self.root.winfo_pointerxy(); self.pick_target(True, near=(px, py)); self.go('fly', 40); self.mood = 'curious'; self.run_fast = True; return
+        elif k == 'follow': self.follow = True; self.follow_until = time.time() + random.uniform(10, 20); self.go('fly', 1e9); self.bubble('play'); return
+        elif k == 'peek': self.start_peek(); return
+        elif k == 'climb':
+            if self.start_climb(): return
+            return self.do('travel')
+        elif k in ('travel', 'fly'): self.pick_target(True); self.go('fly', 120); self.t_fly = time.time(); self.arc = None; self.climb = None; self.run_fast = random.random() < .4; return
         self.seq = S; self.seq_t = 0
+    def start_peek(self):
+        import random; x0, y0, x1, y1 = self.bounds(); tl, tt, tr = self.taskbar_top(); left = random.random() < .5
+        self.peek = left; self.tx = x0 if left else x1; self.ty = tt - self.FOOT; self.perch_on = ('taskbar', None, tt, tl + 10, tr - 10)
+        self.go('fly', 60); self.arc = None; self.climb = None; self.run_fast = True; self.mood = 'peek'
+    def start_climb(self):
+        """walk to the side of a window that is above her, climb its edge, stand on its top"""
+        import random
+        wins = [w for w in self.windows() if w[1] < self.y + self.FOOT - 120 and w[1] > 60]
+        if not wins: return False
+        l, t, r, b, hw = random.choice(wins[:5]); side = l - self.S // 2 + int(self.S * .25) if abs(l - self.x) < abs(r - self.x) else r - self.S // 2 - int(self.S * .25)
+        self.climb = (side, t - self.FOOT, hw, l, r, t); self.tx, self.ty = side, self.y; self.go('fly', 60); self.arc = None; self.run_fast = False; return True
     def step_seq(self, now):
         if not self.seq: return False
         if now < self.seq_t: return True
         pose, dur, dx, prop = self.seq.pop(0); self.pose = pose; self.seq_t = now + dur
         if dx and self.perch_on:
-            nx = self.x + dx * self.face; a, b = self.perch_on[3] - 64, self.perch_on[4] - 64
-            if not a <= nx <= b: self.face = -self.face; nx = self.x + dx * self.face
-            self.x = nx
-        self.props(prop); self.root.geometry('+%d+%d' % (self.x, self.y - (14 if pose == 'jump0' else 0))); self.paint(); return True
+            nx = self.x + dx * self.face * self.k; a, b = self.perch_on[3] - self.S // 2, self.perch_on[4] - self.S // 2
+            if not a <= nx <= b: self.face = -self.face; nx = self.x + dx * self.face * self.k
+            self.x = int(nx)
+        self.props(prop); self.root.geometry('+%d+%d' % (self.x, self.y - (int(16 * self.k) if pose in ('jump0', 'skip0') else 0))); self.bw_pos(); self.paint(); return True
     def react(self, what):
+        import random
         if self.state == 'sleep' and what != 'clip': return
         px, py = self.root.winfo_pointerxy()
         if what == 'clip' and self.state != 'pinned':
             if self.state == 'sleep': self.go('perch', 1)
-            self.pick_target(True, near=(px, py + 200)); self.go('fly', 40); self.mood = 'visit'; self.arc = None; self.run_fast = True
-        elif what == 'happy' and self.state != 'fly': self.do('jump')
-        elif what == 'think' and self.state != 'fly': self.seq = [('look0', 1, 0, None), ('blink0', .15, 0, None), ('look0', 1, 0, None)] * 2
-        elif what == 'sad' and self.state != 'fly': self.seq = [('sit0', 3, 0, None), ('stand0', .5, 0, None)]
+            self.bubble('clip', True); self.pick_target(True, near=(px, py + 200)); self.go('fly', 40); self.mood = 'visit'; self.arc = None; self.climb = None; self.run_fast = True
+        elif what == 'happy' and self.state != 'fly': self.do(random.choice(('jump', 'dance', 'giggle')))
+        elif what == 'think' and self.state != 'fly': self.seq = [('think0', 1.2, 0, None), ('look0', 1, 0, None)] * 2
+        elif what == 'sad' and self.state != 'fly': self.seq = [('sit0', 2.5, 0, None), ('stand0', .4, 0, None)]
     def bird_cmd(self, c, arg=''):
+        import random
+        if c == 'size':
+            if arg in SIZES: open(SIZE_F, 'w').write(arg); return self.switch_mascot('girl')
+            return
         if c == 'forage': c = 'play'
-        if c == 'play': self.do(__import__('random').choice(('clap', 'ball', 'flower', 'jump'))) if self.state != 'fly' else None; self.paint(); return
-        if c == 'sing': self.do('wave') if self.state != 'fly' else None; self.paint(); return
+        if c == 'play': self.do(random.choice(('ball', 'chase', 'dance', 'jump'))) if self.state != 'fly' else None; self.paint(); return
+        if c == 'sing': self.do('dance') if self.state != 'fly' else None; self.paint(); return
         if c == 'sleep': self.do('sleep') if self.state != 'sleep' else self.go('perch', 2); self.paint(); return
         return super().bird_cmd(c, arg)
+    def extra_menu(self, menu):
+        import tkinter as tk; sm = tk.Menu(menu, tearoff=0)
+        for lbl, v in (('ছোট', 'small'), ('মাঝারি', 'medium'), ('বড়', 'large')): sm.add_command(label=lbl + (' ✓' if v == self.size else ''), command=lambda v=v: self.bird_cmd('size', v))
+        menu.add_cascade(label='📏 আকার', menu=sm)
+        for lbl, c in (('💃 নাচো', 'dance'), ('🦋 প্রজাপতি ধরো', 'chase'), ('📖 বই পড়ো', 'read'), ('🙈 টুকি দাও', 'peek'), ('🧗 জানালায় ওঠো', 'climb')):
+            menu.add_command(label=lbl, command=lambda c=c: (self.go('perch', 30), self.do(c)))
     def travel(self, now):
-        """Walk along the same surface; climb/hop between surfaces with a squat → jump arc → land squat."""
         import math
-        sp = (2.2 if getattr(self, 'run_fast', False) else 1.0) * max(.4, (self.net or .5)) * self.speed
+        sp = (2.0 if getattr(self, 'run_fast', False) else 1.0) * max(.5, (self.net or .6)) * self.speed; k = self.k
         if getattr(self, 'arc', None):
-            sx, sy, t0, T, hh = self.arc; u = min(1, (now - t0) / T)
-            self.x = sx + (self.tx - sx) * u; self.y = sy + (self.ty - sy) * u - hh * 4 * u * (1 - u); self.pose = 'jump0'; self.place(); self.paint()
+            sx, sy, t0, T, hh = self.arc; u = min(1, max(0, (now - t0) / T))
+            self.x = int(sx + (self.tx - sx) * u); self.y = int(sy + (self.ty - sy) * u - hh * 4 * u * (1 - u)); self.pose = 'jump0'; self.place(); self.paint()
             if u >= 1: self.arc = None; self.x, self.y = self.tx, self.ty; self.land()
+            return
+        cl = getattr(self, 'climb', None)
+        if cl and abs(self.x - cl[0]) < 4 and self.y > cl[1]:          # climbing up the window edge
+            self.face = 1 if cl[0] < (cl[3] + cl[4]) / 2 else -1; self.y = max(cl[1], self.y - int(2.2 * k * sp)); self.pose = 'climb0'
+            self.wing = (self.wing + 1) % 10; self.place(); self.root.geometry('+%d+%d' % (self.x + (2 if self.wing < 5 else -2), self.y)); self.paint()
+            if self.y <= cl[1]:
+                self.climb = None; self.x += int(self.face * self.S * .3); self.perch_on = ('win', cl[2], cl[5], cl[3] + 10, cl[4] - 10); self.tx, self.ty = self.x, self.y; self.land()
             return
         dx = self.tx - self.x
         if abs(self.ty - self.y) <= 4:
             if abs(dx) < 4: self.x = self.tx; self.land(); return
-            self.face = 1 if dx > 0 else -1; self.x += self.face * min(abs(dx), 3.2 * sp)
-            self.wing = (self.wing + 1) % 18; self.pose = 'walk%d' % (self.wing // 3); self.place(); self.paint()
+            self.face = 1 if dx > 0 else -1; self.x += int(self.face * min(abs(dx), max(1, (3.2 if not self.run_fast else 3.6) * sp * k)))
+            self.wing = (self.wing + 1) % 24
+            self.pose = 'run%d' % (self.wing // 3 % 4) if self.run_fast else 'walk%d' % (self.wing // 4)
+            self.place(); self.paint()
         else:
             self.face = 1 if dx > 0 else -1; d = math.hypot(dx, self.ty - self.y)
-            self.arc = (self.x, self.y, now + .2, min(1.6, .55 + d / 1400) / max(.6, min(1.6, sp)), 60 + max(0, self.y - self.ty) * .6 + d * .05)
             self.pose = 'squat0'; self.paint()
-            self.arc = (self.arc[0], self.arc[1], now, self.arc[3], self.arc[4])
+            self.arc = (self.x, self.y, now + .15, min(1.6, .55 + d / 1400) / max(.6, min(1.6, sp)), 60 * k + max(0, self.y - self.ty) * .5 + d * .05)
         if now > self.until: self.x, self.y = self.tx, self.ty; self.place(); self.land()
     def land(self):
         import random
         self.run_fast = False; self.place(); self.go('perch'); self.chk = time.time()
-        self.seq = [('squat0', .2, 0, None), ('stand0', .3, 0, None)]
-        if self.mood in ('visit', 'curious'): self.face = 1 if self.root.winfo_pointerx() > self.x + 64 else -1; self.seq += [('wave0', .3, 0, 'heart'), ('wave1', .3, 0, None)] * 3 + [('stand0', 1, 0, None)]
+        self.seq = [('squat0', .15, 0, None), ('stand0', .2, 0, None)]
+        if self.mood == 'peek':                          # half hidden at the screen edge
+            x0, y0, x1, y1 = self.bounds(); left = getattr(self, 'peek', True); self.face = 1 if left else -1
+            self.x = x0 - int(self.S * .12) if left else x1 + int(self.S * .12); self.place(); self.bubble('peek', True)
+            self.seq = [('peek0', random.uniform(2.5, 4.5), 0, 'heart'), ('giggle0', .8, 0, None), ('stand0', .3, 0, None)]
+            self.mood = None; self.paint(); return
+        if self.mood in ('visit', 'curious'):
+            self.face = 1 if self.root.winfo_pointerx() > self.x + self.S // 2 else -1; self.bubble('hi')
+            self.seq += [('wave0', .28, 0, 'heart'), ('wave1', .28, 0, None)] * 3 + [('kiss0', .6, 0, 'heart'), ('stand0', .5, 0, None)]
         self.mood = None; self.paint()
+    def senses(self, now):
+        """typing → look at it; mouse click nearby → startle/giggle (Windows only, read-only polling)"""
+        import random
+        try: import ctypes, ctypes.wintypes as W; u = ctypes.windll.user32
+        except Exception: return
+        try:
+            clk = u.GetAsyncKeyState(0x01) & 0x8000 or u.GetAsyncKeyState(0x02) & 0x8000
+            if clk and not getattr(self, '_clk', False) and now - getattr(self, 't_clk', 0) > 6 and self.state in ('perch',) and not self.drag:
+                px, py = self.root.winfo_pointerxy()
+                if abs(px - self.x - self.S // 2) < self.S * 2.2 and abs(py - self.y - self.S // 2) < self.S * 2.2 and not (self.x < px < self.x + self.S and self.y < py < self.y + self.S):
+                    self.t_clk = now; self.face = 1 if px > self.x + self.S // 2 else -1; self.bubble('click'); self.seq = []; self.do(random.choice(('surprise', 'giggle', 'jump')))
+            self._clk = bool(clk)
+            class LII(ctypes.Structure): _fields_ = [('cbSize', ctypes.c_uint), ('dwTime', ctypes.c_uint)]
+            li = LII(); li.cbSize = ctypes.sizeof(li); u.GetLastInputInfo(ctypes.byref(li))
+            mp = self.root.winfo_pointerxy()
+            if li.dwTime != getattr(self, '_lit', 0):
+                if mp == getattr(self, '_lmp', None) and not clk: self.typing = getattr(self, 'typing', 0) + 1
+                else: self.typing = 0
+                self._lit = li.dwTime
+            self._lmp = mp
+            if getattr(self, 'typing', 0) > 6 and now - getattr(self, 't_type', 0) > 35 and self.state == 'perch':
+                self.t_type = now; self.typing = 0; fw = self.fg_window()
+                if fw: self.face = 1 if fw[0] > self.x + self.S // 2 else -1
+                self.bubble('type'); self.seq = [('think0', 1.5, 0, None), ('look0', 1.5, 0, None), ('clap0', .4, 0, None), ('stand0', .3, 0, None)]
+        except Exception: pass
     def roam_tick(self):
-        import random, math
+        import random
         r = self.root; dt = 40; now = time.time()
         try:
-            if self.drag: return
+            if self.drag: self.bw_pos(); return
             px, py = r.winfo_pointerxy()
             if abs(px - self.lp[0]) + abs(py - self.lp[1]) > 2: self.t_mouse = now
-            self.lp = (px, py, now)
-            if self.follow and self.state == 'fly' and now - getattr(self, 't_fol', 0) > 2:
-                self.t_fol = now; self.pick_target(True, near=(px, py)); self.until = now + 1e9
+            self.lp = (px, py, now); self.senses(now)
+            if self.follow and getattr(self, 'follow_until', 0) and now > self.follow_until: self.follow = False; self.follow_until = 0; self.pick_target(True); self.until = now + 30
+            if self.follow and self.state == 'fly' and now - getattr(self, 't_fol', 0) > 1.5:
+                self.t_fol = now; self.pick_target(True, near=(px, py)); self.until = now + 1e9; self.run_fast = True
             st = self.state
             if st == 'fly': self.travel(now)
             elif st == 'sleep':
-                dt = 400
+                dt = 300
                 if self.step_seq(now): pass
                 elif self.pose != 'sleep0': self.pose = 'sleep0'; self.paint()
                 h = self.hour()
-                if now > self.until or (5 <= h < 22 and self.until == float('inf')): self.go('perch', 2); self.seq = [('blink0', .5, 0, None), ('sit0', 1, 0, None), ('stand0', .5, 0, None), ('wave0', .4, 0, None)]
+                if now > self.until or (5 <= h < 22 and self.until == float('inf')):
+                    self.go('perch', 1); self.bubble('wake', True); self.seq = [('blink0', .4, 0, None), ('sit0', .8, 0, None), ('stand0', .3, 0, None), ('wave0', .3, 0, None), ('wave1', .3, 0, None)]
             else:
-                dt = 60
+                dt = 50
                 if not self.step_seq(now):
                     if st == 'pinned':
-                        if now > self.until: self.pin(False)        # placed by user: sits/plays a while, then walks off on her own
-                        else: self.do(random.choice(['sit', 'clap', 'look', 'wave', 'idle', 'blink']))
-                    elif self.busy and now > self.until: self.until = now + 3; self.seq = [('look0', 1.2, 0, None), ('blink0', .15, 0, None), ('stand0', .8, 0, None)]
-                    elif now > self.until: self.until = now + random.uniform(.5, 2); self.choose()
+                        if now > self.until: self.bubble('play'); self.pin(False)
+                        else: self.do(random.choice(['sit', 'clap', 'wave', 'giggle', 'dance', 'read', 'kiss', 'think', 'idle']))
+                    elif self.busy and now > self.until: self.until = now + 3; self.seq = [('think0', 1.2, 0, None), ('look0', 1, 0, None), ('stand0', .3, 0, None)]
+                    elif now > self.until: self.until = now + random.uniform(.2, .8); self.choose()
                     elif self.pose != 'stand0': self.pose = 'stand0'; self.paint()
                 if st == 'perch' and self.perch_on and self.perch_on[1] and now - self.chk > 1:
                     self.chk = now
                     try:
                         import ctypes; u = ctypes.windll.user32; hw = self.perch_on[1]
-                        if not u.IsWindow(hw) or not u.IsWindowVisible(hw) or u.IsIconic(hw): self.do('travel')
+                        if not u.IsWindow(hw) or not u.IsWindowVisible(hw) or u.IsIconic(hw): self.bubble('click'); self.do('travel')
                         else:
                             l, t, rr, b = self.win_rect(hw)
-                            if t != self.perch_on[2]:               # window moved → she rides along with it
+                            if t != self.perch_on[2]:
                                 ox = self.x - self.perch_on[3]; self.perch_on = (self.perch_on[0], hw, t, l + 10, rr - 10)
                                 self.x, self.y = l + 10 + ox, t - self.FOOT; self.place()
                     except Exception: pass

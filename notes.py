@@ -333,6 +333,46 @@ def setup_clips(app, HH):
             _, t, _ = await RT.complete([{'role': 'system', 'content': MODES[mode]}, {'role': 'user', 'content': user}], timeout=60, tries=2)
             return {'answer': re.sub(r'<think>.*?</think>', '', t or '', flags=re.S).strip()}
         except Exception: return JSONResponse({'error': 'AI এখন ব্যস্ত, একটু পরে চেষ্টা করুন'}, 503)
+    # ---- রয়্যাল এজেন্ট phase 1: plan PC actions from a command (executed on the device, risky steps confirmed there) ----
+    AGENT_ACTS = {'open_url': ['url'], 'web_search': ['q'], 'open_app': ['name'], 'open_path': ['path'], 'type_text': ['text'], 'hotkey': ['keys'], 'press': ['key'],
+                  'screenshot': ['question'], 'search_files': ['query'], 'wait': ['sec'], 'clipboard_set': ['text'], 'note': ['text'], 'say': ['text']}
+    AGENT_SYS = """তুমি "রয়্যাল এজেন্ট" — জাহাঁপনার Windows PC-র ব্যক্তিগত সহকারী। কমান্ড পড়ে ছোট, বাস্তবসম্মত ধাপের পরিকল্পনা বানাও যা PC-তে চালানো হবে।
+শুধু এই JSON দাও: {"reply":"বাংলায় ১ লাইনে কী করবে","steps":[{"action":"...","args":{...},"say":"বাংলায় ছোট বর্ণনা","risky":false}]}
+অনুমোদিত action ও args:
+open_url{url} · web_search{q} · open_app{name: notepad|calc|explorer|chrome|msedge|excel|winword|outlook|powerpnt|mspaint|snippingtool বা অন্য সাধারণ অ্যাপের exe নাম} · open_path{path: ফোল্ডার/ফাইল, যেমন "Downloads", "Desktop", "Documents" বা পূর্ণ পথ}
+type_text{text} (সক্রিয় উইন্ডোতে টাইপ) · hotkey{keys:["ctrl","l"]} · press{key: enter|tab|esc|up|down|left|right|backspace|f5 ...}
+screenshot{question} (স্ক্রিন দেখে প্রশ্নের উত্তর) · search_files{query} (ব্যবহারকারীর ফোল্ডারে ফাইল খোঁজা) · wait{sec ≤10} · clipboard_set{text} · note{text} (নোটবুকে রাখা) · say{text} (শুধু উত্তর)
+নিয়ম: সর্বোচ্চ ১২ ধাপ। অ্যাপ/পেজ খোলার পর টাইপের আগে wait{sec:2} দাও। ব্রাউজারে ঠিকানা লিখতে hotkey ctrl+l তারপর type_text তারপর press enter।
+মুছে ফেলা, ইমেইল/মেসেজ পাঠানো, কেনাকাটা/পেমেন্ট, কিছু ইনস্টল/আনইনস্টল, সিস্টেম সেটিং বদল, ফর্ম জমা — এমন যেকোনো ধাপে "risky":true।
+কখনো নিরাপত্তা সফটওয়্যার (Panda/antivirus/firewall) বন্ধ বা এড়ানোর ধাপ দেবে না; cmd/powershell/regedit চালাবে না — এমন অনুরোধে say দিয়ে বিনয়ের সাথে না বলো।
+শুধু প্রশ্ন/আলাপ হলে একটাই say ধাপ দাও।"""
+    RISKW = re.compile(r'delete|remove|erase|send|submit|buy|purchase|pay|checkout|order|install|setting|format|shutdown|restart|মুছ|ডিলিট|পাঠা|সেন্ড|কিন|পেমেন্ট|ইনস্টল|সেটিং|জমা', re.I)
+    BAD = re.compile(r'\b(cmd|powershell|pwsh|regedit|reg|wscript|cscript|mshta|bcdedit|diskpart|taskkill|netsh|sc)(\.exe)?\b|panda|antivirus|defender|firewall', re.I)
+    @app.post('/bb/link/agent')
+    async def lagent(request: Request):
+        j = await request.json(); d = dev_ok(j.get('token'), request)
+        if not d: return JSONResponse({'error': 'unauthorized'}, 403)
+        L = [t for t in _ASKT.get(d['id'], []) if time.time() - t < 3600]
+        if len(L) >= 60: return JSONResponse({'error': 'ঘণ্টায় ৬০টির সীমা'}, 429)
+        _ASKT[d['id']] = L + [time.time()]
+        q = str(j.get('q') or '').strip()[:2000]
+        if not q: return JSONResponse({'error': 'empty'}, 400)
+        ctx = str(j.get('ctx') or '')[:1500]
+        try:
+            _, t, _ = await RT.complete([{'role': 'system', 'content': AGENT_SYS}, {'role': 'user', 'content': q + (('\n\n(প্রসঙ্গ: ' + ctx + ')') if ctx else '')}], json_mode=True, timeout=60, tries=2)
+            t = re.sub(r'<think>.*?</think>', '', t or '', flags=re.S); m = re.search(r'\{.*\}', t, re.S); o = json.loads(m.group(0)) if m else {}
+        except Exception: return JSONResponse({'error': 'AI এখন ব্যস্ত, একটু পরে চেষ্টা করুন'}, 503)
+        steps = []
+        for st in (o.get('steps') or [])[:12]:
+            a = str(st.get('action') or ''); args = st.get('args') if isinstance(st.get('args'), dict) else {}
+            if a not in AGENT_ACTS: continue
+            blob = json.dumps(args, ensure_ascii=False)
+            if a in ('open_app', 'open_path', 'type_text') and BAD.search(blob): steps.append({'action': 'say', 'args': {'text': 'নিরাপত্তার কারণে এই ধাপ বাদ দিলাম: ' + blob[:80]}, 'say': 'বাদ', 'risky': False}); continue
+            risky = bool(st.get('risky')) or bool(RISKW.search(blob)) or (a == 'open_path' and re.search(r'\.(exe|msi|bat|cmd|ps1|vbs|reg|scr)\b', blob, re.I) is not None) \
+                    or (a == 'hotkey' and {'alt', 'f4'} <= {str(k).lower() for k in args.get('keys', [])}) or (a == 'press' and str(args.get('key')).lower() == 'delete')
+            steps.append({'action': a, 'args': args, 'say': str(st.get('say') or a)[:120], 'risky': risky})
+        if not steps: steps = [{'action': 'say', 'args': {'text': str(o.get('reply') or 'বুঝতে পারিনি, আরেকটু খুলে বলবেন?')}, 'say': 'উত্তর', 'risky': False}]
+        return {'reply': str(o.get('reply') or '')[:300], 'steps': steps}
     @app.get('/bb/link/hub')
     def lhub(request: Request, token: str = ''):
         d = dev_ok(token, request)

@@ -1,5 +1,5 @@
 <!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>রয়েল দোয়েল</title>
+<title>রয়্যাল এজেন্ট</title>
 <style>
 :root{--g:#d4af37;--o:#ff8c1a;--t:#eef2fb;--m:#9fb0cf}
 :root{color-scheme:normal}*{box-sizing:border-box}html,body{margin:0;height:100%;background:transparent;font:14px/1.5 "Noto Sans Bengali","Nirmala UI",system-ui,sans-serif;color:var(--t);overflow:hidden}
@@ -38,7 +38,7 @@ footer{display:flex;gap:4px;padding:6px 10px 10px;flex-wrap:wrap;border-top:1px 
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#ffffff30;border-radius:6px}
 </style></head><body>
 <div id="w">
- <header class="pywebview-drag-region"><img src="/bb/static/notes/doyel/perch0.png" alt=""><div><b>রয়েল দোয়েল</b><small id="st">সংযোগ হচ্ছে…</small></div><button class="x" id="x" title="বন্ধ (Esc)">✕</button></header>
+ <header class="pywebview-drag-region"><img id="hav" src="/bb/static/notes/girl2/stand0.png" alt="" style="object-fit:contain"><div><b>রয়্যাল এজেন্ট</b><small id="st">সংযোগ হচ্ছে…</small></div><button class="x" id="x" title="বন্ধ (Esc)">✕</button></header>
  <div id="orb"></div>
  <div id="tabs">
   <section class="pg" id="p-note"><h4>📝 দ্রুত নোট</h4><textarea id="nt" rows="5" placeholder="লিখুন বা 🎤 চেপে বলুন…"></textarea>
@@ -49,13 +49,20 @@ footer{display:flex;gap:4px;padding:6px 10px 10px;flex-wrap:wrap;border-top:1px 
    <div class="grid" style="margin-top:6px"><button class="b" data-m="translate">🌐 ক্লিপবোর্ড অনুবাদ</button><button class="b" data-m="summarise">🧾 ক্লিপবোর্ড সারাংশ</button><button class="b" data-m="explain">💡 ব্যাখ্যা করো</button><button class="b" id="qmic">🎤 বলে জিজ্ঞাসা</button></div></section>
   <section class="pg" id="p-task"><h4>✅ আজকের কাজ</h4><div id="tk"><small class="dots">লোড হচ্ছে</small></div><small>নোটে <code>- [ ] কাজ @YYYY-MM-DD</code> লিখলে এখানে আসবে।</small></section>
   <section class="pg" id="p-find"><h4>🔍 নোট খুঁজুন</h4><input id="sq" placeholder="শব্দ লিখুন…"><div id="sr"></div></section>
-  <section class="pg" id="p-bird"><h4>🐦 পাখির নিয়ন্ত্রণ</h4><div class="grid">
-   <button class="b" data-c="fly">🕊 উড়ে যাও</button><button class="b" data-c="sit">🪵 কোথাও বসো</button><button class="b" data-c="follow">🎯 কার্সর অনুসরণ</button><button class="b" data-c="sleep">😴 ঘুমাও / জাগো</button>
-   <button class="b" data-c="forage">🐛 খাবার খোঁজো</button><button class="b" data-c="sing">🎵 গান গাও</button><button class="b" data-c="roam">🌀 ঘোরা চালু/বন্ধ</button><button class="b" data-c="sound">🔊 শব্দ চালু/বন্ধ</button>
+  <section class="pg" id="p-agent"><h4>🧠 এজেন্ট <small>· PC-তে কাজ করে দেবে</small></h4><div id="alog" class="chat"></div>
+   <textarea id="aq" rows="2" placeholder="যেমন: Chrome খুলে dhaka weather খোঁজো · Downloads ফোল্ডার খোলো · Notepad খুলে আজকের তারিখ লেখো"></textarea>
+   <button class="b g" id="ago">▶ করো</button><button class="b" id="amic">🎤 বলো</button><button class="b" id="astop">⏹ থামাও</button>
+   <div class="grid" style="margin-top:6px"><button class="b" data-aq="এখন স্ক্রিনে কী আছে বলো">🖥 স্ক্রিন বুঝিয়ে বলো</button><button class="b" data-aq="Downloads ফোল্ডার খোলো">📂 Downloads</button><button class="b" data-aq="Chrome খুলে Gmail খোলো">✉ Gmail খোলো</button><button class="b" data-aq="Excel খোলো">📊 Excel</button></div>
+   <small id="aw" class="m">ঝুঁকির কাজ (মুছা, পাঠানো, কেনা, ইনস্টল, সেটিং) আগে আপনার অনুমতি চাইবে।</small></section>
+  <section class="pg" id="p-bird"><h4>👧 সঙ্গীর নিয়ন্ত্রণ</h4><div class="grid">
+   <button class="b" data-c="fly">🚶 হেঁটে বেড়াও</button><button class="b" data-c="sit">🪑 কোথাও বসো</button><button class="b" data-c="follow">🎯 কার্সর অনুসরণ</button><button class="b" data-c="sleep">😴 ঘুমাও / জাগো</button>
+   <button class="b" data-c="forage">⚽ খেলা করো</button><button class="b" data-c="sing">💃 নাচো</button><button class="b" data-c="roam">🌀 ঘোরা চালু/বন্ধ</button><button class="b" data-c="sound">🔊 শব্দ চালু/বন্ধ</button>
    <button class="b" data-c="pause">⏸ কপি-ধরা থামাও/চালাও</button><button class="b" data-c="hide">🙈 লুকাও</button></div>
+   <h4 style="margin-top:10px">📏 আকার</h4><button class="b" data-z="small">ছোট</button><button class="b" data-z="medium">মাঝারি</button><button class="b" data-z="large">বড়</button>
+   <h4 style="margin-top:10px">🎭 সঙ্গী</h4><button class="b" data-mz="girl">👧 মামণি</button><button class="b" data-mz="doyel">🐦 দোয়েল</button>
    <h4 style="margin-top:10px">⚡ গতি <small>(ইন্টারনেট × এটি)</small></h4><button class="b" data-s="0.5">ধীর</button><button class="b" data-s="1">মাঝারি</button><button class="b" data-s="2">দ্রুত</button><div id="bs" class="m" style="margin-top:6px"></div></section>
  </div>
- <footer><a data-u="/notes/">📖 নোটবুক</a><a data-u="/notes/?view=clips">🗂 ক্লিপ ইতিহাস</a><a data-u="/bb/static/v4/index.html">🐯 v4</a><a data-u="/bb/live">📡 লাইভ ভিউ</a><span id="dv" class="m" style="margin-left:auto"></span></footer>
+ <footer><a data-u="/notes/">📖 নোট</a><a data-u="/notes/?view=clips">🗂 ক্লিপ ইতিহাস</a><a data-u="/bb/static/v4/index.html">🐯 v4</a><a data-u="/bb/live">📡 লাইভ ভিউ</a><span id="dv" class="m" style="margin-left:auto"></span></footer>
 </div>
 <script>
 'use strict';
@@ -77,7 +84,7 @@ const A={ask:(mode,q,text,image_b64)=>api('/bb/link/ask',{method:'POST',body:JSO
  note:b=>TOK?api('/bb/link/note',{method:'POST',body:JSON.stringify({token:TOK,body:b})}):api('/bb/api/notes',{method:'POST',body:JSON.stringify({title:b.trim().split('\n')[0].slice(0,60),body:b,folder:'দ্রুত নোট'})}),
  stt:blob=>{const f=new FormData();f.append('file',blob,'v.webm');return api('/bb/link/stt?'+T(),{method:'POST',body:f}).then(j=>j.text)}};
 /* orb bar */
-const TABS=[['note','📝','নোট'],['clip','📋','ক্লিপ'],['ai','🤖','AI'],['task','✅','কাজ'],['find','🔍','খোঁজ'],['bird','🐦','পাখি']];
+const TABS=[['note','📝','নোট'],['clip','📋','ক্লিপ'],['ai','🤖','AI'],['task','✅','কাজ'],['find','🔍','খোঁজ'],['agent','🧠','এজেন্ট'],['bird','👧','সঙ্গী']];
 $('#orb').innerHTML=TABS.map(([k,i,l],n)=>`<button data-t="${k}" style="animation-delay:${60+n*55}ms">${i}<span>${l}</span></button>`).join('');
 function tab(k){$$('#orb button').forEach(b=>b.classList.toggle('on',b.dataset.t===k));$$('.pg').forEach(p=>p.classList.toggle('on',p.id==='p-'+k));localStorage.rbtTab=k;
  ({clip:loadClips,task:loadHub,ai:()=>$('#q').focus(),note:()=>$('#nt').focus(),find:()=>$('#sq').focus(),bird:birdStat})[k]?.()}
@@ -123,8 +130,30 @@ let st=0;$('#sq').oninput=()=>{clearTimeout(st);st=setTimeout(async()=>{const q=
 /* bird controls */
 $$('[data-c]').forEach(b=>b.onclick=async()=>{await bird(b.dataset.c);birdStat();if(['fly','sit','follow','sleep','forage','sing','hide'].includes(b.dataset.c))setTimeout(close,250)});
 $$('[data-s]').forEach(b=>b.onclick=async()=>{await bird('speed',b.dataset.s);birdStat()});
+$$('[data-z]').forEach(b=>b.onclick=()=>bird('size',b.dataset.z));$$('[data-mz]').forEach(b=>b.onclick=()=>bird('mascot',b.dataset.mz));
+/* ---- এজেন্ট: plan on server, run step by step on the PC; risky steps need a click ---- */
+let AST=0;const alog=(h,c='')=>{const d=document.createElement('div');d.className='card '+c;d.innerHTML=h;$('#alog').appendChild(d);$('#alog').scrollTop=1e9;return d};
+const confirmStep=s=>new Promise(r=>{const d=alog(`⚠ <b>অনুমতি দরকার:</b> ${esc(s.say)}<br><small>${esc(s.action)} ${esc(JSON.stringify(s.args))}</small><br><button class="b g">✓ করো</button> <button class="b">✕ বাদ দাও</button>`);
+ const [y,n]=d.querySelectorAll('button');y.onclick=()=>{d.querySelectorAll('button').forEach(x=>x.remove());r(true)};n.onclick=()=>{d.querySelectorAll('button').forEach(x=>x.remove());d.append(' — বাদ');r(false)}});
+async function agentRun(q){q=(q||'').trim();if(!q)return;const my=++AST;alog('🗣 '+esc(q),'me');const th=alog('<span class=dots>পরিকল্পনা করছি</span>');bird('think');
+ let plan;try{plan=await api('/bb/link/agent',{method:'POST',body:JSON.stringify({token:TOK,q})})}catch(e){th.textContent='⚠ '+e.message;bird('sad');return}
+ th.innerHTML='🧠 '+esc(plan.reply||'এই ধাপগুলো করছি')+'<ol style="margin:4px 0 0 18px;padding:0">'+plan.steps.map(s=>`<li>${s.risky?'⚠ ':''}${esc(s.say)}</li>`).join('')+'</ol>';
+ for(const s of plan.steps){if(my!==AST){alog('⏹ থামানো হলো');return}
+  if(s.risky&&!(await confirmStep(s)))continue;
+  if(s.action==='say'){alog('💬 '+esc(s.args.text||''));continue}
+  if(s.action==='note'){try{await A.note(String(s.args.text||''));alog('✓ নোটে রাখা হলো')}catch(e){alog('⚠ '+esc(e.message))}continue}
+  if(MODE!=='win'){if(s.action==='open_url'||s.action==='web_search'){const u=s.action==='web_search'?'https://www.google.com/search?q='+encodeURIComponent(s.args.q||''):s.args.url;open(u,'_blank','noopener');alog('✓ '+esc(s.say))}else alog('ℹ এই ধাপ শুধু PC অ্যাপে চলে: '+esc(s.say));continue}
+  const r=await call('agent_do',JSON.stringify(s));let o={};try{o=typeof r==='string'?JSON.parse(r):r||{}}catch(e){}
+  if(s.action==='screenshot'&&o.image){const el=alog('<span class=dots>স্ক্রিন দেখছি</span>');try{el.innerHTML='🖥 '+esc(await A.ask('screen',s.args.question||q,'',o.image)).replace(/\n/g,'<br>')}catch(e){el.textContent='⚠ '+e.message}continue}
+  alog((o.ok?'✓ ':'⚠ ')+esc(s.say)+(o.msg?' — <small>'+esc(o.msg)+'</small>':''))}
+ bird('happy');alog('✅ শেষ')}
+$('#ago').onclick=()=>{const q=$('#aq').value;$('#aq').value='';agentRun(q)};$('#aq').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#ago').click()}};
+$('#astop').onclick=()=>{AST++};$$('[data-aq]').forEach(b=>b.onclick=()=>agentRun(b.dataset.aq));
+async function amicH(){try{const st=await navigator.mediaDevices.getUserMedia({audio:true}),mr=new MediaRecorder(st),ch=[];mr.ondataavailable=e=>ch.push(e.data);
+ $('#amic').textContent='⏺ বলুন… (আবার চাপলে শেষ)';const stop=()=>mr.state!=='inactive'&&mr.stop();$('#amic').onclick=stop;setTimeout(stop,12000);
+ mr.onstop=async()=>{st.getTracks().forEach(t=>t.stop());$('#amic').textContent='🎤 বলো';$('#amic').onclick=amicH;try{const t=await A.stt(new Blob(ch,{type:'audio/webm'}));$('#aq').value=t;agentRun(t)}catch(e){alog('⚠ '+esc(e.message))}};mr.start()}catch(e){alog('⚠ মাইক পাওয়া যায়নি')}}$('#amic').onclick=amicH;
 async function birdStat(){const s=await call('status');if(!s)return;const o=typeof s==='string'?JSON.parse(s):s;
- $('#st').textContent=`${({fly:'উড়ছে',perch:'বসে আছে',pinned:'📌 বসানো',walk:'হাঁটছে',sleep:'😴 ঘুমাচ্ছে',forage:'খাবার খুঁজছে'})[o.state]||o.state} · নেট ${o.net==null?'অফলাইন':(+o.mbps||0).toFixed(1)+' Mbps'}${o.paused?' · ⏸ কপি-ধরা বন্ধ':''}`;
+ $('#st').textContent=`${({fly:'চলছে',perch:'খেলছে',pinned:'📌 বসানো',walk:'হাঁটছে',sleep:'😴 ঘুমাচ্ছে',forage:'খেলছে'})[o.state]||o.state} · নেট ${o.net==null?'অফলাইন':(+o.mbps||0).toFixed(1)+' Mbps'}${o.paused?' · ⏸ কপি-ধরা বন্ধ':''}`;
  $('#bs').textContent=`গতি ×${o.speed} · শব্দ ${o.sound?'চালু':'বন্ধ'} · ঘোরা ${o.roam?'চালু':'বন্ধ'}`}
 $$('footer [data-u]').forEach(a=>a.onclick=()=>go(a.dataset.u));
 if(MODE==='web')$$('[data-win]').forEach(e=>e.style.display='none');
