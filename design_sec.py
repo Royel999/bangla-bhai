@@ -154,7 +154,7 @@ def register(app, dev_ok, owner, db, RT, RL):
                 if re.search(r'[\u0980-\u09FF]', prompt):
                     try: _, t, _ = await RT.complete([{'role': 'system', 'content': 'Translate this design request to a concise English image-generation prompt. Do not include any text/letters to render. Output only the prompt.'}, {'role': 'user', 'content': prompt}], timeout=30, tries=1); prompt = re.sub(r'<think>.*?</think>', '', t or prompt, flags=re.S).strip()[:600]
                     except Exception: pass
-                if j.get('brand'): pre += 'color palette royal blue #1A3A8F, royal black #0D0D12, royal red #C8102E, regal premium feel, '
+                if j.get('brand'): pre += 'color palette of deep royal blue, rich near-black and crimson red, regal premium feel, no letters, no numbers, no watermark, '
                 import media
                 model, data = None, None
                 try:
@@ -209,7 +209,7 @@ def register(app, dev_ok, owner, db, RT, RL):
             if re.search(r'\.(pdf|docx?|xlsx?|jpg|png|txt)\.(exe|scr|js|vbs|bat|cmd)$', n): res['flags'].append('দ্বৈত এক্সটেনশন (যেমন .pdf.exe) — প্রতারণার সাধারণ কৌশল')
             if re.search(r'\.(exe|scr|js|vbs|bat|cmd|ps1|hta|msi|jar|apk)$', n): res['flags'].append('চালানো যায় এমন ফাইল — শুধু বিশ্বস্ত উৎস থেকে')
             res['vt'] = 'https://www.virustotal.com/gui/file/' + hx
-            res['verdict'] = 'পরিচিত বৈধ ফাইল (NSRL তালিকায় আছে)' if res['known_good'] else 'অজানা ফাইল — VirusTotal লিংকে হ্যাশ দেখে নিন' + (' · সতর্কতা আছে' if res['flags'] else '')
+            res['verdict'] = ('পরিচিত ফাইল (NSRL তালিকায় আছে)' + (' — তবে নামের সতর্কতা দেখুন' if res['flags'] else '')) if res['known_good'] else 'অজানা ফাইল — VirusTotal লিংকে হ্যাশ দেখে নিন' + (' · সতর্কতা আছে' if res['flags'] else '')
             return res
         if op == 'domains':
             doms = setting('sec_domains', DEF_DOMAINS)
