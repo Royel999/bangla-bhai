@@ -409,8 +409,8 @@ async def _pe(request,exc): return JSONResponse({"error":"login required"},401)
 async def _ao(request,exc): return JSONResponse({"error":"owner only"},403)
 # --- API ---
 @app.get("/bb/health")
-def health():
-    out={"ok":True,"node":os.environ.get("BB_NODE","box")}
+def health(deep:int=0):
+    out={"ok":True,"node":os.environ.get("BB_NODE","box"),"commit":(os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("BB_COMMIT") or "")[:7]}
     try: out["ui"]="v4"
     except Exception: pass
     try:
@@ -425,6 +425,17 @@ def health():
         "restored":iso(st.get("restored")),"daily_last":st.get("daily_last"),"daily_kept":st.get("daily_count"),
         "size_warn":bool(st.get("size_warn")),
         "refused":({"at":iso(st.get("last_refused"))} if (st.get("last_refused") or 0)>(st.get("last_push") or 0) else None)}
+    if deep:   # P0 deep health: model chain state, Sentinel policy (no keys, no error bodies)
+        now=time.time()
+        try:
+            out["models"]={m:{"key":bool(RT.CHAIN[m][2]),"on":RT.allowed(m),"cool":RT.COOL.get(m,0)>now,
+                              "last_ok":(RT.LAST.get(m) or {}).get("ok"),"last":iso((RT.LAST.get(m) or {}).get("t"))} for m in RT.DEFAULT}
+            out["private_chain"]=[m for m in RT.PRIVATE if RT.CHAIN[m][2] and RT.allowed(m)]
+            out["router"]=dict(RT.STATS)
+        except Exception as e: out["models"]="error:"+type(e).__name__
+        try:
+            import sentinel as _SN; out["sentinel"]={"policy":_SN.POLICY.get("version"),"tools":len(_SN.POLICY.get("tools",{})),"gated":sorted(_SN.GATED)}
+        except Exception as e: out["sentinel"]="error:"+type(e).__name__
     return out
 @app.get("/bb/api/models")
 def models(request:Request):
