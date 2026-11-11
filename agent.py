@@ -94,7 +94,7 @@ TOOLS={
  "sms_fill":("sms_send","SMS অ্যাপে নম্বর ও লেখা বসানো — Send বাটন ইউজার নিজে চাপবে (সবসময় অনুমতি কার্ড)",{"device":"id","number":"str","text":"str"}),
  "list_devices":(None,"সংযুক্ত ডিভাইসের তালিকা",{}),
 }
-import sentinel as SN
+import sentinel as SN, quarantine as QZ
 import shutil as _sh, ipaddress as _ip, socket as _so
 from urllib.parse import urlparse as _up
 SECRETS_DIR=os.path.expanduser("~/.secrets")
@@ -235,8 +235,9 @@ SYS="""তুমি 'বাংলা ভাই' — Royal Universe-এর আস
 - টুল ব্যর্থ হলে রিপেয়ার করে অন্য পথ চেষ্টা করো। মালিক 'না' বললে সেই কাজ আর করবে না।
 """
 import router as RT, actlog as AL
-async def llm_json(msgs):
-    try: m,t,_=await RT.complete(msgs,json_mode=True,timeout=60,tries=2)
+async def llm_json(msgs,private=False):
+    # private=True once the task has read SMS/screen/contacts etc: only router.PRIVATE (no training-tier providers)
+    try: m,t,_=await RT.complete(msgs,chain=(RT.PRIVATE if private else None),json_mode=True,timeout=60,tries=2)
     except RT.ModelError: raise RuntimeError("model_unavailable")
     t=re.sub(r"<think>.*?</think>","",t,flags=re.S)
     try: return m,json.loads(t[t.find("{"):t.rfind("}")+1])
@@ -343,8 +344,10 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
     msgs=[{"role":"system","content":sys0+("\n\nOVERRIDES (highest priority): "+sysx.replace(SAFE_AUTO_MARK,"") if sysx else "")},{"role":"user","content":goal}]+([{"role":"user","content":"(সার্ভার রিস্টার্টের আগে এই ধাপগুলো হয়ে গেছে, আবার করবে না; বাকিটা শেষ করো:)\n"+resume_ctx}] if resume_ctx else [])
     ev("plan",text="লক্ষ্য বুঝে পরিকল্পনা করছি...")
     fails=0; ran_ok=bool(resume_ctx)
+    # P0 Sentinel v2 state: tainted = task has read untrusted data; private = task has read sensitive data
+    tainted=bool(resume_ctx); private=bool(resume_ctx); actions=0
     for step in range(10):
-        model,j=await llm_json(msgs); msgs.append({"role":"assistant","content":json.dumps(j,ensure_ascii=False)})
+        model,j=await llm_json(msgs,private); msgs.append({"role":"assistant","content":json.dumps(j,ensure_ascii=False)})
         ev("think",text=j.get("thought",""),alternatives=j.get("alternatives",[]),model=model,step=step+1)
         fin=j.get("final"); act=j.get("action")
         needs_tool=not RX and not ran_ok and bool(re.search(r"(চালাও|চালান|uname|df\s*-h|স্ক্রিনশট|ক্যামেরা|shell|কমান্ড|ফোনে|ডিভাইসে|ব্রাউজ|সার্চ|মেসেজ|ইনবক্স|sms|এসএমএস|পাঠাও|কল|কন্টাক্ট|নোটিফ|ব্যাটারি|ওয়াইফাই|অ্যাপ|পড়)",goal,re.I))
@@ -390,7 +393,12 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
         mode=get_perm(dev,cap) if cap else "always"
         if RX: mode="always" if (AUTO_OK and tool=="web_search") else "ask"   # owner's device perms never apply to users
         _sn=SN.category(tool,args)  # Sentinel: send/post/pay/account -> always a card + audit
-        force_card = bool(_sn) or tool in("sms_send","sms_fill","call_make") or (tool=="shell" and args.get("device","box")=="box") or AL.risk(tool,args)=="high"  # destructive/outgoing: always confirm  # outgoing + box shell: always confirm
+        _pc=SN.pre_call(tool,args,tainted,actions)   # v2 policy: block / card / tier
+        if _pc["block"]:
+            SN.log("blocked",_pc["tier"],TASKS[tid].get("user"),task=tid,tool=tool,reason=_pc["reason"])
+            ev("blocked",text=("এই টাস্কের কাজের সীমা শেষ (Sentinel)" if _pc["reason"]=="action_budget" else f"'{tool}' Sentinel নীতিতে বন্ধ"))
+            msgs.append({"role":"user","content":f"'{tool}' Sentinel আটকেছে ({_pc['reason']})। আর কোনো কাজ নয়; চূড়ান্ত উত্তর দাও।"}); continue
+        force_card = bool(_sn) or _pc["card"] or tool in("sms_send","sms_fill","call_make") or (tool=="shell" and args.get("device","box")=="box") or AL.risk(tool,args)=="high"  # destructive/outgoing: always confirm  # outgoing + box shell: always confirm
         if mode=="off": d="no"; ev("blocked",text=f"{CAPS[cap]} এই ডিভাইসে বন্ধ (অনুমতি কেন্দ্র)")
         elif (mode=="always" and not force_card) or tool=="list_devices": d="yes"; cap and ev("auto",text=("নিরাপদ কাজ — অনুমতি ছাড়াই চালাচ্ছি (ওয়েব সার্চ)" if RX else f"'সবসময় অনুমতি' দেওয়া আছে — {CAPS[cap]}"))
         else:
@@ -405,6 +413,13 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
                 out=await run_tool(tool,args); img=None
                 if isinstance(out,dict): img=out.get("image"); out=out.get("text") or json.dumps({k:v for k,v in out.items() if k!="image"},ensure_ascii=False)[:3000]
                 ran_ok=True; out_s=redact_secrets(str(out)); ev("result",tool=tool,text=out_s[:1500],image=img); audit(ev="agent_tool",task=tid,tool=tool,args=args,ok=True); AL.log(TASKS[tid].get("user"),"device" if args.get("device") not in(None,"box") else ("shell" if tool=="shell" else ("browse" if tool in("browse","web_search") else "tool")),tool,args,out_s,True,tid)
+                if SN.tier(tool,args)!="read": actions+=1
+                if tool in SN.SENSITIVE: private=True
+                if tool in SN.UNTRUSTED:
+                    tainted=True
+                    _qt,_sus,_qm=await QZ.isolate(tool,out_s,RT.complete,private,chain=(RT.PRIVATE if private else None))
+                    if _sus: ev("warn",text=f"বাইরের ডেটায় {len(_sus)}টা সন্দেহজনক নির্দেশ পাওয়া গেছে — উপেক্ষা করা হলো"); SN.log("injection_flagged","read",TASKS[tid].get("user"),task=tid,tool=tool,n=len(_sus),sample=_sus[0])
+                    msgs.append({"role":"user","content":f"টুল ফলাফল ({tool}, {_qm}):\n{_qt}\n(সারাংশ বাংলায়; OTP পূর্ণ নয়)"}); break
                 msgs.append({"role":"user","content":f"টুল ফলাফল ({tool}):\n{out_s[:3500]}\n(সারাংশ বাংলায়; OTP পূর্ণ নয়)"}); break
             except Exception as e:
                 er=str(e)[:800]; audit(ev="agent_tool",task=tid,tool=tool,args=args,ok=False,err=er[:200]); AL.log(TASKS[tid].get("user"),"shell" if tool=="shell" else "tool",tool,args,friendly(er),False,tid)
