@@ -22,7 +22,6 @@ FLAGS={
  "prov_gemini":      ("1","Google Gemini","AI provider","Gemini Flash-Lite (ইউজার) ও 3.6 Flash (ডেভ) — ফ্রি টিয়ার"),
  "prov_zai":         ("1","Z.ai GLM","AI provider","GLM-4.7 Flash — অফিসিয়াল ফ্রি মডেল (ইউজার ব্যাকআপ)"),
  "prov_cloudflare":  ("1","Cloudflare Workers AI","AI provider","GPT-OSS 120B ও Llama 3.3 70B — দিনে ১০k নিউরন ফ্রি"),
- "prov_mistral":     ("1","Mistral","AI provider","Ministral 14B (ইউজার) ও Codestral (ডেভ) — ফ্রি কী"),
  "prov_openrouter":  ("1","OpenRouter (ফ্রি)","AI provider","Auto Free + Nemotron Ultra / Laguna (ডেভ) — মোট ৫০/দিন"),
  "prov_pollinations":("1","Pollinations (ডেভ)","AI provider","GPT-5.3 Codex, GPT-6 Sol, Kimi K3, GLM-5.3 — দৈনিক ফ্রি Pollen; শুধু মালিক/ডেভ"),
 }

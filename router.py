@@ -9,12 +9,12 @@ def _env(f):
     except Exception: pass
     return d
 K={}
-for f in ("groq","gemini","openrouter","bbai","mistral","zai","pollinations"): K.update(_env(f"{S}/{f}.env"))
+for f in ("groq","gemini","openrouter","bbai","zai","pollinations"): K.update(_env(f"{S}/{f}.env"))
 GROQ="https://api.groq.com/openai/v1/chat/completions"; GEM="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 OR="https://openrouter.ai/api/v1/chat/completions"; CF="https://banglabhai.dpdns.org/__bbai/"
-MIS="https://api.mistral.ai/v1/chat/completions"; ZAI="https://api.z.ai/api/paas/v4/chat/completions"; POL="https://gen.pollinations.ai/v1/chat/completions"
+ZAI="https://api.z.ai/api/paas/v4/chat/completions"; POL="https://gen.pollinations.ai/v1/chat/completions"
 # id -> (label, url, key, model, kind).  All routes below are FREE (no card): see PROVIDERS for limits.
-_G,_GM,_O,_M,_Z,_P,_C=K.get("GROQ_API_KEY"),K.get("GEMINI_API_KEY"),K.get("OPENROUTER_API_KEY"),K.get("MISTRAL_API_KEY"),K.get("ZAI_API_KEY"),K.get("POLLINATIONS_KEY"),K.get("BBAI_TOKEN")
+_G,_GM,_O,_Z,_P,_C=K.get("GROQ_API_KEY"),K.get("GEMINI_API_KEY"),K.get("OPENROUTER_API_KEY"),K.get("ZAI_API_KEY"),K.get("POLLINATIONS_KEY"),K.get("BBAI_TOKEN")
 CHAIN={
  # ---- user tier (free, generous daily limits) ----
  "groq:openai/gpt-oss-120b":("Groq · GPT-OSS 120B",GROQ,_G,"openai/gpt-oss-120b","oa"),
@@ -22,7 +22,6 @@ CHAIN={
  "zai:glm-4.7-flash":("Z.ai · GLM-4.7 Flash",ZAI,_Z,"glm-4.7-flash","oa"),
  "cf:openai/gpt-oss-120b":("Cloudflare · GPT-OSS 120B",CF,_C,"openai/gpt-oss-120b","cf"),
  "cf:meta/llama-3.3-70b-instruct-fp8-fast":("Cloudflare · Llama 3.3 70B",CF,_C,"meta/llama-3.3-70b-instruct-fp8-fast","cf"),
- "mistral:ministral-14b-latest":("Mistral · Ministral 14B",MIS,_M,"ministral-14b-latest","oa"),
  "gemini:gemini-3.5-flash-lite":("Google · Gemini 3.5 Flash-Lite",GEM,_GM,"gemini-3.5-flash-lite","oa"),
  "openrouter:openrouter/free":("OpenRouter · Free",OR,_O,"openrouter/free","oa"),
  # ---- dev tier (most powerful free routes; owner only — small daily quotas) ----
@@ -36,23 +35,31 @@ CHAIN={
  "openrouter:poolside/laguna-s-2.1:free":("Poolside · Laguna S 2.1 code (OpenRouter)",OR,_O,"poolside/laguna-s-2.1:free","oa"),
  "openrouter:cohere/north-mini-code:free":("Cohere · North Mini Code (OpenRouter)",OR,_O,"cohere/north-mini-code:free","oa"),
  "gemini:gemini-3.6-flash":("Google · Gemini 3.6 Flash",GEM,_GM,"gemini-3.6-flash","oa"),
- "mistral:codestral-latest":("Mistral · Codestral",MIS,_M,"codestral-latest","oa"),
 }
-DEFAULT=["groq:openai/gpt-oss-120b","gemini:gemini-3.1-flash-lite","zai:glm-4.7-flash","cf:openai/gpt-oss-120b",
-         "cf:meta/llama-3.3-70b-instruct-fp8-fast","mistral:ministral-14b-latest","gemini:gemini-3.5-flash-lite","openrouter:openrouter/free"]
+# Free chain, re-ordered 2026-11-12 from live provider pages (no card anywhere):
+#   Groq 120B (1,000 RPD) -> Gemini Flash-Lite x2 (500 RPD each) -> Cloudflare (10k neurons/day) -> Z.ai -> OpenRouter :free (50 RPD, last)
+# Removed as dead/paid: Mistral (API needs billing since 2026-11-05), GitHub Models (retired 2026-07-30),
+# Hugging Face Inference Providers (no free credits), Cerebras (trial needs a payment method).
+DEFAULT=["groq:openai/gpt-oss-120b","gemini:gemini-3.1-flash-lite","gemini:gemini-3.5-flash-lite","cf:openai/gpt-oss-120b",
+         "zai:glm-4.7-flash","cf:meta/llama-3.3-70b-instruct-fp8-fast","openrouter:openrouter/free"]
 DEV=["pollinations:openai/gpt-5.3-codex","pollinations:moonshotai/kimi-k3","openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
-     "pollinations:z-ai/glm-5.3","gemini:gemini-3.6-flash","mistral:codestral-latest","openrouter:poolside/laguna-s-2.1:free",
+     "pollinations:z-ai/glm-5.3","gemini:gemini-3.6-flash","openrouter:poolside/laguna-s-2.1:free",
      "groq:openai/gpt-oss-120b","cf:openai/gpt-oss-120b","zai:glm-4.7-flash","gemini:gemini-3.1-flash-lite"]
+# PRIVATE chain: for SMS / screen text / contacts / memory extraction. Only providers that do not use free-tier
+# prompts for training: Groq and our own Cloudflare Workers AI. Gemini free tier, OpenRouter :free, Z.ai and
+# Pollinations are deliberately excluded. If every private route fails we fail closed (no fallback to them).
+PRIVATE=["groq:openai/gpt-oss-120b","cf:openai/gpt-oss-120b","cf:meta/llama-3.3-70b-instruct-fp8-fast"]
+DEAD_PROVIDERS={"mistral":"API needs billing since 2026-11-05","github":"GitHub Models retired 2026-07-30",
+                "hf":"no free Inference Providers credits","cerebras":"trial needs a payment method"}
 DEV_ONLY={m for m in CHAIN if m not in DEFAULT}   # never offered to normal users
 # provider -> feature flag (flags.py). Turning one off removes its models from every chain.
-PROV_FLAG={"groq":"prov_groq","gemini":"prov_gemini","zai":"prov_zai","cf":"prov_cloudflare","mistral":"prov_mistral",
+PROV_FLAG={"groq":"prov_groq","gemini":"prov_gemini","zai":"prov_zai","cf":"prov_cloudflare",
            "openrouter":"prov_openrouter","pollinations":"prov_pollinations"}
-PROVIDERS={  # verified 2026-10-26 on official pages; shown in the admin dashboard
+PROVIDERS={  # verified 2026-10-26, re-checked 2026-11-12 (Mistral removed); shown in the admin dashboard
  "groq":"ফ্রি: gpt-oss-120b ~১০০০ রিকোয়েস্ট/দিন, ২০০K টোকেন/দিন",
  "gemini":"ফ্রি: Flash-Lite ~৫০০/দিন, 3.6 Flash ~২০/দিন (প্রতি প্রজেক্ট)",
  "zai":"ফ্রি: GLM-4.7-Flash (অফিসিয়াল ফ্রি মডেল)",
  "cf":"ফ্রি: Workers AI ১০,০০০ নিউরন/দিন (সব CF মডেল মিলিয়ে)",
- "mistral":"ফ্রি Experiment কী: Ministral/Codestral চলে; Small/Medium এই কী-তে বন্ধ",
  "openrouter":"ফ্রি: :free মডেল মিলিয়ে ৫০ রিকোয়েস্ট/দিন, ২০/মিনিট",
  "pollinations":"দৈনিক ফ্রি Pollen গ্রান্ট থেকে খরচ — শুধু ডেভ টিয়ার; শেষ হলে পরের মডেলে যায়",
 }
