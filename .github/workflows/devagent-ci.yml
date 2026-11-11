@@ -23,8 +23,10 @@ jobs:
           pyflakes *.py | grep -E "undefined name|syntax|invalid" && exit 1 || true
           for f in static/*.js; do node --check "$f"; done
           node --check static/v3/v3.js
-      - name: Workspace migration and authorization tests
-        run: python -m unittest discover -s tests -p 'test_workspace*.py' -v
+      - name: Unit tests (workspace, router chain, Sentinel v2, quarantine)
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: P0 eval gate (Bangla golden set, must be 100%)
+        run: python evals/run_golden.py
       - name: Boot app and hit /bb/health
         run: |
           ln -s "$GITHUB_WORKSPACE" ~/bangla_bhai
