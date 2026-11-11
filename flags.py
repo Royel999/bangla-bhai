@@ -23,6 +23,7 @@ FLAGS={
  "prov_zai":         ("1","Z.ai GLM","AI provider","GLM-4.7 Flash — অফিসিয়াল ফ্রি মডেল (ইউজার ব্যাকআপ)"),
  "prov_cloudflare":  ("1","Cloudflare Workers AI","AI provider","GPT-OSS 120B ও Llama 3.3 70B — দিনে ১০k নিউরন ফ্রি"),
  "prov_openrouter":  ("1","OpenRouter (ফ্রি)","AI provider","Auto Free + Nemotron Ultra / Laguna (ডেভ) — মোট ৫০/দিন"),
+ "mem_cloud_embed":  ("1","মেমরি: Gemini embedding","Memory cloud embedding","চালু = Render-এ অর্থ দিয়ে মেমরি খোঁজা (Gemini ফ্রি embedding; ফ্রি টিয়ারের ডেটা Google ব্যবহার করতে পারে)। বন্ধ = শুধু keyword খোঁজা, মেমরির লেখা Google-এ যায় না"),
  "prov_pollinations":("1","Pollinations (ডেভ)","AI provider","GPT-5.3 Codex, GPT-6 Sol, Kimi K3, GLM-5.3 — দৈনিক ফ্রি Pollen; শুধু মালিক/ডেভ"),
 }
 _C={"t":0,"v":{}}

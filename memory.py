@@ -43,6 +43,10 @@ def _gkey():
 def cembed(texts):
     k=_gkey()
     if not k or not texts: return [None]*len(texts)
+    try:   # P0 privacy switch (admin flag mem_cloud_embed): off = memory text never leaves for Gemini
+        import flags as _FL
+        if not _FL.on("mem_cloud_embed"): return [None]*len(texts)
+    except Exception: pass
     try:
         import httpx
         r=httpx.post("https://generativelanguage.googleapis.com/v1beta/openai/embeddings",headers={"Authorization":"Bearer "+k},

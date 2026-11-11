@@ -95,6 +95,10 @@ app.mount("/bb/static",StaticFiles(directory=BASE+"/static"),name="static")
 import agent as AG
 AG.OWNER=CFG["BB_USER"]  # non-owner agent tasks run restricted (safe tools only)
 import router as RT, memory as MEM, actlog as AL, plans as PL
+import functools as _ft
+# P0 privacy routing: memory extraction/review read the user's own words -> PRIVATE chain only (Groq + own Cloudflare;
+# never the Gemini free tier / OpenRouter :free, whose prompts may be used for training). Fails closed.
+_PRIV_COMPLETE=_ft.partial(RT.complete,chain=RT.PRIVATE)
 OWNER_EMAIL=os.environ.get("BB_OWNER_EMAIL","skbadol3210@gmail.com").strip().lower()
 @app.middleware("http")
 async def _sec(request,call_next):
@@ -672,8 +676,8 @@ async def stream(request:Request,cid:str):
           if not full:
             full=RT.friendly(st.get("lang","en")); yield "data: "+json.dumps({"d":full})+"\n\n"
           elif st.get("memory",True) and b.get("content"):
-            asyncio.create_task(MEM.extract(u,b["content"],RT.complete))
-            asyncio.create_task(MEM.review(u,b["content"],full,RT.complete,"chat"))  # background review -> pending
+            asyncio.create_task(MEM.extract(u,b["content"],_PRIV_COMPLETE))
+            asyncio.create_task(MEM.review(u,b["content"],full,_PRIV_COMPLETE,"chat"))  # background review -> pending
         finally:
           save(full or "_(থামানো হয়েছে)_",name,advisors)
         yield "event: done\ndata: "+json.dumps({"model":name})+"\n\n"
@@ -990,9 +994,9 @@ def _mem_on_agent_done(tid):
     """Personal Intelligence: learn from the goal the user typed (their own words), scoped to that user, if learning is on."""
     t=AG.get_task(tid) or {}; u=t.get("user")
     if not u or not get_settings(u).get("memory",True): return
-    asyncio.get_running_loop().create_task(MEM.extract(u,t.get("goal",""),RT.complete,"agent"))
+    asyncio.get_running_loop().create_task(MEM.extract(u,t.get("goal",""),_PRIV_COMPLETE,"agent"))
     fin=next((e.get("text","") for e in reversed(t.get("events",[])) if e.get("type")=="final"),"")
-    asyncio.get_running_loop().create_task(MEM.review(u,t.get("goal",""),fin,RT.complete,"agent"))
+    asyncio.get_running_loop().create_task(MEM.review(u,t.get("goal",""),fin,_PRIV_COMPLETE,"agent"))
 AG.ON_DONE.append(_mem_on_agent_done)
 # ---- plans/payments/admin dashboard + Telegram ----
 import biz as BZ, tg as TG, ocr as OC
