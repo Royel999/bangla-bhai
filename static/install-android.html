@@ -1,0 +1,21 @@
+<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Royal Bengal Tiger — Android ইনস্টল</title>
+<style>body{font-family:system-ui,'Noto Sans Bengali',sans-serif;max-width:640px;margin:24px auto;padding:0 16px;line-height:1.6;background:#0b1410;color:#eef3ee}
+h1{font-size:1.3rem;color:#d4af37}h2{font-size:1.05rem;margin-top:1.6em;color:#d4af37}code{background:#1c2a22;padding:2px 6px;border-radius:4px}
+a{color:#7fd1a0}.note{background:#1c2a22;border-left:3px solid #d4af37;padding:8px 12px;border-radius:6px}</style></head><body>
+<h1>The Royal Bengal Tiger — Android অ্যাপ ইনস্টল</h1>
+<p class="note">অ্যাপে Accessibility (স্ক্রিন পড়া/ট্যাপ) আছে। তাই ব্রাউজার বা ফাইল ম্যানেজার থেকে ইনস্টল করলে Google Play Protect অনেক দেশে আটকে দেয়। এটা অ্যাপের ত্রুটি নয়, Google-এর নিরাপত্তা নিয়ম। অ্যাপে SMS পারমিশন নেই।</p>
+<h2>পথ ১ — ফোন থেকেই (আগে এটা চেষ্টা করুন)</h2>
+<ol><li>পুরনো <b>Royal Link</b> ও <b>বাংলা ভাই</b> থাকলে আনইনস্টল করুন।</li>
+<li><a href="/bb/static/RoyalBengalTiger.apk">RoyalBengalTiger.apk</a> ডাউনলোড করুন।</li>
+<li>Play Protect এলে <b>More details → Install anyway</b>।</li>
+<li>অ্যাপ খুলে লগইন → সবুজ বার থেকে Accessibility চালু (Android ১৩+ এ আগে App info → ⋮ → <b>Allow restricted settings</b>)।</li></ol>
+<h2>পথ ২ — কম্পিউটার দিয়ে ADB (পথ ১ আটকালে)</h2>
+<ol><li>ফোনে Settings → About phone → Build number ৭ বার চাপুন → Developer options → <b>USB debugging</b> চালু।</li>
+<li>কম্পিউটারে Google-এর ফ্রি <b>Android SDK Platform-Tools</b> নামান (developer.android.com/tools/releases/platform-tools)।</li>
+<li>USB দিয়ে ফোন যুক্ত করে ফোনে "Allow USB debugging" দিন।</li>
+<li>কমান্ড: <code>adb install -r RoyalBengalTiger.apk</code></li>
+<li>কাজ শেষে USB debugging বন্ধ করে দিন।</li></ol>
+<h2>সতর্কতা</h2>
+<p>Android 17-এ <b>Advanced Protection</b> চালু থাকলে Accessibility দেওয়া যায় না। ব্যাংক, OTP ও পাসওয়ার্ডের স্ক্রিন অ্যাপ কখনো পড়ে না; প্রতিটা ট্যাপ/টাইপের আগে আপনার Approve লাগে।</p>
+</body></html>
