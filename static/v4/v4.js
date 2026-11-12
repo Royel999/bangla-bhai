@@ -171,41 +171,68 @@ function agTools(a){if(a.perm_level==='chat_only'||!ST.canTools)return [];const 
  if(!own)return ST.safeTools||['web_search','browse'];const t=new Set();a.skills.forEach(i=>{const s=ST.skills.find(x=>x.id===i);(s?.tools||[]).forEach(x=>t.add(x))});return [...t]}
 const TOOLN=()=>({web_search:'🔎 '+T('ওয়েব সার্চ','Web search'),browse:'🌐 '+T('ওয়েবপেজ পড়া','Read web pages'),image_gen:'🎨 '+T('ছবি','Images'),upload:'📎 '+T('ফাইল','Files'),ocr:'🔤 OCR',jobs:'⏰ '+T('শিডিউল','Schedules')});
 function agStatus(a){const r=a.runs?.[0];if(!r)return ['idle',T('প্রস্তুত','Ready')];if(r.status==='running')return ['run',T('কাজ চলছে','Working')];if(r.status==='failed')return ['err',T('শেষ কাজ ব্যর্থ','Last run failed')];return ['ok',T('প্রস্তুত','Ready')]}
-async function loadAgents(){const j=await api('/bb/api/v3/agents');ST.agents=j.agents;ST.canTools=j.can_tools;ST.safeTools=j.safe_tools;ST.agentsOff=j.off||'';ST.agLimit=j.limit}
+async function loadAgents(){const j=await api('/bb/api/v3/agents');ST.agents=j.agents;ST.canTools=j.can_tools;ST.safeTools=j.safe_tools;ST.agentsOff=j.off||'';ST.agLimit=j.limit;ST.browseOk=j.browse_ok;ST.maxSteps=j.max_steps}
 const PERML=()=>({ask:T('সব জিজ্ঞেস করে','Asks every time'),safe_auto:T('নিরাপদগুলো নিজে','Safe steps auto'),chat_only:T('শুধু চ্যাট','Chat only')});
 const TIERI=()=>({fast:'⚡ '+T('দ্রুত','Fast'),auto:'✨ '+T('অটো','Auto'),deep:'🧠 '+T('গভীর','Deep')});
 const ICONS=['🤖','🐯','🧑‍💼','✍️','🔎','💻','🎓','📈','🕌','⚡','🛡️','🎨','📱','📰','🌾','🏏'];
 const TCAT=()=>[['all',T('সব','All')],['research',T('গবেষণা','Research')],['learn',T('শিক্ষা','Learning')],['write',T('লেখা','Writing')],['biz',T('ব্যবসা','Business')]];
 const TPL=[
- {cat:'research',icon:'🔎',name:'Researcher',name_bn:'গবেষক',persona:'Searches the web for any question, answers briefly and always links its sources.',persona_bn:'যেকোনো প্রশ্নে ওয়েবে খুঁজে সংক্ষেপে উত্তর দেবে, সবসময় সূত্রের লিংক দেবে।',model_tier:'auto',skills:['research','summarize'],perm_level:'safe_auto',ex:'Compare the 3 best budget phones in Bangladesh right now'},
- {cat:'research',icon:'📰',name:'News brief',name_bn:'খবরের সারাংশ',persona:'Gives today\'s top Bangladesh and world news in 5 points, each with a source.',persona_bn:'আজকের বাংলাদেশ ও বিশ্বের বড় খবর ৫টা পয়েন্টে বলবে, প্রতিটার সূত্র দেবে।',model_tier:'fast',skills:['research','summarize'],perm_level:'safe_auto',ex:'Top 5 Bangladesh headlines today'},
- {cat:'learn',icon:'🎓',name:'Study buddy',name_bn:'পড়াশোনার সাথী',persona:'Explains step by step in simple words, then gives a short quiz.',persona_bn:'ধাপে ধাপে সহজ ভাষায় বোঝাবে, শেষে ছোট্ট কুইজ দেবে।',model_tier:'auto',skills:['tutor','summarize'],perm_level:'chat_only',ex:'Explain photosynthesis for class 8'},
- {cat:'learn',icon:'🌐',name:'Language coach',name_bn:'ভাষা শিক্ষক',persona:'Helps practise English and Bangla: corrects mistakes kindly and explains why.',persona_bn:'ইংরেজি ও বাংলা চর্চায় সাহায্য করবে, ভুল ধরিয়ে কেন ভুল তা বোঝাবে।',model_tier:'auto',skills:['translate','tutor'],perm_level:'chat_only',ex:'Correct my email and explain the grammar'},
- {cat:'write',icon:'✍️',name:'Writing assistant',name_bn:'লেখার সহকারী',persona:'Drafts letters, posts and emails in polished language. Never sends — drafts only.',persona_bn:'চিঠি, পোস্ট, ইমেইল সুন্দর ভাষায় লিখে দেবে; পাঠাবে না, শুধু খসড়া দেবে।',model_tier:'auto',skills:['write','mail','translate'],perm_level:'chat_only',ex:'Write a leave application to my manager'},
- {cat:'biz',icon:'📈',name:'Business advisor',name_bn:'ব্যবসার পরামর্শক',persona:'Practical advice on small-business ideas, pricing and marketing; checks market prices when needed.',persona_bn:'ছোট ব্যবসার আইডিয়া, দাম ও মার্কেটিং নিয়ে বাস্তবসম্মত পরামর্শ দেবে; দরকার হলে বাজারদর খুঁজবে।',model_tier:'deep',skills:['biz','research'],perm_level:'ask',ex:'Plan a home bakery in Dhaka with a 50,000 Tk budget'}];
-const tName=t=>T(t.name_bn,t.name),tPers=t=>T(t.persona_bn,t.persona);
+ {cat:'research',icon:'🔎',name:'Researcher',name_bn:'গবেষক',persona:'Searches the web for any question, answers briefly and always links its sources.',persona_bn:'যেকোনো প্রশ্নে ওয়েবে খুঁজে সংক্ষেপে উত্তর দেবে, সবসময় সূত্রের লিংক দেবে।',model_tier:'auto',skills:['research','summarize'],perm_level:'safe_auto',ex:'Compare the 3 best budget phones in Bangladesh right now',ex_bn:'বাংলাদেশে এখনকার সেরা ৩টা বাজেট ফোন তুলনা করো'},
+ {cat:'research',icon:'📰',name:'News brief',name_bn:'খবরের সারাংশ',persona:'Gives today\'s top Bangladesh and world news in 5 points, each with a source.',persona_bn:'আজকের বাংলাদেশ ও বিশ্বের বড় খবর ৫টা পয়েন্টে বলবে, প্রতিটার সূত্র দেবে।',model_tier:'fast',skills:['research','summarize'],perm_level:'safe_auto',ex:'Top 5 Bangladesh headlines today',ex_bn:'আজকের বাংলাদেশের শীর্ষ ৫টা খবর'},
+ {cat:'learn',icon:'🎓',name:'Study buddy',name_bn:'পড়াশোনার সাথী',persona:'Explains step by step in simple words, then gives a short quiz.',persona_bn:'ধাপে ধাপে সহজ ভাষায় বোঝাবে, শেষে ছোট্ট কুইজ দেবে।',model_tier:'auto',skills:['tutor','summarize'],perm_level:'ask',ex:'Explain photosynthesis for class 8',ex_bn:'ক্লাস ৮-এর জন্য সালোকসংশ্লেষণ বুঝিয়ে দাও'},
+ {cat:'learn',icon:'🌐',name:'Language coach',name_bn:'ভাষা শিক্ষক',persona:'Helps practise English and Bangla: corrects mistakes kindly and explains why.',persona_bn:'ইংরেজি ও বাংলা চর্চায় সাহায্য করবে, ভুল ধরিয়ে কেন ভুল তা বোঝাবে।',model_tier:'auto',skills:['translate','tutor'],perm_level:'ask',ex:'Correct my email and explain the grammar',ex_bn:'আমার ইমেইলটা ঠিক করে ব্যাকরণ বুঝিয়ে দাও'},
+ {cat:'write',icon:'✍️',name:'Writing assistant',name_bn:'লেখার সহকারী',persona:'Drafts letters, posts and emails in polished language. Never sends — drafts only.',persona_bn:'চিঠি, পোস্ট, ইমেইল সুন্দর ভাষায় লিখে দেবে; পাঠাবে না, শুধু খসড়া দেবে।',model_tier:'auto',skills:['write','mail','translate'],perm_level:'ask',ex:'Write a leave application to my manager',ex_bn:'ম্যানেজারের কাছে ছুটির আবেদন লিখে দাও'},
+ {cat:'biz',icon:'📈',name:'Business advisor',name_bn:'ব্যবসার পরামর্শক',persona:'Practical advice on small-business ideas, pricing and marketing; checks market prices when needed.',persona_bn:'ছোট ব্যবসার আইডিয়া, দাম ও মার্কেটিং নিয়ে বাস্তবসম্মত পরামর্শ দেবে; দরকার হলে বাজারদর খুঁজবে।',model_tier:'deep',skills:['biz','research'],perm_level:'ask',ex:'Plan a home bakery in Dhaka with a 50,000 Tk budget',ex_bn:'৫০,০০০ টাকা বাজেটে ঢাকায় হোম বেকারির পরিকল্পনা করো'}];
+const tName=t=>T(t.name_bn,t.name),tPers=t=>T(t.persona_bn,t.persona),tEx=t=>T(t.ex_bn||t.ex,t.ex);
 let TF='all';
-async function pgAgents(){$('#view').innerHTML=shell(T('এজেন্ট','Agents'),'<div id=agw><div class="skel tall"></div><div class=skel></div><div class=skel></div></div>');
- try{await loadAgents()}catch(e){$('#agw').innerHTML=`<div class=empty><div class=big>⚠️</div>${esc(e.message)}<br><button class="btn sm" style="margin-top:12px" onclick="pgAgents()">${T('আবার চেষ্টা','Try again')}</button></div>`;return}
- const runs=ST.agents.flatMap(a=>a.runs||[]),live=runs.filter(r=>r.status==='running').length,done=runs.filter(r=>r.status==='done').length;
- const own=ST.me.role==='owner';
- $('#agw').innerHTML=ST.agentsOff?`<div class=empty><div class=big>⏸️</div>${esc(ST.agentsOff)}</div>`:`
- <section class="aghero"><i class=flagline></i><div><b>${T('আপনার ব্যক্তিগত এজেন্ট দল','Your personal agent team')}</b><p>${T('এজেন্ট ধাপে ধাপে কাজ করে, প্রতিটা ঝুঁকির কাজের আগে আপনার অনুমতি নেয়।','Agents work step by step and ask your permission before anything risky.')}</p></div>
- <div class=stats><div class=stat><b>${num(ST.agents.length)}${ST.agLimit?`<small>/${num(ST.agLimit)}</small>`:''}</b><span>${T('এজেন্ট','Agents')}</span></div><div class=stat><b>${num(live)}</b><span>${T('চলছে','Running')}</span></div><div class=stat><b>${num(done)}</b><span>${T('সম্পন্ন','Completed')}</span></div></div></section>
- <div class=guard>${svg('shield')}<span>${own?T('মালিক মোড: স্কিল অনুযায়ী টুল, প্রতিটা ঝুঁকির কাজে অনুমতি কার্ড।','Owner mode: tools follow skills; every risky step shows an Approve card.'):T('নিরাপত্তা: আপনার এজেন্ট শুধু ওয়েব সার্চ ও ওয়েবপেজ পড়তে পারে। পেজ খোলার আগে সবসময় অনুমতি চাইবে; কিছু পাঠানো, কেনা বা মোছা যায় না।','Safety: your agents can only search the web and read pages. They always ask before opening a page and can never send, buy or delete.')}</span></div>
- <div class=sec><h2>${T('আমার এজেন্ট','My agents')}</h2>${ST.agents.length?`<button onclick="editAgent()">+ ${T('নতুন','New')}</button>`:''}</div>
- <div id=aglist>${ST.agents.length?ST.agents.map(agCard).join(''):`<div class="empty card"><img class=sealsm src="${LOGO}" alt="" width=72 height=72><b style="display:block;color:var(--tx);margin-top:8px">${T('এখনো কোনো এজেন্ট নেই','No agents yet')}</b><p class=small>${T('নিচের একটা টেমপ্লেট বেছে নিন, অথবা শূন্য থেকে বানান।','Start from a template below, or build one from scratch.')}</p><button class="btn red" onclick="editAgent()">${svg('plus')} ${T('প্রথম এজেন্ট বানান','Create your first agent')}</button></div>`}</div>
- <div class=sec><h2>${T('টেমপ্লেট গ্যালারি','Template gallery')}</h2></div><div class=chips id=tcat></div><div class=tgal id=tgal></div>`;
- if(!ST.agentsOff)paintTpl()}
-function paintTpl(){$('#tcat').innerHTML=TCAT().map(([k,l])=>`<button class="chip ${TF===k?'on':''}" aria-pressed="${TF===k}" onclick="TF='${k}';paintTpl()">${l}</button>`).join('');
- $('#tgal').innerHTML=TPL.map((t,i)=>[t,i]).filter(([t])=>TF==='all'||t.cat===TF).map(([t,i])=>`<button class=tcard onclick="editAgent(null,${i})"><span class=e aria-hidden=true>${t.icon}</span><span class=grow><b>${esc(tName(t))}</b><span>${esc(tPers(t))}</span><span class=tags style="margin-top:6px"><span class="tag blue">${esc(TIERI()[t.model_tier])}</span><span class="tag ${t.perm_level==='chat_only'?'':'warn'}">${t.perm_level==='chat_only'?'💬 '+T('শুধু চ্যাট','Chat only'):'🌐 '+T('ওয়েব','Web')}</span></span></span><span class=chev>›</span></button>`).join('')}
-function agCard(a){const sk=id=>ST.skills.find(s=>s.id===id);const [st,stl]=agStatus(a);const tl=agTools(a);const r=a.runs?.[0];const n=(a.runs||[]).length;
- return `<article class=ag><div class=head><div class=em aria-hidden=true>${esc(a.icon)}<i class="sd ${st}"></i></div><div class=grow><h3>${esc(a.name)}</h3><div class="small mut">${esc(stl)} · ${num(n)} ${T('টি কাজ','runs')}</div></div><button class=ib aria-label="${T('এডিট','Edit')}" onclick="editAgent('${a.id}')">${svg('edit')}</button></div>
-  <p class=persona>${esc(a.persona||T('কোনো বিশেষ নির্দেশনা নেই','No special instructions'))}</p>
-  <div class=caps><span class="tag blue">${esc(TIERI()[a.model_tier]||a.model_tier)}</span><span class="tag ${a.perm_level==='ask'?'warn':a.perm_level==='chat_only'?'':'ok'}">🔐 ${esc(PERML()[a.perm_level]||a.perm_level)}</span>${tl.length?tl.map(t=>`<span class=tag>${esc(TOOLN()[t]||t)}</span>`).join(''):`<span class=tag>💬 ${T('টুল নেই','No tools')}</span>`}</div>
-  <div class=skics>${a.skills.map(i=>sk(i)?`<span title="${esc(T(sk(i).name_bn,sk(i).name_en))}" aria-label="${esc(T(sk(i).name_bn,sk(i).name_en))}">${sk(i).icon}</span>`:'').join('')}</div>
-  ${r?`<button class=lastrun onclick="go('/v4/agents/${a.id}')"><span class="tag ${(RUNS()[r.status]||[''])[0]}">${esc((RUNS()[r.status]||['',r.status||'—'])[1])}</span><span class="grow t">${esc(r.goal)}</span><span class="small mut">${ago(r.created)}</span></button>`:''}
-  <div class=foot><button class="btn red grow" onclick="go('/v4/agents/${a.id}')">${svg('play')} ${T('কাজ দিন','Run a task')}</button><button class=btn aria-label="${T('চ্যাট','Chat')}" onclick="chatAgent('${a.id}')">${svg('chat')}</button><a class=btn href="/schedules" aria-label="${T('নিয়মিত চালান (শিডিউল)','Schedule')}">⏰</a></div></article>`}
+/* =============== AGENT WORKBENCH (Phase A) ===============
+   One real runner (agent.py loop) for every agent; an agent = name + instructions + skills + model + permission.
+   Workbench = my agents + running/recent jobs (side) · goal composer, plan checklist, live tool timeline,
+   approval cards, final answer (main). Only real run events are rendered — there is no demo timeline. */
+const wbQ=()=>new URLSearchParams(location.search);
+const motionOK=()=>!matchMedia('(prefers-reduced-motion: reduce)').matches;
+const wbShell=(head,body)=>head+`<div class=page><div class="wrap wbw">${body}</div></div>`;
+const toolLab=t=>t==='browse'&&ST.browseOk===false?'🌐 '+T('ওয়েবপেজ পড়া — এখন উপলব্ধ নয়','Read web pages — unavailable right now'):(TOOLN()[t]||t);
+const guardLine=own=>`<p class=guard>${svg('shield')}<span>${own?T('প্রতিটা ঝুঁকির কাজে (পাঠানো, পোস্ট, পেমেন্ট, মোছা) অনুমতি কার্ড আসবে; সব অডিট লগে থাকে।','Every risky step (send, post, pay, delete) shows an approval card; everything is audit-logged.'):T('আপনার এজেন্ট শুধু ওয়েব খুঁজতে ও পড়তে পারে; পেজ খোলার আগে অনুমতি চাইবে, কিছু পাঠাতে, কিনতে বা মুছতে পারে না।','Your agents can only search and read the web; they ask before opening a page and can never send, buy or delete.')}</span></p>`;
+const toolsOffNote=()=>`<div class=note>ℹ️ ${T('টুলসহ এজেন্ট এখন চালু নেই — চ্যাটে কথা বলুন।','Tool agents are switched off right now — use chat instead.')}</div>`;
+function wbJobs(a){return (a?[a]:ST.agents).flatMap(x=>(x.runs||[]).map(r=>({...r,ag:x}))).sort((p,q)=>(q.status==='running')-(p.status==='running')||(q.created||0)-(p.created||0))}
+function jobRow(r,cur){const s=RUNS()[r.status]||['',r.status||'—'],on=cur===r.task_id;
+ return `<li><button class="jobi ${on?'on':''}" ${on?'aria-current=true':''} onclick="go('/v4/agents/${r.ag.id}?t=${esc(r.task_id)}')"><span class=em aria-hidden=true>${esc(r.ag.icon)}</span><span class=grow><span class=t>${esc(r.goal)}</span><small class=mut>${esc(r.ag.name)} · ${ago(r.created)}</small></span><span class="tag ${s[0]}">${esc(s[1])}</span></button></li>`}
+function wbSide(curA,curT){const jobs=wbJobs(curA),live=jobs.filter(r=>r.status==='running'),rec=jobs.filter(r=>r.status!=='running').slice(0,curA?10:8);
+ const list=(xs,empty)=>xs.length?`<ul class=wblist>${xs.join('')}</ul>`:`<p class="small mut">${empty}</p>`;
+ return `<aside class=wbside aria-label="${T('এজেন্ট ও কাজ','Agents and jobs')}">
+ <section aria-labelledby=wbh-ag><div class=sec><h2 id=wbh-ag>${T('আমার এজেন্ট','My agents')}</h2><button onclick="editAgent()">+ ${T('নতুন','New')}</button></div>
+ ${list(ST.agents.map(a=>{const [st,stl]=agStatus(a),on=curA?.id===a.id;return `<li><button class="agi ${on?'on':''}" ${on?'aria-current=page':''} onclick="go('/v4/agents/${a.id}')"><span class=em aria-hidden=true>${esc(a.icon)}<i class="sd ${st}"></i></span><span class=grow><b>${esc(a.name)}</b><small class=mut>${esc(stl)} · ${esc(PERML()[a.perm_level]||'')}</small></span></button></li>`}),T('এখনো কোনো এজেন্ট নেই — একটা স্টার্টার বেছে নিন।','No agents yet — pick a starter.'))}</section>
+ <section aria-labelledby=wbh-run><div class=sec><h2 id=wbh-run>${T('চলমান কাজ','Running')}</h2></div>${list(live.map(r=>jobRow(r,curT)),T('এখন কোনো কাজ চলছে না।','Nothing running.'))}</section>
+ <section aria-labelledby=wbh-rec><div class=sec><h2 id=wbh-rec>${curA?T('এই এজেন্টের কাজ','This agent\'s jobs'):T('সাম্প্রতিক কাজ','Recent jobs')}</h2></div>${list(rec.map(r=>jobRow(r,curT)),T('এখনো কোনো কাজ নেই।','No jobs yet.'))}</section></aside>`}
+function wbFrame(main,side){return `<div class=wb><div class=wbmain>${main}</div>${side}</div><div id=wblive class=vh aria-live=polite aria-atomic=true></div>`}
+function wbSay(t){const l=$('#wblive');if(!l)return;clearTimeout(wbSay.t);wbSay.t=setTimeout(()=>{l.textContent=t},300)}
+async function pgAgents(){$('#view').innerHTML=wbShell(topbar(`<h1>${T('এজেন্ট','Agents')}</h1>`,'',themeBtn()),'<div class="skel tall"></div><div class=skel></div>');
+ try{await loadAgents()}catch(e){$('#view .wrap').innerHTML=`<div class=empty><div class=big>⚠️</div>${esc(e.message)}<br><button class="btn sm" style="margin-top:12px" onclick="pgAgents()">${T('আবার চেষ্টা','Try again')}</button></div>`;return}
+ if(ST.agentsOff){$('#view .wrap').innerHTML=`<div class=empty><div class=big>⏸️</div>${esc(ST.agentsOff)}</div>`;return}
+ const own=ST.me.role==='owner',has=ST.agents.length;
+ const main=`<section class="card wbcomp" aria-labelledby=wbh-new><h2 id=wbh-new class=wbh>${T('নতুন কাজ দিন','Start a job')}</h2>
+ ${has?`<label class=l for=wbag>${T('এজেন্ট','Agent')}</label><select class=fld id=wbag>${ST.agents.map(a=>`<option value="${a.id}">${esc(a.icon+' '+a.name)}${a.perm_level==='chat_only'?' · '+T('শুধু চ্যাট','chat only'):''}</option>`).join('')}</select>
+ <label class=l for=goal>${T('লক্ষ্য','Goal')}</label><textarea class=fld id=goal rows=3 placeholder="${T('যেমন: বাংলাদেশে এখনকার সেরা ৩টা বাজেট ফোন তুলনা করো','e.g. Compare the 3 best budget phones in Bangladesh right now')}"></textarea>
+ <div class=btns><button class="btn red" id=runb ${ST.canTools?'':'disabled'}>${svg('play')} ${T('শুরু করুন','Start job')}</button></div>`
+ :`<p class="small mut">${T('নিচে একটা স্টার্টার বেছে নিন — এজেন্ট তৈরি হবে, তারপর লক্ষ্য দিয়ে আসল কাজ শুরু করবেন।','Pick a starter below — it creates the agent, then you give it a goal and start a real job.')}</p><div class=btns><button class=btn onclick="editAgent()">${svg('plus')} ${T('শূন্য থেকে বানান','Build from scratch')}</button></div>`}
+ ${guardLine(own)}${ST.canTools?'':toolsOffNote()}</section>
+ <section aria-labelledby=wbh-st><div class=sec><h2 id=wbh-st>${T('স্টার্টার','Starters')}</h2></div><div class=chips id=tcat role=group aria-label="${T('ধরন','Category')}"></div><ul class=tgal id=tgal></ul></section>`;
+ $('#view .wrap').innerHTML=wbFrame(main,wbSide(null,null));paintTpl();
+ if(has)$('#runb').onclick=()=>wbStart($('#wbag').value,$('#goal').value.trim(),$('#runb'))}
+function paintTpl(){const c=$('#tcat');if(!c)return;if(!c.childElementCount)c.innerHTML=TCAT().map(([k,l])=>`<button class=chip data-c="${k}">${l}</button>`).join('');
+ $$('[data-c]',c).forEach(b=>{const on=b.dataset.c===TF;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);b.onclick=()=>{TF=b.dataset.c;paintTpl()}});
+ $('#tgal').innerHTML=TPL.map((t,i)=>[t,i]).filter(([t])=>TF==='all'||t.cat===TF).map(([t,i])=>`<li><button class=tcard onclick="startTpl(${i})"><span class=e aria-hidden=true>${t.icon}</span><span class=grow><b>${esc(tName(t))}</b><span>${esc(tPers(t))}</span><small class=try>${T('যেমন','Try')}: ${esc(tEx(t))}</small></span><span class="tag blue">${T('শুরু','Start')} ›</span></button></li>`).join('')}
+/* A starter creates (or reuses) a real agent from the template and opens its workbench with the goal ready to run. */
+async function startTpl(i){const t=TPL[i];if(!t)return;let a=ST.agents.find(x=>x.icon===t.icon&&x.name===tName(t));
+ if(!a){if(ST.agLimit&&ST.agents.length>=ST.agLimit)return toast(T('এজেন্টের সীমা পূর্ণ — একটা মুছে নতুন বানান','Agent limit reached — delete one to add another'));
+  try{const r=await api('/bb/api/v3/agents',{method:'POST',body:JSON.stringify({icon:t.icon,name:tName(t),persona:tPers(t),model_tier:t.model_tier,skills:t.skills,perm_level:t.perm_level,lang:LANG})});await loadAgents();a=ST.agents.find(x=>x.id===r.id)}catch(e){return toast(e.message)}}
+ if(!a)return;ST.wbGoal=tEx(t);go('/v4/agents/'+a.id)}
+async function wbStart(aid,g,btn){if(!g){toast(T('লক্ষ্যটা লিখুন','Describe the goal first'));$('#goal')?.focus();return}
+ const a=ST.agents.find(x=>x.id===aid);if(a?.perm_level==='chat_only')return toast(T('এই এজেন্ট শুধু চ্যাট — এডিটে অনুমতির ধরন বদলান, অথবা চ্যাটে কথা বলুন।','This agent is chat-only — change its permission in Edit, or chat with it.'));
+ if(btn)btn.disabled=true;
+ try{const r=await api(`/bb/api/v3/agents/${aid}/run`,{method:'POST',body:JSON.stringify({goal:g})});ST.wbWatch={tid:r.task,goal:g};try{await loadAgents()}catch(e){}go(`/v4/agents/${aid}?t=${r.task}`)}
+ catch(e){toast(e.message);if(btn)btn.disabled=false}}
 function editAgent(id,ti){const base=ST.agents.find(x=>x.id===id)||(ti!=null&&TPL[ti]&&{...TPL[ti],name:tName(TPL[ti]),persona:tPers(TPL[ti])})||{icon:'🤖',name:'',persona:'',model_tier:'auto',skills:['write','summarize'],perm_level:'ask',lang:LANG};const D=JSON.parse(JSON.stringify(base));D.lang=D.lang||LANG;
  const avail=ST.skills.filter(s=>s.available&&(ST.me.role==='owner'||!(s.perms||[]).length||s.id==='research'));D.skills=D.skills.filter(x=>avail.some(s=>s.id===x));
  if(!id&&ST.agLimit&&ST.agents.length>=ST.agLimit)return toast(T('এজেন্টের সীমা পূর্ণ — একটা মুছে নতুন বানান','Agent limit reached — delete one to add another'));
@@ -227,57 +254,81 @@ function editAgent(id,ti){const base=ST.agents.find(x=>x.id===id)||(ti!=null&&TP
    try{await api('/bb/api/v3/agents'+(id?'/'+id:''),{method:id?'PUT':'POST',body:JSON.stringify({icon:D.icon,name:D.name,persona:D.persona,model_tier:D.model_tier,skills:D.skills,perm_level:D.perm_level,lang:D.lang})});closeSheet();toast(T('সেভ হয়েছে','Saved'));route()}catch(e){toast(e.message)}};
   if(id)$('#adel',sh).onclick=async()=>{if(!await confirmSheet(T('এজেন্ট মুছবেন?','Delete agent?'),T('এর কাজের ইতিহাস কার্যকলাপে থেকে যাবে।','Its history stays in Activity.'),T('মুছুন','Delete')))return;try{await api('/bb/api/v3/agents/'+id,{method:'DELETE'})}catch(e){toast(e.message)}go('/v4/agents')}},T('এজেন্ট','Agent'))}
 async function pgAgent(id){if(!ST.agents.length)try{await loadAgents()}catch(e){}const a=ST.agents.find(x=>x.id===id);if(!a)return go('/v4/agents',true);
- const tl=agTools(a),[st,stl]=agStatus(a);const tp=TPL.find(t=>t.icon===a.icon);const ex=[tp?.ex||T('ঢাকার আজকের আবহাওয়া ৩ লাইনে বলো','Dhaka weather today in 3 lines'),T('এই সপ্তাহের ৩টা টেক খবর সূত্রসহ','3 tech news items this week with sources'),T('ঈদের ছুটিতে কক্সবাজার ট্রিপের বাজেট','Budget for a Cox\'s Bazar trip')];
- $('#view').innerHTML=topbar(`<div class="who ttl"><div class=em style="width:42px;height:42px;font-size:22px" aria-hidden=true>${esc(a.icon)}<i class="sd ${st}"></i></div><div><b>${esc(a.name)}</b><small>${esc(stl)} · ${esc(PERML()[a.perm_level]||'')}</small></div></div>`,
-  `<button class=ib aria-label="${T('ফিরে যান','Back')}" onclick="go('/v4/agents')">${svg('back')}</button>`,`<button class=ib aria-label="${T('এডিট','Edit')}" onclick="editAgent('${a.id}')">${svg('edit')}</button>`)+
- `<div class=page><div class=wrap><div class="card taskcard"><label class=l for=goal style="margin-top:0">${T('কী করতে হবে?','What should it do?')}</label><textarea class=fld id=goal rows=3 placeholder="${esc(ex[0])}"></textarea>
- <div class=chips style="padding:8px 0 0">${ex.map(x=>`<button class=chip data-ex="${esc(x)}">${esc(x)}</button>`).join('')}</div>
- <div class=btns><button class="btn red" id=runb ${ST.canTools?'':'disabled'}>${svg('play')} ${T('শুরু করুন','Start task')}</button><button class=btn id=demob title="${T('মডেল ছাড়া UI দেখার জন্য','UI demo without a model')}">${T('ডেমো','Demo')}</button></div>
- <button class="btn full ghost" style="margin-top:8px" onclick="chatAgent('${a.id}')">${svg('chat')} ${T('এই এজেন্টের সাথে চ্যাট','Chat with this agent')}</button></div>
- <div class=capgrid><div class=card><span class=l style="margin-top:0">✅ ${T('যা পারে','Can do')}</span>${(tl.length?tl:['chat']).map(t=>`<div class=small>${esc(t==='chat'?'💬 '+T('কথা বলা, লেখা, বিশ্লেষণ','Talk, write, analyse'):TOOLN()[t]||t)}</div>`).join('')}</div>
- <div class=card><span class=l style="margin-top:0">🚫 ${T('যা পারে না','Never does')}</span><div class=small>${T('কিছু পাঠানো / পোস্ট','Send or post')}</div><div class=small>${T('কেনাকাটা / পেমেন্ট','Buy or pay')}</div><div class=small>${T('ফাইল মোছা','Delete files')}</div>${ST.me.role==='owner'?'':`<div class=small>${T('ডিভাইস / সার্ভার','Devices / server')}</div>`}</div></div>
- <button class="picard slim" onclick="openMemory()"><span class=pib aria-hidden=true>🧠</span><span class=grow><b>${T('পার্সোনাল ইন্টেলিজেন্স','Personal Intelligence')}</b><small>${ST.set?.memory!==false?T('এই এজেন্ট আপনার মেমরি ব্যবহার করে, আর আপনার দেওয়া কাজ থেকে শেখে।','This agent uses your memory and learns from the tasks you give it.'):T('শেখা বন্ধ আছে — চালু করতে ট্যাপ করুন।','Learning is off — tap to turn it on.')}</small></span><span class=chev>›</span></button>
- ${!ST.canTools?`<div class=note>ℹ️ ${T('টুলসহ এজেন্ট এখন চালু নেই — চ্যাটে কথা বলুন।','Tool agents are switched off right now — use chat instead.')}</div>`:''}
+ const tl=agTools(a),[st,stl]=agStatus(a),tp=TPL.find(t=>t.icon===a.icon),own=ST.me.role==='owner',tq=wbQ().get('t'),chatOnly=a.perm_level==='chat_only',canRun=ST.canTools&&!chatOnly;
+ const ex=[tp?tEx(tp):T('বাংলাদেশে এই সপ্তাহের ৩টা টেক খবর, সূত্রসহ','3 tech news items from Bangladesh this week, with sources'),T('ঈদের ছুটিতে কক্সবাজার ট্রিপের বাজেট বানাও','Plan a budget for a Cox\'s Bazar trip')];
+ const head=topbar(`<div class="who ttl"><div class=em style="width:42px;height:42px;font-size:22px" aria-hidden=true>${esc(a.icon)}<i class="sd ${st}"></i></div><div><b>${esc(a.name)}</b><small>${esc(stl)} · ${esc(PERML()[a.perm_level]||'')}</small></div></div>`,
+  `<button class=ib aria-label="${T('ফিরে যান','Back')}" onclick="go('/v4/agents')">${svg('back')}</button>`,
+  `<button class=ib aria-label="${T('এই এজেন্টের সাথে চ্যাট','Chat with this agent')}" onclick="chatAgent('${a.id}')">${svg('chat')}</button><button class=ib aria-label="${T('এজেন্ট এডিট','Edit agent')}" onclick="editAgent('${a.id}')">${svg('edit')}</button>`);
+ const main=`<section class="card wbcomp" aria-labelledby=wbh-goal><label class=wbh id=wbh-goal for=goal>${T('এই এজেন্টকে কী করতে হবে?','What should this agent do?')}</label>
+ <textarea class=fld id=goal rows=3 placeholder="${esc(ex[0])}"></textarea>
+ <div class=chips role=group aria-label="${T('উদাহরণ','Examples')}">${ex.map(x=>`<button class=chip data-ex="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+ <div class=btns><button class="btn red" id=runb ${canRun?'':'disabled'}>${svg('play')} ${T('শুরু করুন','Start job')}</button></div>
+ ${chatOnly?`<div class=note>💬 ${T('এই এজেন্ট "শুধু চ্যাট" — কাজ চালাতে এডিটে অনুমতির ধরন বদলান, অথবা চ্যাটে কথা বলুন।','This agent is "chat only" — to run jobs, change its permission level in Edit, or chat with it.')}</div>`:ST.canTools?'':toolsOffNote()}
+ <p class="small mut wbtools">${T('টুল','Tools')}: ${(tl.length?tl:['chat']).map(t=>esc(t==='chat'?T('কথা, লেখা, বিশ্লেষণ','talk, write, analyse'):toolLab(t))).join(' · ')} · ${T('সর্বোচ্চ','up to')} ${num(ST.maxSteps||16)} ${T('ধাপ','steps')}</p></section>
  <div id=runv></div>
- <div class=sec><h2>${T('কাজের ইতিহাস','Run history')}</h2><a href="/schedules">⏰ ${T('নিয়মিত চালান','Make it recurring')}</a></div><div class=card style="padding:4px 14px" id=hist>${(a.runs||[]).map(r=>{const s=RUNS()[r.status]||['',r.status||'—'];return `<div class=hist><span class="tag ${s[0]}">${esc(s[1])}</span><span class="grow" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(r.goal)}<div class="small mut">${ago(r.created)}</div></span><button class="btn sm" onclick="watch('${r.task_id}',this.closest('.hist').querySelector('.grow').firstChild.textContent)">${T('দেখুন','View')}</button></div>`}).join('')||`<div class=empty style="padding:22px">🗂️<br>${T('এখনো কোনো কাজ দেননি — উপরে একটা কাজ লিখে শুরু করুন।','No runs yet — describe a task above to start.')}</div>`}</div></div></div>`;
+ <details class="card wbmore"><summary>${T('এজেন্টের বিস্তারিত ও সেটিংস','Agent details & settings')}</summary>
+ <p class=persona>${esc(a.persona||T('কোনো বিশেষ নির্দেশনা নেই','No special instructions'))}</p>
+ <div class=capgrid><div class=card><span class=l style="margin-top:0">✅ ${T('যা পারে','Can do')}</span>${(tl.length?tl:['chat']).map(t=>`<div class=small>${esc(t==='chat'?'💬 '+T('কথা বলা, লেখা, বিশ্লেষণ','Talk, write, analyse'):toolLab(t))}</div>`).join('')}</div>
+ <div class=card><span class=l style="margin-top:0">🚫 ${T('অনুমতি ছাড়া কখনো না','Never without approval')}</span><div class=small>${T('কিছু পাঠানো / পোস্ট','Send or post')}</div><div class=small>${T('কেনাকাটা / পেমেন্ট','Buy or pay')}</div><div class=small>${T('ফাইল মোছা','Delete files')}</div>${own?'':`<div class=small>${T('ডিভাইস / সার্ভার (একদমই না)','Devices / server (never)')}</div>`}</div></div>
+ ${guardLine(own)}
+ <div class=btns style="flex-wrap:wrap"><button class=btn onclick="editAgent('${a.id}')">${svg('edit')} ${T('এডিট','Edit')}</button><button class=btn onclick="chatAgent('${a.id}')">${svg('chat')} ${T('চ্যাট','Chat')}</button><a class=btn href="/schedules">⏰ ${T('নিয়মিত চালান','Make it recurring')}</a></div>
+ <button class="picard slim" onclick="openMemory()"><span class=pib aria-hidden=true>🧠</span><span class=grow><b>${T('পার্সোনাল ইন্টেলিজেন্স','Personal Intelligence')}</b><small>${ST.set?.memory!==false?T('এই এজেন্ট আপনার মেমরি ব্যবহার করে, আর আপনার দেওয়া কাজ থেকে শেখে।','This agent uses your memory and learns from the tasks you give it.'):T('শেখা বন্ধ আছে — চালু করতে ট্যাপ করুন।','Learning is off — tap to turn it on.')}</small></span><span class=chev>›</span></button></details>`;
+ $('#view').innerHTML=wbShell(head,wbFrame(main,wbSide(a,tq)));
  $$('[data-ex]').forEach(b=>b.onclick=()=>{$('#goal').value=b.dataset.ex;$('#goal').focus()});
- $('#runb').onclick=async()=>{const g=$('#goal').value.trim();if(!g)return toast(T('কাজটা লিখুন','Describe the task first'));$('#runb').disabled=true;try{const r=await api(`/bb/api/v3/agents/${id}/run`,{method:'POST',body:JSON.stringify({goal:g})});watch(r.task,g)}catch(e){toast(e.message)}$('#runb').disabled=false};
- $('#demob').onclick=()=>demoRun($('#goal').value.trim()||ex[0])}
+ $('#runb').onclick=()=>wbStart(id,$('#goal').value.trim(),$('#runb'));
+ if(ST.wbGoal){$('#goal').value=ST.wbGoal;ST.wbGoal=null;$('#goal').focus()}
+ const w=ST.wbWatch;ST.wbWatch=null;
+ if(tq){const r=(a.runs||[]).find(x=>x.task_id===tq);watch(tq,w?.tid===tq?w.goal:r?.goal,w?.tid===tq)}
+ else{const r=(a.runs||[]).find(x=>x.status==='running');if(r)watch(r.task_id,r.goal)}}
 const LAB=()=>({plan:['🗺️ '+T('পরিকল্পনা','Plan'),''],think:['💭 '+T('ভাবছি','Thinking'),''],run:['▶️ '+T('টুল চলছে','Using tool'),'running'],result:['✅ '+T('ফলাফল','Result'),'ok'],error:['❌ '+T('সমস্যা','Error'),'err'],retry:['🔁 '+T('আবার চেষ্টা','Retry'),''],repair:['🛠️ '+T('ঠিক করছি','Repairing'),''],
- auto:['🔓 '+T('নিজে অনুমতি দেওয়া','Auto-approved'),'ok'],blocked:['⛔ '+T('বন্ধ','Blocked'),'err'],final:['🏁 '+T('চূড়ান্ত উত্তর','Final answer'),'ok fin'],approval:['🔐 '+T('আপনার অনুমতি দরকার','Your approval is needed'),'ask'],resume:['♻️ '+T('আবার শুরু','Resumed'),''],warn:['⚠️ '+T('সতর্কতা','Warning'),'err']});
+ auto:['🔓 '+T('নিজে অনুমতি দেওয়া','Auto-approved'),'ok'],blocked:['⛔ '+T('বন্ধ','Blocked'),'err'],final:['🏁 '+T('চূড়ান্ত উত্তর','Final answer'),'ok fin'],approval:['🔐 '+T('আপনার অনুমতি দরকার','Your approval is needed'),'ask'],resume:['♻️ '+T('আবার শুরু','Resumed'),''],warn:['⚠️ '+T('সতর্কতা','Warning'),'err'],unav:['🚫 '+T('টুল উপলব্ধ নয়','Tool unavailable'),'err unav']});
 const RISK=()=>({high:T('বেশি','High'),medium:T('মাঝারি','Medium'),low:T('কম','Low')});
-function stepEl(box,e,tid,demo){if(!box||e.type==='end')return;
- if(e.type==='decision'){const a=$(`[data-aid="${CSS.escape(String(e.id))}"]`,box);if(a){a.classList.add('decided');$('.btns',a).innerHTML=e.decision==='yes'?`<span class="tag ok">✅ ${T('অনুমতি দিয়েছেন','You approved')}</span>`:`<span class="tag red">🚫 ${T('অনুমতি দেননি','You declined')}</span>`}return}
+function paintPlan(rc){const p=rc._p,ol=$('#plan',rc);if(!ol||!p.items.length)return;
+ ol.innerHTML=p.items.map((x,i)=>{const s=i<p.done?'done':(i+1===p.act?'act':'');return `<li class="${s}" ${s==='act'?'aria-current=step':''}><span>${esc(x)}</span>${s==='done'?`<span class=vh> — ${T('সম্পন্ন','done')}</span>`:s==='act'?`<span class=vh> — ${T('চলছে','in progress')}</span>`:''}</li>`}).join('')}
+const argSum=a=>{if(!a||typeof a!=='object')return '';const s=a.query||a.url||(a.server?a.server+(a.tool?' · '+a.tool:''):'')||a.cmd||a.command||'';return String(s).slice(0,140)};
+function stepEl(box,e,tid){if(!box||e.type==='end')return;const rc=box.closest('.runcard'),p=rc?._p;
+ if(e.type==='decision'){const a=$(`[data-aid="${CSS.escape(String(e.id))}"]`,box);if(a){a.classList.add('decided');$('.btns',a).innerHTML=e.decision==='yes'?`<span class="tag ok">✅ ${T('অনুমতি দিয়েছেন','You approved')}</span>`:`<span class="tag red">🚫 ${e.decision==='no'?T('অনুমতি দেননি','You declined'):T('উত্তর আসেনি — বাদ','No answer — skipped')}</span>`}return}
+ const items=Array.isArray(e.items)?e.items.filter(Boolean).map(String):[];
+ if(p){if(e.type==='plan'&&items.length){p.items=items;p.done=0;p.act=1;p.ps=false;paintPlan(rc);wbSay(T('পরিকল্পনা তৈরি: ','Plan ready: ')+num(items.length)+T(' ধাপ',' steps'))}
+  else if(e.type==='think'&&p.items.length&&e.plan_step){p.ps=true;p.done=Math.max(p.done,e.plan_step-1);p.act=e.plan_step;paintPlan(rc)}
+  else if(e.type==='result'&&p.items.length&&!p.ps){p.done=Math.min(p.items.length-1,Math.max(p.done,p.act||1));p.act=p.done+1;paintPlan(rc)}
+  else if(e.type==='final'&&p.items.length&&!e.incomplete){p.done=p.items.length;p.act=0;paintPlan(rc)}
+  if(e.type==='approval')wbSay(T('আপনার অনুমতি দরকার: ','Your approval is needed: ')+(e.tool||''));
+  const now=$('#rnow',rc);if(now)now.textContent=e.type==='run'?(LAB().run[0]+': '+(e.tool||'')):((e.unavailable?LAB().unav:LAB()[e.type])||[e.type])[0]}
  $$('.st.running',box).forEach(x=>x.classList.remove('running'));
- const [lab,cls]=LAB()[e.type]||[e.type,''];const d=document.createElement('div');d.className='st '+cls;const tm=new Date().toLocaleTimeString(LANG==='en'?'en-GB':'bn-BD',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+ const [lab,cls]=(e.unavailable?LAB().unav:LAB()[e.type])||[e.type,''];const d=document.createElement('div');d.className='st '+cls;
+ const tm=new Date(e.ts?e.ts*1000:Date.now()).toLocaleTimeString(LANG==='en'?'en-GB':'bn-BD',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
  if(e.type==='approval'){let host='';try{host=e.args?.url?new URL(e.args.url).hostname:''}catch(x){}
   d.innerHTML=`<div class=lab>${lab}</div><div class="appr risk-${esc(e.risk||'medium')}" data-aid="${esc(e.id)}" role=group aria-label="${T('অনুমতি কার্ড','Approval card')}"><div class=t>${svg('shield')} ${host?T('এই সাইট খুলবে?','Open this site?'):T('অনুমতি দেবেন?','Allow this step?')}</div>
   ${host?`<div class=host>🌐 ${esc(host)}</div>`:''}<div class="small mut" style="margin-top:4px">${esc(e.capname||'')} · ${T('টুল','tool')} <code>${esc(e.tool)}</code> · ${T('ঝুঁকি','risk')} <span class="tag ${e.risk==='high'?'red':'warn'}">${esc(RISK()[e.risk]||e.risk||'—')}</span></div>
   <details><summary>${T('বিস্তারিত','Details')}</summary><pre>${esc(JSON.stringify(e.args,null,1))}</pre></details><div class=small><b>${T('কেন','Why')}:</b> ${esc(e.why||'')}</div><div class=btns><button class=btn data-ok=0>🚫 ${T('না','Deny')}</button><button class="btn pri" data-ok=1>✅ ${T('অনুমতি দিন','Approve')}</button></div></div>`;
-  $$('[data-ok]',d).forEach(b=>b.onclick=async()=>{const ok=b.dataset.ok==='1';$$('[data-ok]',d).forEach(x=>x.disabled=true);if(demo)return demo(ok,e.id);try{await api('/bb/api/approvals/'+e.id,{method:'POST',body:JSON.stringify({ok})})}catch(x){toast(x.message);$$('[data-ok]',d).forEach(x=>x.disabled=false)}})}
+  $$('[data-ok]',d).forEach(b=>b.onclick=async()=>{const ok=b.dataset.ok==='1';$$('[data-ok]',d).forEach(x=>x.disabled=true);try{await api('/bb/api/approvals/'+e.id,{method:'POST',body:JSON.stringify({ok})})}catch(x){toast(x.message);$$('[data-ok]',d).forEach(x=>x.disabled=false)}})}
  else{d.innerHTML=`<div class=lab>${lab}${e.step?' · '+T('ধাপ ','step ')+num(e.step):''}<time>${tm}</time></div><div class=body></div>`;const b=$('.body',d);
-  if(e.type==='run')b.innerHTML=`<code>${esc(e.tool)}</code>`;else if(e.type==='result'||e.type==='error'){b.innerHTML='<pre></pre>';$('pre',b).textContent=e.text||''}
-  else if(e.type==='final')b.replaceChildren(md(e.text));else b.textContent=e.text||''}
- box.appendChild(d);const pb=box.closest('.runcard')?.querySelector('.prog i');if(pb){const n=$$('.st',box).length;pb.style.width=(e.type==='final'?100:Math.min(92,n*14))+'%'}
- d.scrollIntoView({block:'nearest',behavior:'smooth'})}
-function runCard(goal,tag){return `<div class="card runcard" style="margin-top:12px"><div class=row><b class=grow>${esc(goal)}</b><span class="tag warn" id=rst>${tag}</span></div><div class=prog aria-hidden=true><i></i></div><div class=tl id=tl aria-live=polite></div></div>`}
-async function watch(tid,goal){const v=$('#runv');if(!v)return;v.innerHTML=runCard(goal||T('কাজ','Task'),T('চলছে','Running'));$('#rst').insertAdjacentHTML('afterend',`<button class="btn sm dan" id=cxl style="margin-left:6px" aria-label="${T('কাজ থামান','Stop task')}">⏹ ${T('থামান','Stop')}</button>`);
- v.scrollIntoView({behavior:'smooth'});
- $('#cxl').onclick=async()=>{if(!await confirmSheet(T('কাজটা থামাবেন?','Stop this task?'),T('থামালে আর আবার চালু হবে না।','A stopped task will not resume.'),T('থামান','Stop')))return;try{await api(`/bb/api/v3/runs/${tid}/cancel`,{method:'POST',body:'{}'});toast(T('থামানো হচ্ছে…','Stopping…'))}catch(e){toast(e.message)}};
- let n=0,idle=0;for(;;){let j;try{j=await api(`/bb/api/v3/runs/${tid}?since=${n}`)}catch(e){if($('#rst'))$('#rst').textContent=e.status===404?T('পাওয়া যায়নি','Not found'):T('ত্রুটি','Error');break}
-  if(!$('#tl'))break;n=typeof j.n==='number'?j.n:n+j.events.length;j.events.forEach(e=>stepEl($('#tl'),e,tid));
-  if(j.status!=='running'){$('#rst').textContent=(RUNS()[j.status]||['',T('থেমেছে','Ended')])[1];$('#rst').className='tag '+(j.status==='done'?'ok':'red');$('#cxl')?.remove();const pb=$('.runcard .prog i');if(pb)pb.style.width='100%';break}
-  idle=j.events.length?0:idle+1;await new Promise(r=>setTimeout(r,document.hidden?4000:Math.min(600+idle*250,2500)))}}
-async function demoRun(goal){const v=$('#runv');v.innerHTML=runCard(goal,T('ডেমো · চলছে','Demo · running'));
- const tl=$('#tl');const W=ms=>new Promise(r=>setTimeout(r,ms));
- stepEl(tl,{type:'plan',text:T('১) ওয়েবে খুঁজব ২) একটা আবহাওয়া সাইট খুলে পড়ব ৩) ৩ লাইনে সারাংশ দেব','1) search the web 2) open a weather site 3) summarise in 3 lines')});await W(250);
- stepEl(tl,{type:'think',step:1,text:T('প্রথমে ঢাকার আজকের আবহাওয়া সার্চ করি।','First, search for Dhaka weather today.')});await W(250);
- stepEl(tl,{type:'run',tool:'web_search'});await W(350);stepEl(tl,{type:'result',text:'5 results: bmd.gov.bd, accuweather.com …'});await W(250);
- const decided=new Promise(res=>stepEl(tl,{type:'approval',id:'demo1',tool:'browse',capname:'🌐 '+T('ব্রাউজার নিয়ন্ত্রণ','Browser'),risk:'medium',args:{url:'https://www.bmd.gov.bd/'},why:T('আবহাওয়া অধিদপ্তরের পেজ থেকে সঠিক তথ্য পড়তে','To read accurate data from the Met Department')},null,(ok,id)=>{stepEl(tl,{type:'decision',id,decision:ok?'yes':'no'});res(ok)}));
- window._demoDecided=decided;const ok=await decided;
- if(ok){stepEl(tl,{type:'run',tool:'browse'});await W(400);stepEl(tl,{type:'result',text:T('সর্বোচ্চ ৩২°, সর্বনিম্ন ২৫°, বিকেলে হালকা বৃষ্টির সম্ভাবনা ৪০%','High 32°, low 25°, 40% chance of light rain in the afternoon')})}
- stepEl(tl,{type:'final',text:T('**ঢাকা, আজ:** দিনে গরম, সর্বোচ্চ ৩২°সে।\n\nবিকেলে হালকা বৃষ্টির সম্ভাবনা ৪০%, ছাতা রাখুন।\n\nরাতে তাপমাত্রা নামবে ২৫°সে-এ। _(ডেমো ডেটা)_','**Dhaka today:** hot, high 32°C.\n\n40% chance of light rain in the afternoon.\n\nLow 25°C at night. _(demo data)_')});
- if($('#rst')){$('#rst').textContent=T('ডেমো · সম্পন্ন','Demo · done');$('#rst').className='tag ok'}}
+  if(e.type==='plan'&&items.length&&p)b.textContent=num(items.length)+T(' ধাপের পরিকল্পনা — উপরের তালিকায়',' step plan — see the checklist above');
+  else if(e.type==='run'){b.innerHTML=`<code>${esc(e.tool)}</code>${argSum(e.args)?`<span class=args>${esc(argSum(e.args))}</span>`:''}`}
+  else if(e.type==='result'||e.type==='error'){const t=String(e.text||'');b.innerHTML=(e.tool?`<code>${esc(e.tool)}</code> `:'')+'<pre></pre>';$('pre',b).textContent=t.length>320?t.slice(0,320)+'…':t;
+   if(t.length>320){const dd=document.createElement('details');dd.innerHTML=`<summary>${T('পুরো ফলাফল','Full result')}</summary><pre></pre>`;$('pre',dd).textContent=t;b.append(dd)}}
+  else if(e.type==='blocked'&&e.tool){b.innerHTML=`<code>${esc(e.tool)}</code> `;b.append(document.createTextNode(e.text||''))}
+  else if(e.type==='final'){const fin=rc&&$('#fin',rc);if(fin){fin.hidden=false;fin.classList.toggle('inc',!!e.incomplete);$('.finbody',fin).replaceChildren(md(e.text));b.textContent=T('উত্তর নিচে দেখুন','Answer shown below');wbSay(e.incomplete?T('কাজ পুরো শেষ হয়নি','The job stopped before finishing'):T('চূড়ান্ত উত্তর তৈরি','Final answer ready'))}else b.replaceChildren(md(e.text))}
+  else b.textContent=e.text||''}
+ box.appendChild(d)}
+function runCard(goal){return `<section class="card runcard" aria-labelledby=rgoal><div class=row><h2 class="grow wbh" id=rgoal tabindex=-1>${esc(goal)}</h2><span class="tag warn" id=rst>${T('চলছে','Running')}</span></div>
+ <div class=wbbusy id=rbusy><progress class=wbspin aria-label="${T('কাজ চলছে','Working')}"></progress><span class="small mut" id=rnow>${T('পরিকল্পনা করছি…','Planning…')}</span><button class="btn sm dan" id=cxl>⏹ ${T('থামান','Stop')}</button></div>
+ <h3 class=l id=rph>🗺️ ${T('পরিকল্পনা','Plan')}</h3><ol class=plan id=plan aria-labelledby=rph><li class=wait>${T('মডেল পরিকল্পনা তৈরি করছে…','The model is drafting a plan…')}</li></ol>
+ <h3 class=l id=rth>${T('ধাপগুলো','Steps')}</h3><div class=tl id=tl aria-labelledby=rth></div>
+ <div class=wbfin id=fin hidden><h3 class=l>🏁 ${T('চূড়ান্ত উত্তর','Final answer')}</h3><div class=finbody></div></div></section>`}
+function wbEnd(rc,st){const s=RUNS()[st]||['',T('থেমেছে','Ended')],r=$('#rst',rc);if(r){r.textContent=s[1];r.className='tag '+(st==='done'?'ok':st==='cancelled'?'':'red')}$('#rbusy',rc)?.remove();
+ const p=rc._p,pl=$('#plan',rc);if(!p.items.length){if(pl)pl.innerHTML=`<li class=wait>${T('এই কাজে আলাদা পরিকল্পনার তালিকা নেই।','No plan checklist was recorded for this job.')}</li>`}else{p.act=0;paintPlan(rc)}
+ wbSay(T('কাজের অবস্থা: ','Job status: ')+s[1])}
+async function watch(tid,goal,fresh){const v=$('#runv');if(!v)return;const tok=ST.wbTok=(ST.wbTok||0)+1;
+ v.innerHTML=runCard(goal||T('কাজ','Job'));const rc=$('.runcard',v);rc._p={items:[],done:0,act:0,ps:false};
+ if(fresh){$('#rgoal',rc).focus({preventScroll:true});rc.scrollIntoView({block:'start',behavior:motionOK()?'smooth':'auto'})}
+ $('#cxl',rc).onclick=async()=>{if(!await confirmSheet(T('কাজটা থামাবেন?','Stop this job?'),T('থামালে আর আবার চালু হবে না।','A stopped job will not resume.'),T('থামান','Stop')))return;try{await api(`/bb/api/v3/runs/${tid}/cancel`,{method:'POST',body:'{}'});toast(T('থামানো হচ্ছে…','Stopping…'))}catch(e){toast(e.message)}};
+ let n=0,idle=0,ended=false,live=false;for(;;){let j;try{j=await api(`/bb/api/v3/runs/${tid}?since=${n}`)}catch(e){if(ST.wbTok!==tok)return;const r=$('#rst',rc);if(r)r.textContent=e.status===404?T('পাওয়া যায়নি','Not found'):T('ত্রুটি','Error');$('#rbusy',rc)?.remove();break}
+  if(ST.wbTok!==tok||!rc.isConnected)return;n=typeof j.n==='number'?j.n:n+j.events.length;j.events.forEach(e=>stepEl($('#tl',rc),e,tid));
+  if(j.status!=='running'){ended=true;wbEnd(rc,j.status);break}live=true;
+  idle=j.events.length?0:idle+1;await new Promise(r=>setTimeout(r,document.hidden?4000:Math.min(600+idle*250,2500)))}
+ if(ended&&live){try{await loadAgents()}catch(e){}const sd=$('.wbside');if(sd&&ST.wbTok===tok){const a=ST.agents.find(x=>location.pathname.endsWith('/'+x.id));sd.outerHTML=wbSide(a,wbQ().get('t')||tid)}}}
 /* =============== ACTIVITY =============== */
 async function pgActivity(){$('#view').innerHTML=shell(T('কার্যকলাপ','Activity'),'<div id=acw><div class=skel></div><div class=skel></div><div class=skel></div></div>');
  let D;try{D=await api('/bb/api/activity')}catch(e){$('#acw').innerHTML=`<div class=empty>${esc(e.message)}</div>`;return}

@@ -260,6 +260,47 @@ ON_DONE=[]
 # so it survives restart/resume). OWNER is set by app.py right after import.
 OWNER=None; SAFE_TOOLS=("web_search","browse"); SAFE_AUTO_MARK="[[perm:safe_auto]]"
 def restricted(user): return user is not None and user!=OWNER
+# ---- Agent Workbench (Phase A): real plan, honest tools, step budget ----
+# Agent-page runs carry a step-budget marker in sysx (survives restart/resume like SAFE_AUTO_MARK);
+# chat/other callers keep the old 10-step default.
+DEFAULT_STEPS=10; AGENT_STEPS=16; _STEPS_RE=re.compile(r"\[\[steps:(\d+)\]\]")
+def steps_mark(n=AGENT_STEPS): return f"[[steps:{int(n)}]]"
+def max_steps(sysx):
+    m=_STEPS_RE.search(sysx or "")
+    return max(1,min(AGENT_STEPS,int(m.group(1)))) if m else DEFAULT_STEPS
+def strip_marks(sysx): return _STEPS_RE.sub("",(sysx or "").replace(SAFE_AUTO_MARK,"")).strip()
+def bn_num(n): return str(n).translate(str.maketrans("0123456789","০১২৩৪৫৬৭৮৯"))
+def norm_plan(p,limit=6):
+    """model output -> list of short step strings (2-6 usually). Accepts list[str|dict] or a numbered string."""
+    if isinstance(p,str): p=[x for x in re.split(r"\n+|(?:^|\s)(?:\d+|[০-৯]+)[.)।]\s+",p) if x and x.strip()]
+    if not isinstance(p,(list,tuple)): return []
+    out=[]
+    for x in p:
+        if isinstance(x,dict): x=x.get("step") or x.get("text") or x.get("title") or ""
+        x=re.sub(r"^\s*(?:[-*•]|\d+[.)]|[০-৯]+[.)।])\s*","",str(x)).strip()
+        if x: out.append(x[:120])
+        if len(out)>=limit: break
+    return out
+def plan_text(items): return "\n".join(f"{bn_num(i+1)}) {x}" for i,x in enumerate(items))
+def browse_ready():
+    """True only if the browse tool can really run here: flag on, Playwright importable, a Chromium build present."""
+    try:
+        import flags as FL, importlib.util as _iu, glob as _gl
+        if not FL.on("feat_browse") or _iu.find_spec("playwright") is None: return False
+        root=os.environ.get("PLAYWRIGHT_BROWSERS_PATH") or os.path.expanduser("~/.cache/ms-playwright")
+        return bool(_gl.glob(os.path.join(root,"chromium*")) or any(_sh.which(b) for b in ("chromium","chromium-browser","google-chrome")))
+    except Exception: return False
+BROWSE_OFF_MSG="ওয়েবপেজ খোলার ব্রাউজার এখন এই সার্ভারে চালু নেই — উপলব্ধ টুল (ওয়েব সার্চ) দিয়ে চালিয়ে যাচ্ছি।"
+PLAN_RULE="""
+- প্রথম উত্তরে (ধাপ ১) অবশ্যই "plan" দাও: ২–৬টা ছোট, নির্দিষ্ট কাজের ধাপের তালিকা, যেমন "plan":["ওয়েবে দাম খুঁজব","৩টা অপশন তুলনা করব","সারাংশ লিখব"]; একই JSON-এ প্রথম action (বা টুল না লাগলে final) দাও।
+- প্রতি ধাপে "plan_step": এখন plan-এর কোন নম্বর ধাপে কাজ করছ (১ থেকে শুরু, ইংরেজি অঙ্কে, যেমন 2)।
+- তালিকায় নেই বা বন্ধ এমন টুল চালানোর ভান করবে না, কল্পিত টুল-ফলাফল লিখবে না; উপলব্ধ টুল দিয়ে করো, না পারলে সৎভাবে বলো।
+"""
+async def _plan_fallback(goal,tools,private=False):
+    try:
+        _,j=await llm_json([{"role":"system","content":'JSON only: {"plan":["short concrete step",...]} — 2 to 6 steps to accomplish the goal with these tools: '+tools[:1500]+'. Same language as the goal.'},{"role":"user","content":goal}],private)
+        return norm_plan(j.get("plan"))
+    except Exception: return []
 SYS_SAFE="""তুমি 'বাংলা ভাই' — একজন ইউজারের ব্যক্তিগত এজেন্ট। তোমার হাতে শুধু এই টুলগুলো আছে (অন্য কোনো টুল, ডিভাইস, শেল বা অ্যাকাউন্ট নেই):
 টুল: {tools}
 নিয়ম:
@@ -339,26 +380,42 @@ def _loop_attrs(tid,goal,sysx="",resume_ctx=None):
 @LF.wrap_async("agent.loop", as_type="span", input_fn=_loop_input, meta_fn=_loop_meta, attr_fn=_loop_attrs)
 async def loop(tid,goal,sysx="",resume_ctx=None):
     RX=restricted((TASKS.get(tid) or {}).get("user")); AUTO_OK=RX and SAFE_AUTO_MARK in (sysx or "")
+    BR_OK=browse_ready(); NSTEPS=max_steps(sysx)
     if RX:
-        tools="; ".join(f"{n}{list(TOOLS[n][2])}: {TOOLS[n][1]}" for n in SAFE_TOOLS)
+        tools="; ".join(f"{n}{list(TOOLS[n][2])}: {TOOLS[n][1]}" for n in SAFE_TOOLS if BR_OK or n!="browse")
         sys0=SYS_SAFE.format(tools=tools)
     else:
         devs=", ".join(f"{d['id']}={d['name']}({'অনলাইন' if d['online'] else 'অফলাইন'})" for d in devices() if d["status"]=="approved")
-        tools="; ".join(f"{n}{list(v[2])}: {v[1]}" for n,v in TOOLS.items())
+        tools="; ".join(f"{n}{list(v[2])}: {v[1]}" for n,v in TOOLS.items() if BR_OK or n!="browse")
         try:
             import connections as CN; _mp=CN.mcp_prompt((TASKS.get(tid) or {}).get("user"))
             if _mp: tools+="\n"+_mp
         except Exception: pass
         hint=pick_device(None,goal)
         sys0=SYS.format(tools=tools,devs=devs)+f"\nডিফল্ট টার্গেট ডিভাইস id: {hint} (ফোনের কাজ হলে এটাই use করো।)"
-    msgs=[{"role":"system","content":sys0+("\n\nOVERRIDES (highest priority): "+sysx.replace(SAFE_AUTO_MARK,"") if sysx else "")},{"role":"user","content":goal}]+([{"role":"user","content":"(সার্ভার রিস্টার্টের আগে এই ধাপগুলো হয়ে গেছে, আবার করবে না; বাকিটা শেষ করো:)\n"+resume_ctx}] if resume_ctx else [])
-    ev("plan",text="লক্ষ্য বুঝে পরিকল্পনা করছি...")
+    sys0+=PLAN_RULE+("" if BR_OK else "- browse টুল এখন উপলব্ধ নয় (সার্ভারে ব্রাউজার নেই) — ব্যবহার করবে না; web_search দিয়ে করো।\n")
+    _ov=strip_marks(sysx)
+    msgs=[{"role":"system","content":sys0+("\n\nOVERRIDES (highest priority): "+_ov if _ov else "")},{"role":"user","content":goal}]+([{"role":"user","content":"(সার্ভার রিস্টার্টের আগে এই ধাপগুলো হয়ে গেছে, আবার করবে না; বাকিটা শেষ করো:)\n"+resume_ctx}] if resume_ctx else [])
+    # Workbench Phase A: no placeholder sentence — the first model turn returns a real plan (event "plan" keeps
+    # its old `text` field for stored/old clients and adds `items` for the checklist).
+    plan=[]
+    if resume_ctx:
+        _pp=[e for e in (TASKS.get(tid) or {}).get("events",[]) if e.get("type")=="plan" and e.get("items")]
+        if _pp: plan=norm_plan(_pp[-1]["items"]); msgs.append({"role":"user","content":"(আগের পরিকল্পনা, এটাই অনুসরণ করো:)\n"+plan_text(plan)})
     fails=0; ran_ok=bool(resume_ctx)
     # P0 Sentinel v2 state: tainted = task has read untrusted data; private = task has read sensitive data
     tainted=bool(resume_ctx); private=bool(resume_ctx); actions=0
-    for step in range(10):
+    for step in range(NSTEPS):
         model,j=await llm_json(msgs,private); msgs.append({"role":"assistant","content":json.dumps(j,ensure_ascii=False)})
-        ev("think",text=j.get("thought",""),alternatives=j.get("alternatives",[]),model=model,step=step+1)
+        if step==0 and not resume_ctx:
+            plan=norm_plan(j.get("plan"))
+            if not plan and j.get("action"): plan=await _plan_fallback(goal,tools,private)
+            if plan: msgs.append({"role":"user","content":"(তোমার পরিকল্পনা — এটা ধরে এগোও:)\n"+plan_text(plan)})
+            ev("plan",text=plan_text(plan) or ("সরাসরি উত্তর — আলাদা পরিকল্পনা লাগেনি।" if j.get("final") and not j.get("action") else "পরিকল্পনা পাওয়া যায়নি — ধাপে ধাপে এগোচ্ছি।"),items=plan)
+        _ps=j.get("plan_step"); _ps=int(_ps) if isinstance(_ps,(int,float)) or (isinstance(_ps,str) and _ps.strip().isdigit()) else None
+        _tk=dict(text=j.get("thought",""),alternatives=j.get("alternatives",[]),model=model,step=step+1)
+        if _ps and plan: _tk["plan_step"]=max(1,min(len(plan),_ps))
+        ev("think",**_tk)
         fin=j.get("final"); act=j.get("action")
         needs_tool=not RX and not ran_ok and bool(re.search(r"(চালাও|চালান|uname|df\s*-h|স্ক্রিনশট|ক্যামেরা|shell|কমান্ড|ফোনে|ডিভাইসে|ব্রাউজ|সার্চ|মেসেজ|ইনবক্স|sms|এসএমএস|পাঠাও|কল|কন্টাক্ট|নোটিফ|ব্যাটারি|ওয়াইফাই|অ্যাপ|পড়)",goal,re.I))
         if fin and not act:
@@ -391,6 +448,9 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
         if RX and tool not in SAFE_TOOLS:
             ev("blocked",text=f"'{tool}' এই এজেন্টের জন্য নেই — শুধু ওয়েব সার্চ ও ব্রাউজ"); audit(ev="agent_tool_blocked",task=tid,tool=str(tool)[:40])
             msgs.append({"role":"user","content":f"'{tool}' টুল তোমার জন্য নেই। শুধু: {', '.join(SAFE_TOOLS)}। এগুলো দিয়ে করো বা চূড়ান্ত উত্তর দাও।"}); continue
+        if tool=="browse" and not BR_OK:
+            ev("blocked",tool="browse",unavailable=True,text=BROWSE_OFF_MSG); audit(ev="agent_tool_unavailable",task=tid,tool="browse")
+            msgs.append({"role":"user","content":"browse টুল এখন উপলব্ধ নয় (সার্ভারে ব্রাউজার নেই)। web_search বা অন্য উপলব্ধ টুল দিয়ে করো, অথবা যা জানা গেছে তা দিয়ে সৎ চূড়ান্ত উত্তর দাও।"}); continue
         if tool not in TOOLS: msgs.append({"role":"user","content":f"'{tool}' নামে কোনো টুল নেই। তালিকা: {', '.join(TOOLS)}"}); ev("repair",text=f"অজানা টুল '{tool}' — ঠিক করছি"); continue
         cap=TOOLS[tool][0]
         if tool=="shell" or cap not in(None,"browser"):
@@ -443,8 +503,8 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
                 fails+=1; ev("error",tool=tool,text=er)
                 ev("repair",text="ভুলটা বিশ্লেষণ করে বিকল্প পথ খুঁজছি...")
                 msgs.append({"role":"user","content":f"টুল ব্যর্থ ({tool}): {er}\nকারণ বিশ্লেষণ করো এবং অন্য বিকল্প পথে চেষ্টা করো।"}); break
-        if fails>=4: ev("final",text=("দুঃখিত, " if RX else "রয়েল, ")+"কয়েকবার চেষ্টা করেও কাজটা শেষ করতে পারিনি। বিস্তারিত উপরের ধাপগুলোতে আছে।"); return
-    ev("final",text="ধাপের সীমা (১০) শেষ হয়েছে।")
+        if fails>=4: ev("final",text=("দুঃখিত, " if RX else "রয়েল, ")+"কয়েকবার চেষ্টা করেও কাজটা শেষ করতে পারিনি। বিস্তারিত উপরের ধাপগুলোতে আছে।",incomplete=True); return
+    ev("final",text=f"ধাপের সীমা ({bn_num(NSTEPS)}) শেষ হয়েছে।",incomplete=True)
 # ---------------- voice & vision ----------------
 VOICE="910fb75e-1d20-4840-ac63-ac6b26a71bdc"
 async def tts(text):
