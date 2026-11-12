@@ -25,7 +25,7 @@ class UiDeclutter(unittest.TestCase):
         html = read("static", "v4", "index.html")
         self.assertNotIn("orb.js", html)
         self.assertIn("float.js?v=11", html)
-        self.assertIn("v4.css?v=1.1-ui", html)
+        self.assertIn("v4.css?v=1.2-wb", html)
         orb = read("static", "v4", "orb.js")
         self.assertIn("const isV4=!!document.getElementById('app')&&!!document.getElementById('tabs')", orb)
         self.assertIn("if(isV4){document.body.append(vo)}", orb)

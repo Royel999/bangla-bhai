@@ -155,7 +155,8 @@ def setup(app,H):
             ags=[_row(r) for r in c.execute("select * from agents where user=? and archived=0 order by updated desc",(u,))]
             for a in ags:
                 a["runs"]=[dict(r) for r in c.execute("select r.task_id,r.goal,r.created,t.status from agent_runs r left join tasks t on t.id=r.task_id where r.agent_id=? order by r.created desc limit 10",(a["id"],))]
-        return {"agents":ags,"tiers":TIERS,"perm_levels":PERM_LEVELS,"can_tools":FL.on("feat_agent") and (is_owner(u) or FL.on("feat_user_agent_tools")),"safe_tools":None if is_owner(u) else ["web_search","browse"],"limit":None if is_owner(u) else 5}
+        return {"agents":ags,"tiers":TIERS,"perm_levels":PERM_LEVELS,"can_tools":FL.on("feat_agent") and (is_owner(u) or FL.on("feat_user_agent_tools")),"safe_tools":None if is_owner(u) else ["web_search","browse"],"limit":None if is_owner(u) else 5,
+                "browse_ok":H["AG"].browse_ready(),"max_steps":H["AG"].AGENT_STEPS}
     @app.post("/bb/api/v3/agents")
     async def ag_create(request:Request):
         u=need(request); d=clean(await request.json()); aid=uuid.uuid4().hex[:10]; t=time.time()
@@ -202,6 +203,7 @@ def setup(app,H):
         if skills: sysx+="\nSkills you may apply: "+"; ".join(f"{s['name_en']}: {s['prompt']}" for s in skills)
         sysx+="\nPermission level: "+a["perm_level"]+". Never send, pay or delete without an approval card."
         if not own and a["perm_level"]=="safe_auto": sysx+=" "+H["AG"].SAFE_AUTO_MARK
+        sysx+=" "+H["AG"].steps_mark()   # Workbench: agent-page runs get the larger step budget (Sentinel/allowlists unchanged)
         tid=H["AG"].start_task(goal,sysx,user=u)
         with db() as c: c.execute("insert into agent_runs values(?,?,?,?,?)",(tid,aid,u,goal[:300],time.time()))
         audit(ev="agent_run",agent=aid,task=tid,restricted=not own); return {"ok":True,"task":tid}
