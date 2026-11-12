@@ -95,6 +95,7 @@ TOOLS={
  "list_devices":(None,"সংযুক্ত ডিভাইসের তালিকা",{}),
 }
 import sentinel as SN, quarantine as QZ
+import browser_agent as BA   # P1 supervised browser agent (flag feat_browser_agent, default OFF)
 import shutil as _sh, ipaddress as _ip, socket as _so
 from urllib.parse import urlparse as _up
 SECRETS_DIR=os.path.expanduser("~/.secrets")
@@ -137,6 +138,7 @@ async def _browser():
 async def run_tool(name,a):
     import flags as FL; FL.need("feat_agent")
     if restricted((TASKS.get(t_id_ctx.get(None)) or {}).get("user")) and name not in SAFE_TOOLS: raise RuntimeError("এই টুল ইউজার এজেন্টের জন্য নেই")  # defense in depth
+    if name in BA.TOOLS: return await BA.run(t_id_ctx.get(None) or "adhoc",name,a)   # FL flag + allowlist inside
     if name=="mcp_call":
         import connections as CN
         return await CN.mcp_call((TASKS.get(t_id_ctx.get()) or {}).get("user"),a)
@@ -281,6 +283,9 @@ def start_task(goal,sysx="",user=None,tid=None,resume=None):
             st="cancelled"; ev("error",text="কাজটা থামানো হয়েছে।")
         except Exception as e:
             st="failed"; ev("error",text="এজেন্ট থেমে গেছে: "+friendly(e))
+        if tid in BA._S:
+            try: await BA.close(tid)
+            except Exception: pass
         TASKS[tid]["status"]=st; ev("end")
         if st=="done":
             for f in ON_DONE:
@@ -335,6 +340,7 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
     else:
         devs=", ".join(f"{d['id']}={d['name']}({'অনলাইন' if d['online'] else 'অফলাইন'})" for d in devices() if d["status"]=="approved")
         tools="; ".join(f"{n}{list(v[2])}: {v[1]}" for n,v in TOOLS.items())
+        if BA.enabled(): tools+="; "+"; ".join(f"{n}{list(v[2])}: {v[1]}" for n,v in BA.TOOLS.items())
         try:
             import connections as CN; _mp=CN.mcp_prompt((TASKS.get(tid) or {}).get("user"))
             if _mp: tools+="\n"+_mp
@@ -381,8 +387,9 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
         if RX and tool not in SAFE_TOOLS:
             ev("blocked",text=f"'{tool}' এই এজেন্টের জন্য নেই — শুধু ওয়েব সার্চ ও ব্রাউজ"); audit(ev="agent_tool_blocked",task=tid,tool=str(tool)[:40])
             msgs.append({"role":"user","content":f"'{tool}' টুল তোমার জন্য নেই। শুধু: {', '.join(SAFE_TOOLS)}। এগুলো দিয়ে করো বা চূড়ান্ত উত্তর দাও।"}); continue
-        if tool not in TOOLS: msgs.append({"role":"user","content":f"'{tool}' নামে কোনো টুল নেই। তালিকা: {', '.join(TOOLS)}"}); ev("repair",text=f"অজানা টুল '{tool}' — ঠিক করছি"); continue
-        cap=TOOLS[tool][0]
+        _ba=tool in BA.TOOLS and BA.enabled()
+        if tool not in TOOLS and not _ba: msgs.append({"role":"user","content":f"'{tool}' নামে কোনো টুল নেই। তালিকা: {', '.join(TOOLS)}"}); ev("repair",text=f"অজানা টুল '{tool}' — ঠিক করছি"); continue
+        cap=(BA.TOOLS[tool] if _ba else TOOLS[tool])[0]
         if tool=="shell" or cap not in(None,"browser"):
             raw=args.get("device")
             if not raw or raw in("phone","android","mobile","ফোন") or (raw=="box" and re.search(r"(ফোন|মোবাইল|NEXG|android)",goal,re.I)):
@@ -398,7 +405,7 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
             SN.log("blocked",_pc["tier"],TASKS[tid].get("user"),task=tid,tool=tool,reason=_pc["reason"])
             ev("blocked",text=("এই টাস্কের কাজের সীমা শেষ (Sentinel)" if _pc["reason"]=="action_budget" else f"'{tool}' Sentinel নীতিতে বন্ধ"))
             msgs.append({"role":"user","content":f"'{tool}' Sentinel আটকেছে ({_pc['reason']})। আর কোনো কাজ নয়; চূড়ান্ত উত্তর দাও।"}); continue
-        force_card = bool(_sn) or _pc["card"] or tool in("sms_send","sms_fill","call_make") or (tool=="shell" and args.get("device","box")=="box") or AL.risk(tool,args)=="high"  # destructive/outgoing: always confirm  # outgoing + box shell: always confirm
+        force_card = bool(_sn) or _pc["card"] or tool in("sms_send","sms_fill","call_make") or (tool=="shell" and args.get("device","box")=="box") or AL.risk(tool,args)=="high" or tool in BA.ALWAYS_CARD  # destructive/outgoing: always confirm  # outgoing + box shell: always confirm
         if mode=="off": d="no"; ev("blocked",text=f"{CAPS[cap]} এই ডিভাইসে বন্ধ (অনুমতি কেন্দ্র)")
         elif (mode=="always" and not force_card) or tool=="list_devices": d="yes"; cap and ev("auto",text=("নিরাপদ কাজ — অনুমতি ছাড়াই চালাচ্ছি (ওয়েব সার্চ)" if RX else f"'সবসময় অনুমতি' দেওয়া আছে — {CAPS[cap]}"))
         else:

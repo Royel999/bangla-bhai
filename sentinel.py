@@ -14,7 +14,7 @@ try: import auditdb as _A
 except Exception: _A=None
 # ---- v2: one policy file (sentinel_policy.json) is the source of truth for every tool's risk tier ----
 _BUILTIN={"tools":{"sms_send":"send","sms_fill":"send","call_make":"send","settings_ctl":"account","app_stop":"account",
-         "click":"control","tap":"control","type_text":"control","type":"control","swipe":"control","keyevent":"control"},
+         "browser_act":"control","click":"control","tap":"control","type_text":"control","type":"control","swipe":"control","keyevent":"control"},
          "gated_tiers":["control","send","post","pay","account"],"max_actions_per_task":25,"untrusted_sources":[],
          "sensitive_sources":[],"blocked":[]}
 def _load_policy():

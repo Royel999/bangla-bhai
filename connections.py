@@ -119,40 +119,24 @@ def chk(request):
     if not hmac.compare_digest(request.headers.get("x-csrf",""),request.session.get("csrf","") or "x"): raise PermissionError
 def mask(s): return (s[:4]+"…"+s[-4:]) if len(s)>12 else "••••"
 # ---------- MCP (streamable HTTP, JSON or SSE replies) ----------
+# P1: dual-era client lives in mcp_client.py (2026-07-28 stateless first, fallback to 2025-06-18 initialize).
+import mcp_client as MCPC
 async def _rpc(url,hdr,method,params,sid=None,rid=1):
-    h={"Content-Type":"application/json","Accept":"application/json, text/event-stream","MCP-Protocol-Version":"2025-06-18",**hdr}
-    if sid: h["Mcp-Session-Id"]=sid
-    body={"jsonrpc":"2.0","method":method,"params":params}
-    if rid is not None: body["id"]=rid
-    async with httpx.AsyncClient(timeout=30,follow_redirects=False) as c:
-        r=await c.post(url,headers=h,json=body)
-    if r.status_code>=400: raise RuntimeError(f"MCP server answered HTTP {r.status_code}")
-    sid=r.headers.get("mcp-session-id") or sid
-    if rid is None: return None,sid
-    t=r.text
-    if "text/event-stream" in r.headers.get("content-type",""):
-        js=[l[5:].strip() for l in t.splitlines() if l.startswith("data:")]
-        for x in js:
-            try:
-                j=json.loads(x)
-                if j.get("id")==rid: break
-            except Exception: continue
-        else: raise RuntimeError("No reply from MCP server")
-    else: j=r.json()
-    if j.get("error"): raise RuntimeError(str(j["error"].get("message","MCP error"))[:200])
-    return j.get("result"),sid
+    """Legacy-era helper kept for backward compatibility (2025-06-18 + Mcp-Session-Id)."""
+    try: return await MCPC.legacy_rpc(url,hdr,method,params,sid,rid)
+    except MCPC.McpError as e: raise RuntimeError(str(e)) from None
 async def mcp_session(url,hdr):
-    _,sid=await _rpc(url,hdr,"initialize",{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"bangla-bhai","version":"1.0"}})
-    try: await _rpc(url,hdr,"notifications/initialized",{},sid,rid=None)
-    except Exception: pass
-    return sid
+    """Legacy-era session (kept for callers that still want an initialize handshake)."""
+    sid,_=await MCPC.legacy_session(url,hdr); return sid
 def _url_safe(u):
     import agent as AG
     p=urlparse(u); return p.scheme=="https" and AG._url_ok(u)
 def _hdr(tok): return {"Authorization":("Bearer "+tok) if tok and not tok.lower().startswith(("bearer ","basic ")) else tok} if tok else {}
 async def mcp_tools(url,tok):
-    hdr=_hdr(tok); sid=await mcp_session(url,hdr); res,_=await _rpc(url,hdr,"tools/list",{},sid,rid=2)
-    return [{"name":t["name"][:80],"description":(t.get("description") or "")[:300],"schema":t.get("inputSchema",{})} for t in (res or {}).get("tools",[])][:100]
+    hdr=_hdr(tok)
+    try: tools,_=await MCPC.list_tools(url,hdr)
+    except MCPC.McpError as e: raise RuntimeError(str(e)) from None
+    return [{"name":str(t["name"])[:80],"description":(t.get("description") or "")[:300],"schema":t.get("inputSchema",{})} for t in tools if isinstance(t,dict) and t.get("name")][:100]
 def mcp_list(u):
     with db() as c: return [dict(r) for r in c.execute("select * from conn_mcp where user=? order by created",(u,))]
 async def mcp_call(u,a):
@@ -161,12 +145,13 @@ async def mcp_call(u,a):
     r=next((x for x in rows if x["id"]==srv or x["name"].lower()==srv.lower()),rows[0] if len(rows)==1 and not srv else None)
     if not r: return "No such MCP server. Connected: "+", ".join(x["name"] for x in rows) if rows else "No MCP server connected (Connections page)."
     if not _url_safe(r["url"]): return "Blocked: server URL is not public"
-    hdr=_hdr(dec(r["enc"]) if r["enc"] else ""); sid=await mcp_session(r["url"],hdr)
+    hdr=_hdr(dec(r["enc"]) if r["enc"] else "")
     args=a.get("args") or {}
     if isinstance(args,str):
         try: args=json.loads(args)
         except Exception: args={"query":args}
-    res,_=await _rpc(r["url"],hdr,"tools/call",{"name":a.get("tool"),"arguments":args},sid,rid=3)
+    try: res,_=await MCPC.call_tool(r["url"],hdr,a.get("tool"),args)
+    except MCPC.McpError as e: raise RuntimeError("MCP error: "+str(e)) from None
     out=[x.get("text","") for x in (res or {}).get("content",[]) if x.get("type")=="text"]
     return ("\n".join(out) or json.dumps(res,ensure_ascii=False))[:6000]
 def mcp_prompt(u):

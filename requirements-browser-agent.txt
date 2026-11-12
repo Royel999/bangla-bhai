@@ -1,0 +1,6 @@
+# OPTIONAL, NOT installed on Render (requirements-render.txt is unchanged).
+# Pinned for a later, separately approved autonomous mode of the browser agent (browser_agent.browser_use_config()).
+# browser-use 1.0.x = MIT, Python >=3.11, LLM writes Python in a REPL on raw CDP (cannot be Sentinel-gated per step).
+# If ever installed: run with ANONYMIZED_TELEMETRY=false, Browser('chromium', **browser_use_config()), and an LLM
+# from our free router -- never the default paid bu-fast gateway / Browser Use Cloud (BROWSER_USE_API_KEY).
+browser-use==1.0.2

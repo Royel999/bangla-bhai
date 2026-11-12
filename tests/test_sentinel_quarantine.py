@@ -4,7 +4,7 @@ import sentinel as SN, quarantine as QZ
 
 class SentinelV2(unittest.TestCase):
     def test_policy_loaded(self):
-        self.assertEqual(SN.POLICY.get("version"), 2)
+        self.assertEqual(SN.POLICY.get("version"), 3)   # v3 = P1 browser agent tools
         self.assertIn("screen_read", SN.UNTRUSTED)
         self.assertIn("sms_list", SN.SENSITIVE)
     def test_builtin_gates_cannot_be_downgraded(self):

@@ -13,7 +13,7 @@ INJ=re.compile(r"(ignore (all |any |the )?(previous|prior|above) (instructions|p
                r"|\"tool\"\s*:|\"action\"\s*:|approve (this|the) (card|request)|without (asking|approval|permission)"
                r"|send (the |all )?(otp|password|code|sms|messages?) to|forward (all|the) (sms|messages|otp)"
                r"|আগের (সব )?নির্দেশ (ভুলে|বাদ|উপেক্ষা)|নতুন নির্দেশ|অনুমতি ছাড়া|ওটিপি পাঠাও|পাসওয়ার্ড পাঠাও|মালিক বলছে)",re.I)
-WEB_TOOLS={"web_search","browse","mcp_call"}
+WEB_TOOLS={"web_search","browse","mcp_call","browser_navigate","browser_read","browser_act"}
 def suspicious(text):
     out=[]
     for ln in (text or "").splitlines():

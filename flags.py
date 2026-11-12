@@ -23,6 +23,7 @@ FLAGS={
  "prov_zai":         ("1","Z.ai GLM","AI provider","GLM-4.7 Flash — অফিসিয়াল ফ্রি মডেল (ইউজার ব্যাকআপ)"),
  "prov_cloudflare":  ("1","Cloudflare Workers AI","AI provider","GPT-OSS 120B ও Llama 3.3 70B — দিনে ১০k নিউরন ফ্রি"),
  "prov_openrouter":  ("1","OpenRouter (ফ্রি)","AI provider","Auto Free + Nemotron Ultra / Laguna (ডেভ) — মোট ৫০/দিন"),
+ "feat_browser_agent":("0","ব্রাউজার এজেন্ট (পরীক্ষামূলক)","Browser agent (beta)","ডিফল্ট বন্ধ। চালু = মালিকের এজেন্ট আলাদা Chromium প্রোফাইলে শুধু অনুমোদিত সাইটে (browser_agent_allow) ধাপে ধাপে কাজ করবে; প্রতি ধাপে স্ক্রিনশট, প্রতিটা ক্লিক/লেখায় অনুমতি কার্ড"),
  "mem_cloud_embed":  ("1","মেমরি: Gemini embedding","Memory cloud embedding","চালু = Render-এ অর্থ দিয়ে মেমরি খোঁজা (Gemini ফ্রি embedding; ফ্রি টিয়ারের ডেটা Google ব্যবহার করতে পারে)। বন্ধ = শুধু keyword খোঁজা, মেমরির লেখা Google-এ যায় না"),
  "prov_pollinations":("1","Pollinations (ডেভ)","AI provider","GPT-5.3 Codex, GPT-6 Sol, Kimi K3, GLM-5.3 — দৈনিক ফ্রি Pollen; শুধু মালিক/ডেভ"),
 }
@@ -38,7 +39,7 @@ def _load():
 def on(name):
     d=_load(); v=d.get(name, FLAGS.get(name,("1",))[0])
     on_=str(v).strip() not in ("0","false","off","no","")
-    if on_ and name in("feat_browse","feat_shell","feat_devices") and not on("feat_agent"): return False
+    if on_ and name in("feat_browse","feat_shell","feat_devices","feat_browser_agent") and not on("feat_agent"): return False
     return on_
 def all_flags():
     d=_load()

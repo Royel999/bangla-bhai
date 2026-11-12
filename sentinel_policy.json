@@ -1,6 +1,6 @@
 {
-  "_doc": "Sentinel v2 policy (P0, 2026-11-12). tier: read = no side effect; act = changes local state on a device; control = taps/typing on a screen; send/post/pay/account = outgoing or irreversible. Gated tiers (control/send/post/pay/account) ALWAYS need an Approve card and are audited. 'act' needs a card when the task has read untrusted data (web/screen/SMS/MCP). 'blocked' tools never run. Max act+gated calls per task = max_actions_per_task.",
-  "version": 2,
+  "_doc": "Sentinel v2 policy (P0, 2026-11-12). tier: read = no side effect; act = changes local state on a device; control = taps/typing on a screen; send/post/pay/account = outgoing or irreversible. Gated tiers (control/send/post/pay/account) ALWAYS need an Approve card and are audited. 'act' needs a card when the task has read untrusted data (web/screen/SMS/MCP). 'blocked' tools never run. Max act+gated calls per task = max_actions_per_task. v3 (P1, 2026-11-12): browser agent tools (flag feat_browser_agent, default OFF): browser_navigate=act, browser_read=read, browser_act=control (always a card), browser_close=read; their page output is untrusted.",
+  "version": 3,
   "max_actions_per_task": 25,
   "gated_tiers": ["control", "send", "post", "pay", "account"],
   "tools": {
@@ -13,10 +13,12 @@
     "click": "control", "tap": "control", "type_text": "control", "type": "control",
     "swipe": "control", "keyevent": "control",
     "sms_send": "send", "sms_fill": "send", "call_make": "send",
-    "settings_ctl": "account", "app_stop": "account"
+    "settings_ctl": "account", "app_stop": "account",
+    "browser_navigate": "act", "browser_read": "read", "browser_act": "control", "browser_close": "read"
   },
   "untrusted_sources": ["web_search", "browse", "mcp_call", "screen_read", "ui_dump", "sms_list",
-                        "notifications", "clipboard", "contacts", "call_log"],
+                        "notifications", "clipboard", "contacts", "call_log",
+                        "browser_navigate", "browser_read", "browser_act"],
   "sensitive_sources": ["sms_list", "screen_read", "ui_dump", "contacts", "call_log", "notifications",
                         "clipboard", "location", "sensor", "camera_photo", "mic_record", "sms_fill", "sms_send"],
   "blocked": []
