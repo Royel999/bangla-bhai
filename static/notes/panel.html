@@ -8,18 +8,24 @@
 #w.out{animation:shut .25s ease-in forwards}
 @keyframes pop{from{transform:scale(.15) rotate(-8deg);opacity:0;border-radius:50%}to{transform:none;opacity:1}}
 @keyframes shut{to{transform:scale(.1);opacity:0;border-radius:50%}}
-header{display:flex;align-items:center;gap:8px;padding:10px 12px 4px;-webkit-app-region:drag;cursor:move}
-header img{width:38px;height:38px;filter:drop-shadow(0 2px 3px #0008);animation:bob 2.4s ease-in-out infinite}@keyframes bob{50%{transform:translateY(-3px) rotate(-4deg)}}
-header b{color:var(--g);font-size:15px}header small{color:var(--m);display:block;font-size:11px;line-height:1.2}
+header{display:flex;align-items:center;gap:8px;padding:8px 10px 2px;-webkit-app-region:drag;cursor:move}
+header img{width:28px;height:28px;filter:drop-shadow(0 2px 3px #0008)}
+@media (prefers-reduced-motion:no-preference){header img{animation:bob 2.8s ease-in-out infinite}@keyframes bob{50%{transform:translateY(-2px)}}}
+header b{color:var(--g);font-size:14px}header small{color:var(--m);display:block;font-size:11px;line-height:1.2}
 header .x{margin-left:auto;-webkit-app-region:no-drag;background:#ffffff14;border:0;color:var(--t);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:15px}
-#orb{display:flex;justify-content:space-around;padding:6px 6px 2px;position:relative}
-#orb button{width:44px;height:44px;border-radius:50%;border:1px solid #ffffff22;background:radial-gradient(circle at 30% 30%,#2c4f8f,#12264a);color:#fff;font-size:19px;cursor:pointer;position:relative;
- opacity:0;transform:translateY(26px) scale(.3);animation:orb .5s cubic-bezier(.2,1.6,.4,1) forwards;transition:transform .2s,box-shadow .2s}
-#orb button:hover{transform:translateY(-3px) scale(1.08)!important;box-shadow:0 0 0 3px #d4af3755}
-#orb button.on{background:radial-gradient(circle at 30% 30%,#ffb35c,#d46b00);box-shadow:0 0 14px #ff8c1a99}
-#orb button span{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--m);white-space:nowrap}
-@keyframes orb{to{opacity:1;transform:none}}
-#tabs{flex:1;overflow:auto;padding:18px 12px 8px;position:relative}
+#orb{display:flex;align-items:center;gap:4px;padding:4px 8px 6px;position:relative;border-bottom:1px solid #ffffff12}
+#orb button{width:36px;height:36px;flex:none;border-radius:50%;border:1px solid #ffffff22;background:#ffffff10;color:#fff;font-size:16px;cursor:pointer;position:relative}
+#orb button:hover{background:#ffffff1c;box-shadow:0 0 0 2px #d4af3744}
+#orb button.on{background:radial-gradient(circle at 30% 30%,#ffb35c,#d46b00);box-shadow:0 0 0 2px #d4af3766}
+#orbMore{position:relative;margin-left:auto}
+#orbMore summary{list-style:none;width:36px;height:36px;border-radius:50%;border:1px solid #ffffff22;background:#ffffff10;color:var(--t);display:grid;place-items:center;cursor:pointer;font-size:16px}
+#orbMore summary::-webkit-details-marker{display:none}
+#orbMore.has-on summary{box-shadow:0 0 0 2px #d4af3766}
+#orbMore .orb-extra{position:absolute;right:0;top:40px;z-index:5;min-width:168px;padding:6px;border-radius:12px;background:#0b1a33f7;border:1px solid #d4af3755;box-shadow:0 10px 28px #000a;display:flex;flex-direction:column;gap:2px}
+#orbMore .orb-extra button{width:100%;height:auto;border-radius:8px;display:flex;align-items:center;gap:8px;justify-content:flex-start;padding:7px 10px;font-size:13px}
+#orbMore .orb-extra button span{position:static;transform:none;font-size:13px;color:var(--t)}
+@media (prefers-reduced-motion:reduce){#w,header img,#orb button,.pg,.card,.ans{animation:none!important}}
+#tabs{flex:1;overflow:auto;padding:12px 12px 8px;position:relative}
 .pg{display:none;animation:fade .3s ease}.pg.on{display:block}@keyframes fade{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
 textarea,input{width:100%;background:#0a1730cc;color:inherit;border:1px solid #2a4a80;border-radius:12px;padding:9px;font:inherit;outline:none;transition:border .2s}
 textarea:focus,input:focus{border-color:var(--g)}
@@ -107,10 +113,15 @@ const A={ask:(mode,q,text,image_b64)=>api('/bb/link/ask',{method:'POST',body:JSO
  clips:()=>TOK?api('/bb/link/clips?n=20&'+T()).then(j=>j.clips):api('/bb/api/clips?limit=20').then(j=>j.clips.filter(c=>c.kind!=='image')),
  note:b=>TOK?api('/bb/link/note',{method:'POST',body:JSON.stringify({token:TOK,body:b})}):api('/bb/api/notes',{method:'POST',body:JSON.stringify({title:b.trim().split('\n')[0].slice(0,60),body:b,folder:'দ্রুত নোট'})}),
  stt:blob=>{const f=new FormData();f.append('file',blob,'v.webm');return api('/bb/link/stt?'+T(),{method:'POST',body:f}).then(j=>j.text)}};
-/* orb bar */
+/* orb bar — primary shortcuts stay visible; the rest sit behind More */
 const TABS=[['note','📝','নোট'],['clip','📋','ক্লিপ'],['ai','🤖','AI'],['task','✅','কাজ'],['find','🔍','খোঁজ'],['agent','🧠','এজেন্ট'],['design','🎨','ডিজাইন'],['sec','🛡','সিকিউরিটি'],['bird','👧','সঙ্গী']];
-$('#orb').innerHTML=TABS.map(([k,i,l],n)=>`<button data-t="${k}" style="animation-delay:${60+n*55}ms">${i}<span>${l}</span></button>`).join('');
+const PRIMARY=['note','clip','ai','bird'];
+const extra=TABS.filter(t=>!PRIMARY.includes(t[0]));
+const orbBtn=([k,i,l],wide)=>`<button type="button" data-t="${k}" aria-label="${l}" title="${l}">${i}${wide?`<span>${l}</span>`:''}</button>`;
+$('#orb').innerHTML=TABS.filter(t=>PRIMARY.includes(t[0])).map(t=>orbBtn(t,false)).join('')+
+ `<details id="orbMore"><summary title="আরও" aria-label="আরও">⋯</summary><div class="orb-extra">${extra.map(t=>orbBtn(t,true)).join('')}</div></details>`;
 function tab(k){$$('#orb button').forEach(b=>b.classList.toggle('on',b.dataset.t===k));$$('.pg').forEach(p=>p.classList.toggle('on',p.id==='p-'+k));localStorage.rbtTab=k;
+ const more=$('#orbMore');if(more){more.open=false;more.classList.toggle('has-on',extra.some(t=>t[0]===k))}
  ({clip:loadClips,task:loadHub,ai:()=>$('#q').focus(),note:()=>$('#nt').focus(),find:()=>$('#sq').focus(),bird:()=>{birdStat();learnStat()},sec:()=>sdoms({})})[k]?.()}
 $$('#orb button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
 const close=()=>{$('#w').classList.add('out');setTimeout(()=>{call('close');$('#w').classList.remove('out')},230)};$('#x').onclick=close;addEventListener('keydown',e=>e.key==='Escape'&&close());
