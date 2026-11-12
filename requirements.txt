@@ -18,3 +18,4 @@ rapidocr_onnxruntime
 gradio_client
 huggingface_hub
 pillow
+langfuse==5.2.0

@@ -1,5 +1,6 @@
 """One model router for every LLM call: retry 5xx/timeouts with backoff, fail over on 429/quota, cooldowns, BYOK first."""
 import os, json, re, time, asyncio, random, httpx
+import lftrace as LF
 S=os.path.expanduser('~/.secrets')
 def _env(f):
     d={}
@@ -127,15 +128,27 @@ async def complete(msgs,chain=None,extra=None,json_mode=False,timeout=60,tries=3
     """returns (model_name, text, trace). raises ModelError('exhausted') when all fail."""
     STATS["calls"]+=1; trace=[]
     specs=resolve(chain or DEFAULT,extra)
-    async with httpx.AsyncClient() as c:
+    private=list(chain or [])==list(PRIVATE)
+    with LF.observation("router.complete", as_type="span", input=LF.safe_input(msgs),
+                        metadata={"json_mode":bool(json_mode),"n_routes":len(specs),"private":private}) as root:
+      async with httpx.AsyncClient() as c:
         for n,(mid,spec) in enumerate(specs):
             if COOL.get(mid,0)>time.time() and n<len(specs)-1: trace.append((mid,"cooldown")); continue
             for a in range(tries):
                 t0=time.time()
-                try:
+                label,url,key,model,kind=spec
+                with LF.observation("llm."+mid.split(":")[0], as_type="generation",
+                                    model=model, input=LF.safe_input(msgs),
+                                    metadata={"route":mid,"attempt":a+1,"kind":kind}) as gen:
+                  try:
                     t=await _once(c,mid,spec,msgs,json_mode,timeout); trace.append((mid,"ok")); _note(mid,True,int((time.time()-t0)*1000))
-                    return f"{mid.split(':')[0]}/{spec[3]}",t,trace
-                except ModelError as e:
+                    name=f"{mid.split(':')[0]}/{spec[3]}"
+                    LF.safe_update(gen, output=LF.clip(t), metadata={"route":mid,"attempt":a+1,"ms":int((time.time()-t0)*1000)})
+                    LF.safe_update(root, output={"model":name,"ok":True})
+                    return name,t,trace
+                  except ModelError as e:
+                    LF.safe_update(gen, level="ERROR", status_message=e.kind,
+                                   metadata={"route":mid,"attempt":a+1,"kind":e.kind})
                     trace.append((mid,f"{e.kind}:{e}")); _note(mid,False,int((time.time()-t0)*1000),f"{e.kind}:{e}"[:60])
                     if e.kind=="transient" and a<tries-1:
                         STATS["retries"]+=1; on_event and await on_event("retry",spec[0])
@@ -143,53 +156,71 @@ async def complete(msgs,chain=None,extra=None,json_mode=False,timeout=60,tries=3
                     if e.kind=="quota": COOL[mid]=time.time()+90
                     break
             STATS["failovers"]+=1; on_event and await on_event("failover",spec[0])
+      LF.safe_update(root, level="ERROR", status_message="exhausted", output={"ok":False,"trace":[m for m,_ in trace]})
     raise ModelError("exhausted","all models failed: "+"; ".join(f"{m}={s}" for m,s in trace))
 async def stream(msgs,chain=None,extra=None,timeout=90):
     """async gen: ('status',text) ('meta',name) ('delta',text). Failover allowed until first token."""
     specs=resolve(chain or DEFAULT,extra); STATS["calls"]+=1
-    # read = max gap between streamed chunks; a stalled provider fails over fast instead of hanging 90s
-    async with httpx.AsyncClient(timeout=httpx.Timeout(timeout,connect=6,read=25)) as c:
-        for n,(mid,spec) in enumerate(specs):
-            label,url,key,model,kind=spec
-            if COOL.get(mid,0)>time.time() and n<len(specs)-1: continue
-            for a in range(2):
-                started=False; t0=time.time()
-                try:
-                    _fake(mid)
-                    if kind!="oa":
-                        t=await _once(c,mid,spec,msgs,False,timeout); _note(mid,True,int((time.time()-t0)*1000))
-                        yield ("meta",f"{mid.split(':')[0]}/{model}"); yield ("delta",t); return
-                    async with c.stream("POST",url,headers={"Authorization":f"Bearer {key}"},json={"model":model,"messages":msgs,"stream":True}) as r:
-                        if r.status_code!=200:
-                            txt=(await r.aread()).decode("utf-8","ignore"); raise ModelError(_classify(r.status_code,txt),str(r.status_code))
-                        buf=""; inthink=False; name=None
-                        async for line in r.aiter_lines():
-                            if not line.startswith("data:"): continue
-                            d=line[5:].strip()
-                            if d=="[DONE]": break
-                            try: j=json.loads(d)
-                            except Exception: continue
-                            if not name and j.get("model"): name=f"{mid.split(':')[0]}/{j['model']}"
-                            ch=(j.get("choices") or [{}])[0].get("delta",{}).get("content") or ""
-                            if not ch: continue
-                            buf+=ch
-                            if "<think>" in buf and "</think>" not in buf: inthink=True; continue
-                            if inthink: buf=buf.split("</think>",1)[1]; inthink=False
-                            if not started: yield ("meta",name or f"{mid.split(':')[0]}/{model}"); started=True; _note(mid,True,int((time.time()-t0)*1000))
-                            yield ("delta",buf); buf=""
-                    if not started: raise ModelError("transient","empty")
-                    return
-                except (httpx.TimeoutException,httpx.TransportError) as e:
-                    if started: return
-                    err=ModelError("transient",type(e).__name__)
-                    if isinstance(e,httpx.TimeoutException): err.kind="slow"   # don't retry a slow provider; fail over
-                except ModelError as e:
-                    if started: return
-                    err=e
-                _note(mid,False,int((time.time()-t0)*1000),f"{err.kind}:{err}"[:60])
-                if err.kind=="transient" and a==0:
-                    STATS["retries"]+=1; yield ("status",("retry",label)); await asyncio.sleep(1.0+random.random()*0.3); continue
-                if err.kind=="quota": COOL[mid]=time.time()+90
-                break
-            STATS["failovers"]+=1; yield ("status",("failover",label))
+    private=list(chain or [])==list(PRIVATE)
+    with LF.observation("router.stream", as_type="span", input=LF.safe_input(msgs),
+                        metadata={"n_routes":len(specs),"private":private}) as root:
+        # read = max gap between streamed chunks; a stalled provider fails over fast instead of hanging 90s
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout,connect=6,read=25)) as c:
+            for n,(mid,spec) in enumerate(specs):
+                label,url,key,model,kind=spec
+                if COOL.get(mid,0)>time.time() and n<len(specs)-1: continue
+                for a in range(2):
+                    started=False; t0=time.time(); chunks=[]
+                    with LF.observation("llm."+mid.split(":")[0], as_type="generation",
+                                        model=model, input=LF.safe_input(msgs),
+                                        metadata={"route":mid,"attempt":a+1,"kind":kind,"stream":True}) as gen:
+                        try:
+                            _fake(mid)
+                            if kind!="oa":
+                                t=await _once(c,mid,spec,msgs,False,timeout); _note(mid,True,int((time.time()-t0)*1000))
+                                LF.safe_update(gen, output=LF.clip(t), metadata={"route":mid,"ms":int((time.time()-t0)*1000)})
+                                LF.safe_update(root, output={"model":f"{mid.split(':')[0]}/{model}","ok":True})
+                                yield ("meta",f"{mid.split(':')[0]}/{model}"); yield ("delta",t); return
+                            async with c.stream("POST",url,headers={"Authorization":f"Bearer {key}"},json={"model":model,"messages":msgs,"stream":True}) as r:
+                                if r.status_code!=200:
+                                    txt=(await r.aread()).decode("utf-8","ignore"); raise ModelError(_classify(r.status_code,txt),str(r.status_code))
+                                buf=""; inthink=False; name=None
+                                async for line in r.aiter_lines():
+                                    if not line.startswith("data:"): continue
+                                    d=line[5:].strip()
+                                    if d=="[DONE]": break
+                                    try: j=json.loads(d)
+                                    except Exception: continue
+                                    if not name and j.get("model"): name=f"{mid.split(':')[0]}/{j['model']}"
+                                    ch=(j.get("choices") or [{}])[0].get("delta",{}).get("content") or ""
+                                    if not ch: continue
+                                    buf+=ch
+                                    if "<think>" in buf and "</think>" not in buf: inthink=True; continue
+                                    if inthink: buf=buf.split("</think>",1)[1]; inthink=False
+                                    if not started: yield ("meta",name or f"{mid.split(':')[0]}/{model}"); started=True; _note(mid,True,int((time.time()-t0)*1000))
+                                    chunks.append(buf)
+                                    yield ("delta",buf); buf=""
+                            if not started: raise ModelError("transient","empty")
+                            LF.safe_update(gen, output=LF.clip("".join(chunks)), metadata={"route":mid,"ms":int((time.time()-t0)*1000)})
+                            LF.safe_update(root, output={"model":name or f"{mid.split(':')[0]}/{model}","ok":True})
+                            return
+                        except (httpx.TimeoutException,httpx.TransportError) as e:
+                            if started:
+                                LF.safe_update(gen, output=LF.clip("".join(chunks)), level="WARNING", status_message=type(e).__name__)
+                                return
+                            err=ModelError("transient",type(e).__name__)
+                            if isinstance(e,httpx.TimeoutException): err.kind="slow"   # don't retry a slow provider; fail over
+                        except ModelError as e:
+                            if started:
+                                LF.safe_update(gen, output=LF.clip("".join(chunks)), level="WARNING", status_message=e.kind)
+                                return
+                            err=e
+                        LF.safe_update(gen, level="ERROR", status_message=err.kind, metadata={"route":mid,"kind":err.kind})
+                    _note(mid,False,int((time.time()-t0)*1000),f"{err.kind}:{err}"[:60])
+                    if err.kind=="transient" and a==0:
+                        STATS["retries"]+=1; yield ("status",("retry",label)); await asyncio.sleep(1.0+random.random()*0.3); continue
+                    if err.kind=="quota": COOL[mid]=time.time()+90
+                    break
+                STATS["failovers"]+=1; yield ("status",("failover",label))
+        LF.safe_update(root, level="ERROR", status_message="exhausted", output={"ok":False})
     raise ModelError("exhausted","all models failed")

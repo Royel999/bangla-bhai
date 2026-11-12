@@ -95,6 +95,7 @@ app.mount("/bb/static",StaticFiles(directory=BASE+"/static"),name="static")
 import agent as AG
 AG.OWNER=CFG["BB_USER"]  # non-owner agent tasks run restricted (safe tools only)
 import router as RT, memory as MEM, actlog as AL, plans as PL
+import lftrace as LF
 import functools as _ft
 # P0 privacy routing: memory extraction/review read the user's own words -> PRIVATE chain only (Groq + own Cloudflare;
 # never the Gemini free tier / OpenRouter :free, whose prompts may be used for training). Fails closed.
@@ -436,6 +437,9 @@ def health(deep:int=0):
         try:
             import sentinel as _SN; out["sentinel"]={"policy":_SN.POLICY.get("version"),"tools":len(_SN.POLICY.get("tools",{})),"gated":sorted(_SN.GATED)}
         except Exception as e: out["sentinel"]="error:"+type(e).__name__
+        try:
+            out["langfuse"]=LF.status()
+        except Exception as e: out["langfuse"]="error:"+type(e).__name__
     return out
 @app.get("/bb/api/models")
 def models(request:Request):
@@ -674,14 +678,17 @@ async def stream(request:Request,cid:str):
         full=""; name="none"; bn=st.get("lang")=="bn"
         try:
           try:
-            async for kind,val in RT.stream(msgs2,chain=rchain,extra=extra):
-                if kind=="meta": name=val; yield "event: meta\ndata: "+json.dumps({"model":val})+"\n\n"
-                elif kind=="delta": full+=val; yield "data: "+json.dumps({"d":val})+"\n\n"
-                else:
-                    what,label=val
-                    txt=((f"{label} ব্যস্ত, আবার চেষ্টা করছি..." if bn else f"{label} is busy, retrying...") if what=="retry" else
-                         (f"{label} সাড়া দেয়নি, পরের মডেলে যাচ্ছি..." if bn else f"{label} did not respond, switching to the next model..."))
-                    yield "event: status\ndata: "+json.dumps({"text":txt})+"\n\n"
+            with LF.observation("chat.stream", as_type="span", metadata={"chat_id":cid,"model":sel}) as root:
+              with LF.attrs(user_id=str(u), session_id="chat:"+cid, tags=["chat"]):
+                async for kind,val in RT.stream(msgs2,chain=rchain,extra=extra):
+                    if kind=="meta": name=val; yield "event: meta\ndata: "+json.dumps({"model":val})+"\n\n"
+                    elif kind=="delta": full+=val; yield "data: "+json.dumps({"d":val})+"\n\n"
+                    else:
+                        what,label=val
+                        txt=((f"{label} ব্যস্ত, আবার চেষ্টা করছি..." if bn else f"{label} is busy, retrying...") if what=="retry" else
+                             (f"{label} সাড়া দেয়নি, পরের মডেলে যাচ্ছি..." if bn else f"{label} did not respond, switching to the next model..."))
+                        yield "event: status\ndata: "+json.dumps({"text":txt})+"\n\n"
+                LF.safe_update(root, output={"model":name,"chars":len(full),"ok":bool(full)})
           except asyncio.CancelledError: raise
           except Exception: pass
           if not full:
@@ -714,7 +721,11 @@ async def chat(request:Request):
         notes=[r for r in await asyncio.gather(*[call(a,msgs) for a in ADVISORS]) if r]; advisors=[n for n,_ in notes]
         if notes: msgs+= [{"role":"system","content":"কাউন্সিলের মতামত:\n"+"\n---\n".join(t[:2500] for _,t in notes)}]
     try:
-        n,t,_=await RT.complete(msgs); audit(ev="chat",model=n); return {"answer":t,"model":n,"advisors":advisors}
+        with LF.observation("chat.complete", as_type="span", metadata={"source":"legacy"}) as root:
+            with LF.attrs(user_id=str(u), tags=["chat"]):
+                n,t,_=await RT.complete(msgs)
+                LF.safe_update(root, output={"model":n,"chars":len(t or "")})
+        audit(ev="chat",model=n); return {"answer":t,"model":n,"advisors":advisors}
     except RT.ModelError: return {"answer":RT.friendly(st.get("lang","en")),"model":"none","advisors":advisors}
 
 # ---------- agent / link / voice / vision ----------
@@ -1023,6 +1034,8 @@ async def _tg_answer(u,text,ctx=""):
 TG.H.update(answer=_tg_answer,stt=AG.stt,ocr_image=OC.image_text,ocr_pdf=lambda d:OC.pdf_text(d)[0],take=PL.take,quota_msg=PL.quota_msg,audit=audit,sub_info=PL.sub_info)
 @app.on_event("startup")
 async def _tg_start():
+    try: LF.startup_ping()
+    except Exception: pass
     if os.environ.get('BB_ROLE')=='standby': return
     asyncio.get_running_loop().create_task(TG.run())
 import connections as CN

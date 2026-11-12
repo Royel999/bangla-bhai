@@ -235,6 +235,7 @@ SYS="""তুমি 'বাংলা ভাই' — Royal Universe-এর আস
 - টুল ব্যর্থ হলে রিপেয়ার করে অন্য পথ চেষ্টা করো। মালিক 'না' বললে সেই কাজ আর করবে না।
 """
 import router as RT, actlog as AL
+import lftrace as LF
 async def llm_json(msgs,private=False):
     # private=True once the task has read SMS/screen/contacts etc: only router.PRIVATE (no training-tier providers)
     try: m,t,_=await RT.complete(msgs,chain=(RT.PRIVATE if private else None),json_mode=True,timeout=60,tries=2)
@@ -327,6 +328,15 @@ def decide(tid,aid,d):
     f=TASKS.get(tid,{}).get("pending",{}).get(aid)
     if f and not f.done(): f.set_result(d); return True
     return False
+def _loop_input(tid,goal,sysx="",resume_ctx=None):
+    return {"goal": LF.clip(goal, 800)}
+def _loop_meta(tid,goal,sysx="",resume_ctx=None):
+    return {"tid": tid, "resume": bool(resume_ctx),
+            "restricted": restricted((TASKS.get(tid) or {}).get("user"))}
+def _loop_attrs(tid,goal,sysx="",resume_ctx=None):
+    u=(TASKS.get(tid) or {}).get("user")
+    return {"user_id": str(u) if u else None, "session_id": "task:"+str(tid), "tags": ["agent"]}
+@LF.wrap_async("agent.loop", as_type="span", input_fn=_loop_input, meta_fn=_loop_meta, attr_fn=_loop_attrs)
 async def loop(tid,goal,sysx="",resume_ctx=None):
     RX=restricted((TASKS.get(tid) or {}).get("user")); AUTO_OK=RX and SAFE_AUTO_MARK in (sysx or "")
     if RX:
@@ -410,9 +420,14 @@ async def loop(tid,goal,sysx="",resume_ctx=None):
         for attempt in range(2):
             ev("run",tool=tool,args=args,attempt=attempt+1)
             try:
-                out=await run_tool(tool,args); img=None
-                if isinstance(out,dict): img=out.get("image"); out=out.get("text") or json.dumps({k:v for k,v in out.items() if k!="image"},ensure_ascii=False)[:3000]
-                ran_ok=True; out_s=redact_secrets(str(out)); ev("result",tool=tool,text=out_s[:1500],image=img); audit(ev="agent_tool",task=tid,tool=tool,args=args,ok=True); AL.log(TASKS[tid].get("user"),"device" if args.get("device") not in(None,"box") else ("shell" if tool=="shell" else ("browse" if tool in("browse","web_search") else "tool")),tool,args,out_s,True,tid)
+                with LF.observation("agent.tool."+str(tool), as_type="span",
+                                    input={"tool":tool,"args":LF.redact(args)},
+                                    metadata={"tid":tid,"attempt":attempt+1}) as tool_span:
+                    out=await run_tool(tool,args); img=None
+                    if isinstance(out,dict): img=out.get("image"); out=out.get("text") or json.dumps({k:v for k,v in out.items() if k!="image"},ensure_ascii=False)[:3000]
+                    ran_ok=True; out_s=redact_secrets(str(out))
+                    LF.safe_update(tool_span, output=LF.clip(out_s, 1500))
+                ev("result",tool=tool,text=out_s[:1500],image=img); audit(ev="agent_tool",task=tid,tool=tool,args=args,ok=True); AL.log(TASKS[tid].get("user"),"device" if args.get("device") not in(None,"box") else ("shell" if tool=="shell" else ("browse" if tool in("browse","web_search") else "tool")),tool,args,out_s,True,tid)
                 if SN.tier(tool,args)!="read": actions+=1
                 if tool in SN.SENSITIVE: private=True
                 if tool in SN.UNTRUSTED:
