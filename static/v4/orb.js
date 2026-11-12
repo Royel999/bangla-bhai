@@ -18,6 +18,7 @@ const css=`#rbtOrb{position:fixed;right:18px;bottom:96px;z-index:9990;transition
 #rbtVo button.mic{width:72px;height:72px;border-radius:50%;background:#DA291C;border:0;color:#fff;font-size:28px}#rbtVo .x{position:absolute;top:16px;right:16px}
 #rbtVo .flag{position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#006A4E 0 70%,#DA291C 70%)}
 body:has(#scrim.on) #rbtOrb{opacity:0;pointer-events:none}
+body:has(#app):has(#tabs) #rbtOrb{display:none!important}
 @media (prefers-reduced-motion:reduce){#rbtOrb,#rbtVo *{animation:none!important}}`;
 const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
 const seal='/bb/static/v4/brand/RBT_seal_512_transparent.png';
@@ -28,11 +29,15 @@ vo.innerHTML=`<i class=flag></i><button class="c x" id=rbtX aria-label="Close">�
 <button class=mic id=rbtMic aria-label="Mic">🎙</button>
 <div class=row><button class=c id=rbtScr>🖥 ${L('স্ক্রিন দেখাও','See my screen')}</button><button class=c id=rbtSms>✉️ ${L('SMS লিখে দাও','Help write SMS')}</button><button class=c id=rbtHf>🔁 ${L('হ্যান্ডস-ফ্রি: বন্ধ','Hands-free: off')}</button></div>
 <small style="opacity:.6;max-width:460px">🔒 ${L('স্ক্রিন শুধু আপনি অনুমতি দিলে, একবারের জন্য। কিছু পাঠানো/পোস্ট করার আগে সবসময় আপনার Approve লাগবে।','Screen only when you allow it, one frame at a time. Nothing is sent or posted without your Approve.')}</small>`;
+const isV4=!!document.getElementById('app')&&!!document.getElementById('tabs');
+if(isV4){document.body.append(vo)}
+else{
 document.body.append(orb,vo);
 // draggable orb
 let drag=null;orb.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,m:false};orb.setPointerCapture(e.pointerId)});
 orb.addEventListener('pointermove',e=>{if(!drag)return;if(Math.abs(e.clientX-drag.x)+Math.abs(e.clientY-drag.y)>8)drag.m=true;if(drag.m){orb.style.right=Math.max(4,innerWidth-e.clientX-31)+'px';orb.style.bottom=Math.max(4,innerHeight-e.clientY-31)+'px'}});
 orb.addEventListener('pointerup',()=>{const m=drag&&drag.m;drag=null;if(!m)open()});
+}
 const S=(cls,txt)=>{vo.className='on '+(cls||'');$('#rbtSt').textContent=txt||''};
 let rec=null,hf=false,audio=null,pendingFile=null,mode='ask';
 function open(){S('',L('মাইক চাপুন ও বলুন','Tap the mic and speak'));$('#rbtTx').textContent=''}
